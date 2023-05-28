@@ -17,11 +17,13 @@ import contextlib
 import dataclasses
 import itertools
 import os
+import select
 import sys
 import termios
+import time
 import tty
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
 from typing import Dict, List, Optional, Tuple, Union
 
 import docker
@@ -104,7 +106,7 @@ class Container:
             raise ContainerError("Binds must be applied before launch")
         if not container:
             container = Path("/bw") / host.name
-        self.__binds.append(ContainerBind(host, container, False))
+        self.__binds.append(ContainerBind(host, container, readonly))
         return container
 
     def bind_readonly(self, host : Path, container : Optional[Path] = None) -> Path:
@@ -195,6 +197,57 @@ class Container:
             self.__container.remove(force=True)
             self.__container = None
 
+    @contextlib.contextmanager
+    def __get_raw_input(self):
+        """ Context manager to capture raw STDIN """
+        stdin  = sys.stdin.fileno()
+        before = termios.tcgetattr(stdin)
+        try:
+            tty.setraw(stdin)
+            def _get_char():
+                rlist, _, _ = select.select([sys.stdin], [], [], 1.0)
+                if rlist:
+                    return sys.stdin.read(1)
+                else:
+                    return None
+            yield _get_char
+        finally:
+            termios.tcsetattr(stdin, termios.TCSADRAIN, before)
+
+    def __read_stream(self, socket, e_done) -> Thread:
+        """ Wrapped thread method to capture from the container STDOUT """
+        def _inner(socket, e_done):
+            try:
+                while not e_done.is_set():
+                    buff = socket.read(1)
+                    if len(buff) > 0:
+                        sys.stdout.write(buff.decode("utf-8"))
+                        sys.stdout.flush()
+                    else:
+                        break
+                e_done.set()
+            except BrokenPipeError:
+                pass
+        thread = Thread(target=_inner, args=(socket, e_done), daemon=True)
+        thread.start()
+        return thread
+
+    def __write_stream(self, socket, e_done, command) -> Thread:
+        """ Wrapped thread method to capture STDIN and write into container """
+        def _inner(socket, e_done, command):
+            with self.__get_raw_input() as get_char:
+                try:
+                    if command:
+                        socket._sock.send((" ".join(command) + "\n").encode("utf-8"))
+                    while not e_done.is_set():
+                        if (char := get_char()) is not None:
+                            socket._sock.send(char.encode("utf-8"))
+                except BrokenPipeError:
+                    pass
+        thread = Thread(target=_inner, args=(socket, e_done, command), daemon=True)
+        thread.start()
+        return thread
+
     def shell(self, *command : Tuple[str]) -> None:
         """
         Open an interactive shell within a running container, optionally calling
@@ -206,44 +259,48 @@ class Container:
         if not self.__container:
             raise ContainerError("Container has not been launched")
         # Open a socket onto the container
+        socket = self.__container.attach_socket(params={ "stdin"     : True,
+                                                         "stdout"    : True,
+                                                         "stderr"    : True,
+                                                         "logs"      : True,
+                                                         "detachKeys": "ctrl-p",
+                                                         "stream"    : True })
+
+        # Log the keys to detach
+        print(">>> Use CTRL+P to detach from container <<<")
+        # Start monitoring for STDIN and STDOUT
+        e_done = Event()
+        t_write = self.__write_stream(socket, e_done, command)
+        t_read  = self.__read_stream(socket, e_done)
+        e_done.wait()
+        t_read.join()
+        t_write.join()
+
+    def execute(self, *command : Tuple[str]) -> None:
+        """
+        Execute a command within a running container, blocks until the command
+        is complete.
+
+        :param *command:    Positional arguments are taken as a command string
+        """
+        # Check container is launched
+        if not self.__container:
+            raise ContainerError("Container has not been launched")
+        # Check for a command
+        if len(command) == 0:
+            raise ContainerError("No command provided")
+        # Open a socket onto the container
         socket = self.__container.attach_socket(params={ "stdin" : True,
                                                          "stdout": True,
                                                          "stderr": True,
+                                                         "logs"  : True,
                                                          "stream": True })
-        # Context manager to capture raw STDIN
-        @contextlib.contextmanager
-        def _get_raw_input():
-            stdin  = sys.stdin.fileno()
-            before = termios.tcgetattr(stdin)
-            try:
-                tty.setraw(stdin)
-                def _get_char():
-                    return sys.stdin.read(1)
-                yield _get_char
-            finally:
-                termios.tcsetattr(stdin, termios.TCSADRAIN, before)
-        # Threaded method to capture from the container STDOUT
-        def _read(socket):
-            try:
-                while True:
-                    sys.stdout.write(socket.read(1).decode("utf-8"))
-                    sys.stdout.flush()
-            except BrokenPipeError:
-                pass
-        # Threaded method to capture STDIN and write into container
-        def _write(socket, get_char):
-            nonlocal command
-            try:
-                if command:
-                    socket._sock.send((" ".join(command) + "\n").encode("utf-8"))
-                while True:
-                    socket._sock.send(get_char().encode("utf-8"))
-            except BrokenPipeError:
-                pass
-        # Start monitoring for STDIN and STDOUT
-        with _get_raw_input() as get_char:
-            t_write = Thread(target=_write, args=(socket, get_char), daemon=True)
-            t_read  = Thread(target=_read,  args=(socket, ), daemon=True)
-            t_write.start()
-            t_read.start()
-            self.__container.wait()
+        # Write the command
+        socket._sock.send("\n".encode("utf-8"))
+        socket._sock.send((" ".join(command) + "\n").encode("utf-8"))
+        socket._sock.send("exit\n".encode("utf-8"))
+        while True:
+            line = socket.readline()
+            if not line:
+                break
+            print(line.decode("utf-8"), end="")
