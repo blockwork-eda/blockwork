@@ -13,22 +13,17 @@
 # limitations under the License.
 
 import atexit
-import contextlib
 import dataclasses
 import itertools
 import os
-import select
-import sys
-import termios
-import time
-import tty
 from pathlib import Path
-from threading import Event, Thread
+from threading import Event
 from typing import Dict, List, Optional, Tuple, Union
 
 import docker
 
 from .client import Podman
+from .common import read_stream, write_stream
 
 
 class ContainerError(Exception):
@@ -56,22 +51,20 @@ class Container:
     Wrapper around Podman container launch and management that can be extended
     to support specific tools and workflows.
 
-    :param image:   Container image to launch with
-    :param workdir: Working directory (default: /)
-    :param command: Command to launch inside the container (default: /bin/bash)
+    :param image:       Container image to launch with
+    :param workdir:     Default working directory (default: /)
+    :param environment: Environment defaults to expose (empty by default)
     """
 
     LAUNCH_ID = itertools.count()
 
     def __init__(self,
                  image       : str,
-                 workdir     : Path                     = Path("/"),
-                 command     : Tuple[str]               = ("/bin/bash", ),
+                 workdir     : Path = Path("/"),
                  environment : Optional[Dict[str, str]] = None) -> None:
         # Store initialisation parameters
         self.image = image
         self.workdir = workdir
-        self.command = command
         # Configuration
         type_name = type(self).__name__.lower()
         issued_id = next(Container.LAUNCH_ID)
@@ -141,18 +134,27 @@ class Container:
         """
         return self.__environment.get(key, None)
 
-    @contextlib.contextmanager
-    def launch(self) -> None:
+    def launch(self,
+               *command    : List[str],
+               workdir     : Optional[Path] = None,
+               interactive : bool           = False) -> None:
         """
-        Launch the container with the stored configuration wrapped as a context.
-        Calls should use the 'with' keyword to properly use the context, so that
-        the cleanup phases run once the container completes.
+        Launch a task within the container either interactively (STDIN and STDOUT
+        streamed from/to the console) or non-interactively (STDOUT is captured).
+        Blocks until command execution completes.
 
-        :yields:    This instance of Container, for easy operation chaining
+        :param *command:    The command to execute
+        :param workdir:     Working directory (defaults to /)
+        :param interactive: Whether to interactively forward STDIN and STDOUT
         """
         # Check if a container is already running
         if self.__container:
             raise ContainerError("Container has already been launched")
+        # Check for a command
+        if not command:
+            raise ContainerError("No command provided to execute")
+        # Pickup default working directory if not set
+        workdir = workdir or self.workdir
         # Make sure the local bind paths exist
         mounts = []
         for bind in self.__binds:
@@ -167,9 +169,9 @@ class Container:
                 # Set the image the container should launch
                 image      =self.image,
                 # Set the initial command
-                command    =self.command,
+                command    =command,
                 # Set the initial working directory
-                working_dir=self.workdir.as_posix(),
+                working_dir=workdir.as_posix(),
                 # Launch as detached so that a container handle is returned
                 detach     =True,
                 # Attach a TTY to the process running in the container
@@ -190,119 +192,37 @@ class Container:
                 return _tidy_up
             tidy_up = _make_tidy_up(self.__container)
             atexit.register(tidy_up)
-            # Return this instance for easy chaining
-            yield self
+            # Open a socket onto the container
+            socket = self.__container.attach_socket(params={ "stdin"     : True,
+                                                             "stdout"    : True,
+                                                             "stderr"    : True,
+                                                             "logs"      : True,
+                                                             "detachKeys": "ctrl-p",
+                                                             "stream"    : True })
+            # If interactive, open a shell
+            if interactive:
+                # Log the keys to detach
+                print(">>> Use CTRL+P to detach from container <<<")
+                # Start monitoring for STDIN and STDOUT
+                e_done = Event()
+                t_write = write_stream(socket, e_done)
+                t_read  = read_stream(socket, e_done)
+                e_done.wait()
+                t_read.join()
+                t_write.join()
+            # Otherwise, track the task
+            else:
+                while True:
+                    line = socket.readline()
+                    if not line:
+                        break
+                    print(line.decode("utf-8"), end="")
             # Tidy up
             atexit.unregister(tidy_up)
             self.__container.remove(force=True)
             self.__container = None
 
-    @contextlib.contextmanager
-    def __get_raw_input(self):
-        """ Context manager to capture raw STDIN """
-        stdin  = sys.stdin.fileno()
-        before = termios.tcgetattr(stdin)
-        try:
-            tty.setraw(stdin)
-            # TODO: There is an issue here with arrow key sequences lagging by
-            #       one keypress
-            def _get_char():
-                rlist, _, _ = select.select([sys.stdin], [], [], 1.0)
-                if rlist:
-                    return sys.stdin.read(1)
-                else:
-                    return None
-            yield _get_char
-        finally:
-            termios.tcsetattr(stdin, termios.TCSADRAIN, before)
-
-    def __read_stream(self, socket, e_done) -> Thread:
-        """ Wrapped thread method to capture from the container STDOUT """
-        def _inner(socket, e_done):
-            try:
-                while not e_done.is_set():
-                    buff = socket.read(1)
-                    if len(buff) > 0:
-                        sys.stdout.write(buff.decode("utf-8"))
-                        sys.stdout.flush()
-                    else:
-                        break
-                e_done.set()
-            except BrokenPipeError:
-                pass
-        thread = Thread(target=_inner, args=(socket, e_done), daemon=True)
-        thread.start()
-        return thread
-
-    def __write_stream(self, socket, e_done, command) -> Thread:
-        """ Wrapped thread method to capture STDIN and write into container """
-        def _inner(socket, e_done, command):
-            with self.__get_raw_input() as get_char:
-                try:
-                    if command:
-                        socket._sock.send((" ".join(command) + "\n").encode("utf-8"))
-                    while not e_done.is_set():
-                        if (char := get_char()) is not None:
-                            socket._sock.send(char.encode("utf-8"))
-                except BrokenPipeError:
-                    pass
-        thread = Thread(target=_inner, args=(socket, e_done, command), daemon=True)
-        thread.start()
-        return thread
-
-    def shell(self, *command : Tuple[str]) -> None:
-        """
-        Open an interactive shell within a running container, optionally calling
-        a command as the container opens.
-
-        :param *command:    Positional arguments are taken as a command string
-        """
-        # Check container is launched
-        if not self.__container:
-            raise ContainerError("Container has not been launched")
-        # Open a socket onto the container
-        socket = self.__container.attach_socket(params={ "stdin"     : True,
-                                                         "stdout"    : True,
-                                                         "stderr"    : True,
-                                                         "logs"      : True,
-                                                         "detachKeys": "ctrl-p",
-                                                         "stream"    : True })
-
-        # Log the keys to detach
-        print(">>> Use CTRL+P to detach from container <<<")
-        # Start monitoring for STDIN and STDOUT
-        e_done = Event()
-        t_write = self.__write_stream(socket, e_done, command)
-        t_read  = self.__read_stream(socket, e_done)
-        e_done.wait()
-        t_read.join()
-        t_write.join()
-
-    def execute(self, *command : Tuple[str]) -> None:
-        """
-        Execute a command within a running container, blocks until the command
-        is complete.
-
-        :param *command:    Positional arguments are taken as a command string
-        """
-        # Check container is launched
-        if not self.__container:
-            raise ContainerError("Container has not been launched")
-        # Check for a command
-        if len(command) == 0:
-            raise ContainerError("No command provided")
-        # Open a socket onto the container
-        socket = self.__container.attach_socket(params={ "stdin" : True,
-                                                         "stdout": True,
-                                                         "stderr": True,
-                                                         "logs"  : True,
-                                                         "stream": True })
-        # Write the command
-        socket._sock.send("\n".encode("utf-8"))
-        socket._sock.send((" ".join(command) + "\n").encode("utf-8"))
-        socket._sock.send("exit\n".encode("utf-8"))
-        while True:
-            line = socket.readline()
-            if not line:
-                break
-            print(line.decode("utf-8"), end="")
+    def shell(self,
+              command : Tuple[str]     = ("/bin/bash", ),
+              workdir : Optional[Path] = None) -> None:
+        self.launch(*command, workdir=workdir, interactive=True)
