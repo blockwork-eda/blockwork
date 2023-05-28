@@ -204,6 +204,8 @@ class Container:
         before = termios.tcgetattr(stdin)
         try:
             tty.setraw(stdin)
+            # TODO: There is an issue here with arrow key sequences lagging by
+            #       one keypress
             def _get_char():
                 rlist, _, _ = select.select([sys.stdin], [], [], 1.0)
                 if rlist:
