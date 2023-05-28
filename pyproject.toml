@@ -8,8 +8,13 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-podman = "^4.5.0"
-urllib3 = "1.26.5"
 docker = "^6.1.2"
-paramiko = "^3.2.0"
-sshtunnel = "^0.4.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.0.270"
+
+[tool.ruff]
+line-length = 120
+
+[tool.poe.tasks.lint]
+shell = "poetry run ruff check blockwork"
