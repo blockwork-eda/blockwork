@@ -12,19 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
+# Expose various definitions
+from .tool import Tool
 
-from .container import Container
-
-class Foundation(Container):
-    """ Standard baseline container for Blockwork """
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__(image="docker.io/library/rockylinux:9.1",
-                         workdir=Path("/bw/scratch"),
-                         **kwargs)
-        cwd = Path.cwd()
-        self.bind_readonly(cwd / "bw" / "input")
-        self.bind_readonly(cwd / "bw" / "tools")
-        self.bind(cwd / "bw" / "output")
-        self.bind(cwd / "bw" / "scratch")
+# Unused import lint guards
+assert all((Tool, ))

@@ -15,7 +15,6 @@
 # Expose various definitions
 from .client import Podman
 from .container import Container, ContainerError
-from .foundation import Foundation
 
 # Unused import lint guards
-assert all((Podman, Container, ContainerError, Foundation))
+assert all((Podman, Container, ContainerError))

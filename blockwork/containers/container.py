@@ -114,7 +114,7 @@ class Container:
         """
         return self.bind(host, container, readonly=True)
 
-    def set(self, key : str, value : str) -> None:
+    def set_env(self, key : str, value : str) -> None:
         """
         Set an environment variable within the container.
 
@@ -125,7 +125,28 @@ class Container:
             raise ContainerError("Environment must be set before launch")
         self.__environment[str(key)] = str(value)
 
-    def get(self, key : str) -> Union[str, None]:
+    def append_env_path(self, key : str, value : str) -> None:
+        """
+        Append to a path variable within the environment
+
+        :param key:     Environment variable name
+        :param value:   Section to append
+        """
+        if key in self.__environment:
+            self.__environment[key] += f":{value.strip()}"
+        else:
+            self.__environment[key] = str(value).strip()
+
+    def has_env(self, key : str) -> bool:
+        """
+        Check if an environment variable has been set for the container.
+
+        :param key: Environment variable name
+        :returns:   True if set, False otherwise
+        """
+        return key in self.__environment
+
+    def get_env(self, key : str) -> Union[str, None]:
         """
         Get the value of an environment variable within the container.
 
@@ -133,6 +154,22 @@ class Container:
         :returns:   Value of the environment variable or None if not found
         """
         return self.__environment.get(key, None)
+
+    def overlay_env(self, env : Dict[str, str], strict : bool = False) -> None:
+        """
+        Overlay a set of environment variables onto the current set, if strict
+        is set then any collision with an existing key will be flagged.
+
+        :param env:     Environment variables to overlay
+        :param strict:  Whether to raise an error if key already exists
+        """
+        for key, value in env.items():
+            if strict and key in self.__environment and self.__environment[key] != value:
+                raise ContainerError(
+                    f"Clash for key '{key}' between existing environment value "
+                    f"'{self.__environment[key]}' and new value '{value}'"
+                )
+            self.__environment[key] = value
 
     def launch(self,
                *command    : List[str],
