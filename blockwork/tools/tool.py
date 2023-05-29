@@ -28,23 +28,29 @@ class Tool(ABC):
     TOOL_ROOT : Path = Path("/__tool_root__")
 
     # Overrideable properties
-    requires : Optional[List["Tool"]]   = None
-    location : Optional[Path]           = None
-    vendor   : Optional[str]            = None
-    version  : Optional[str]            = None
-    paths    : Optional[List[Path]]     = None
-    env      : Optional[Dict[str, str]] = None
+    requires : Optional[List["Tool"]]          = None
+    location : Optional[Path]                  = None
+    vendor   : Optional[str]                   = None
+    version  : Optional[str]                   = None
+    env      : Optional[Dict[str, str]]        = None
+    paths    : Optional[Dict[str, List[Path]]] = None
 
     def __init__(self) -> None:
+        # Sanitise arguments
         self.requires = self.requires or []
-        self.paths    = self.paths or []
+        self.vendor   = self.vendor.strip() if isinstance(self.vendor, str) else None
+        self.paths    = self.paths or {}
         self.env      = self.env or {}
         if not isinstance(self.location, Path) or not self.location.exists():
             raise ToolError(f"Bad location given for tool {self.name}: {self.location}")
-        if not isinstance(self.vendor, str) or len(self.vendor.strip()) == 0:
-            raise ToolError(f"A vendor must be specified for {self.name}")
         if not isinstance(self.version, str) or len(self.version.strip()) == 0:
             raise ToolError(f"A version must be specified for {self.name}")
+        if not isinstance(self.paths, dict):
+            raise ToolError("Paths must be specified as a dictionary")
+        if not all(isinstance(k, str) and isinstance(v, list) for k, v in self.paths.items()):
+            raise ToolError("Path keys must be strings and values must be lists")
+        if not all(isinstance(y, Path) for x in self.paths.values() for y in x):
+            raise ToolError("Path entries must be of type pathlib.Path")
 
     @property
     @functools.lru_cache()
@@ -58,4 +64,7 @@ class Tool(ABC):
 
     @property
     def path_chunk(self) -> Path:
-        return Path(self.vendor) / self.name / self.version
+        if self.vendor:
+            return Path(self.vendor) / self.name / self.version
+        else:
+            return Path(self.name) / self.version

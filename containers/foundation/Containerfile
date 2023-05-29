@@ -1,0 +1,7 @@
+FROM docker.io/library/rockylinux:9.1
+RUN \
+    dnf update -y && \
+    dnf install -y epel-release && \
+    dnf install -y which htop nano gtk2 wget cpio iputils xterm && \
+    dnf install -y gcc perl bzip2 bzip2-devel tcl tcl-devel tk-devel libnsl && \
+    ln -s /usr/lib64/libbz2.so.1 /usr/lib64/libbz2.so.1.0

@@ -137,6 +137,18 @@ class Container:
         else:
             self.__environment[key] = str(value).strip()
 
+    def prepend_env_path(self, key : str, value : str) -> None:
+        """
+        Prepend to a path variable within the environment
+
+        :param key:     Environment variable name
+        :param value:   Section to prepend
+        """
+        if key in self.__environment:
+            self.__environment[key] = f"{value.strip()}:{self.__environment[key]}"
+        else:
+            self.__environment[key] = str(value).strip()
+
     def has_env(self, key : str) -> bool:
         """
         Check if an environment variable has been set for the container.
@@ -174,7 +186,8 @@ class Container:
     def launch(self,
                *command    : List[str],
                workdir     : Optional[Path] = None,
-               interactive : bool           = False) -> None:
+               interactive : bool           = False,
+               display     : bool           = False) -> None:
         """
         Launch a task within the container either interactively (STDIN and STDOUT
         streamed from/to the console) or non-interactively (STDOUT is captured).
@@ -183,6 +196,7 @@ class Container:
         :param *command:    The command to execute
         :param workdir:     Working directory (defaults to /)
         :param interactive: Whether to interactively forward STDIN and STDOUT
+        :param display:     Expose the host's DISPLAY variable to the container
         """
         # Check if a container is already running
         if self.__container:
@@ -197,6 +211,14 @@ class Container:
         for bind in self.__binds:
             bind.host_path.mkdir(parents=True, exist_ok=True)
             mounts.append(bind.as_configuration())
+        # Environment
+        env = {**self.__environment}
+        if display:
+            env["DISPLAY"] = "host.containers.internal:0"
+            bind_xauth = ContainerBind(Path("~/.Xauthority").absolute(),
+                                       Path("/root/.Xauthority"),
+                                       False)
+            mounts.append(bind_xauth.as_configuration())
         # Get access to Podman within a context manager
         with Podman.get_client() as client:
             # Create the container
@@ -218,7 +240,7 @@ class Container:
                 # Mark the root filesystem as readonly
                 read_only  =True,
                 # Setup environment variables
-                environment=self.__environment,
+                environment=env,
                 # Setup folders to bind in
                 mounts     =mounts,
             )
@@ -262,4 +284,4 @@ class Container:
     def shell(self,
               command : Tuple[str]     = ("/bin/bash", ),
               workdir : Optional[Path] = None) -> None:
-        self.launch(*command, workdir=workdir, interactive=True)
+        self.launch(*command, workdir=workdir, interactive=True, display=True)

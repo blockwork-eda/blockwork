@@ -47,8 +47,11 @@ def read_stream(socket : SocketIO, e_done : Event) -> Thread:
             while not e_done.is_set():
                 buff = socket.read(1)
                 if len(buff) > 0:
-                    sys.stdout.write(buff.decode("utf-8"))
-                    sys.stdout.flush()
+                    try:
+                        sys.stdout.write(buff.decode("utf-8"))
+                        sys.stdout.flush()
+                    except UnicodeDecodeError:
+                        pass
                 else:
                     break
             e_done.set()
