@@ -209,13 +209,14 @@ class Container:
         # Make sure the local bind paths exist
         mounts = []
         for bind in self.__binds:
-            bind.host_path.mkdir(parents=True, exist_ok=True)
+            if not bind.host_path.exists():
+                bind.host_path.mkdir(parents=True)
             mounts.append(bind.as_configuration())
         # Environment
         env = {**self.__environment}
         if display:
             env["DISPLAY"] = "host.containers.internal:0"
-            bind_xauth = ContainerBind(Path("~/.Xauthority").absolute(),
+            bind_xauth = ContainerBind(Path("~/.Xauthority").expanduser(),
                                        Path("/root/.Xauthority"),
                                        False)
             mounts.append(bind_xauth.as_configuration())

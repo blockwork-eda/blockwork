@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Type, Union
+from typing import Optional, Type, Union
 
 from .containers import Container
 from .tools import Tool
@@ -27,12 +27,15 @@ class Foundation(Container):
     def __init__(self, **kwargs) -> None:
         super().__init__(image="foundation", workdir=Path("/bw/scratch"), **kwargs)
         cwd = Path.cwd()
-        self.bind_readonly(cwd / "bw" / "input")
+        # self.bind_readonly(cwd / "bw" / "input")
         self.bind(cwd / "bw" / "output")
         self.bind(cwd / "bw" / "scratch")
         self.set_env("PATH", "usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
         self.__tools     = {}
         self.__tool_root = Path("/") / "bw" / "tools"
+
+    def add_input(self, path : Path, name : Optional[str] = None) -> None:
+        self.bind_readonly(path, Path("/bw/input") / (name or path.name))
 
     def add_tool(self, tool : Union[Type[Tool], Tool]) -> None:
         # If class has been provided, create an instance
