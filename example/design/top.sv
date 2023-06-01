@@ -36,4 +36,10 @@ adder #(
     , .o_overflow ( o_overflow )
 );
 
+initial begin : init_waves
+    $timeformat(-9, 2, " ns", 20);
+    $dumpfile("waves.vcd");
+    $dumpvars(0, top);
+end
+
 endmodule : top

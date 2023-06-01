@@ -215,11 +215,18 @@ class Container:
         # Environment
         env = {**self.__environment}
         if display:
-            env["DISPLAY"] = "host.containers.internal:0"
-            bind_xauth = ContainerBind(Path("~/.Xauthority").expanduser(),
-                                       Path("/root/.Xauthority"),
-                                       False)
+            bind_xauth = ContainerBind(
+                Path(os.environ.get("XAUTHORITY", "~/.Xauthority")).expanduser(),
+                Path("/root/.Xauthority"),
+                False
+            )
             mounts.append(bind_xauth.as_configuration())
+            if (x11_path := Path("/tmp/.X11-unix")).exists():
+                env["DISPLAY"] = ":0"
+                bind_x11_unix = ContainerBind(x11_path, x11_path, False)
+                mounts.append(bind_x11_unix.as_configuration())
+            else:
+                env["DISPLAY"] = "host.containers.internal:0"
         # Get access to Podman within a context manager
         with Podman.get_client() as client:
             # Create the container
@@ -244,6 +251,10 @@ class Container:
                 environment=env,
                 # Setup folders to bind in
                 mounts     =mounts,
+                # Shared network with host
+                network    ="host",
+                # Set the UID to 0
+                user       =0,
             )
             # Register tidy-up mechanism in case of unexpected exit
             def _make_tidy_up(container):

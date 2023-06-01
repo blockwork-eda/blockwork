@@ -63,7 +63,9 @@ container.add_input(ex_root / "bench")
 
 
 # Launch an interactive shell
-container.shell()
+# container.shell()
+container.launch("make", "-f", "/bw/input/bench/Makefile", "run_cocotb")
+container.launch("gtkwave", "/bw/scratch/waves.vcd", display=True)
 
 # Launch GTKWave and forward the display back to the host
 # container.launch("gtkwave", display=True)
