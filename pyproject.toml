@@ -14,6 +14,9 @@ pyyaml = "^6.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.0.270"
+mkdocs = "^1.4.2"
+mkdocs-material = "^9.1.6"
+mkdocstrings = {extras = ["python"], version = "^0.21.2"}
 
 [tool.poetry.scripts]
 bw = "blockwork:__main__.blockwork"
@@ -24,3 +27,9 @@ line-length = 120
 
 [tool.poe.tasks.lint]
 shell = "poetry run ruff check blockwork"
+
+[tool.poe.tasks.docs]
+shell = "poetry run mkdocs build"
+
+[tool.poe.tasks.docs_serve]
+shell = "poetry run mkdocs serve"

@@ -65,6 +65,6 @@ class Tool(ABC):
     @property
     def path_chunk(self) -> Path:
         if self.vendor:
-            return Path(self.vendor) / self.name / self.version
+            return Path(self.vendor.lower()) / self.name / self.version
         else:
             return Path(self.name) / self.version

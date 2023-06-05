@@ -1,0 +1,34 @@
+site_name: Blockwork
+repo_name: intuity/blockwork
+repo_url: https://github.com/intuity/Blockwork
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: amber
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: sphinx
+markdown_extensions:
+  - attr_list
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+nav:
+  - Welcome: "index.md"
+  - Technologies:
+    - Containers: "tech/containers.md"
