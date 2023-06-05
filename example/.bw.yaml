@@ -1,0 +1,4 @@
+!Blockwork
+project: example
+tooldefs:
+  - tools

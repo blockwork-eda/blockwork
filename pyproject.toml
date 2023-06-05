@@ -9,9 +9,15 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.8"
 docker = "^6.1.2"
+click = "^8.1.3"
+pyyaml = "^6.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.0.270"
+
+[tool.poetry.scripts]
+bw = "blockwork:__main__.blockwork"
+blockwork = "blockwork:__main__.blockwork"
 
 [tool.ruff]
 line-length = 120

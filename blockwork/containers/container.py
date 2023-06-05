@@ -187,7 +187,8 @@ class Container:
                *command    : List[str],
                workdir     : Optional[Path] = None,
                interactive : bool           = False,
-               display     : bool           = False) -> None:
+               display     : bool           = False,
+               show_detach : bool           = True) -> None:
         """
         Launch a task within the container either interactively (STDIN and STDOUT
         streamed from/to the console) or non-interactively (STDOUT is captured).
@@ -197,6 +198,7 @@ class Container:
         :param workdir:     Working directory (defaults to /)
         :param interactive: Whether to interactively forward STDIN and STDOUT
         :param display:     Expose the host's DISPLAY variable to the container
+        :param show_detach: Whether to show the detach key message
         """
         # Check if a container is already running
         if self.__container:
@@ -273,7 +275,8 @@ class Container:
             # If interactive, open a shell
             if interactive:
                 # Log the keys to detach
-                print(">>> Use CTRL+P to detach from container <<<")
+                if show_detach:
+                    print(">>> Use CTRL+P to detach from container <<<")
                 # Start monitoring for STDIN and STDOUT
                 e_done = Event()
                 t_write = write_stream(socket, e_done)
@@ -294,6 +297,11 @@ class Container:
             self.__container = None
 
     def shell(self,
-              command : Tuple[str]     = ("/bin/bash", ),
-              workdir : Optional[Path] = None) -> None:
-        self.launch(*command, workdir=workdir, interactive=True, display=True)
+              command     : Tuple[str]     = ("/bin/bash", ),
+              workdir     : Optional[Path] = None,
+              show_detach : bool           = False) -> None:
+        self.launch(*command, 
+                    workdir=workdir, 
+                    interactive=True, 
+                    display=True,
+                    show_detach=show_detach)
