@@ -43,6 +43,8 @@ class Foundation(Container):
             if not issubclass(tool, Tool):
                 raise Foundation("Tool definitions must inherit from the Tool class")
             tool = tool()
+        # Grab the default
+        tool = tool.default
         # Check tool is not already registered
         if tool.id in self.__tools:
             raise FoundationError(f"Tool already registered for ID '{tool.id}'")

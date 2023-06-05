@@ -22,23 +22,24 @@ class ToolError(Exception):
     pass
 
 
-class Tool(ABC):
-    """ Base class for tools """
-    # Tool root locator
-    TOOL_ROOT : Path = Path("/__tool_root__")
+class Version:
 
-    # Overrideable properties
-    requires : Optional[List["Tool"]]          = None
-    location : Optional[Path]                  = None
-    vendor   : Optional[str]                   = None
-    version  : Optional[str]                   = None
-    env      : Optional[Dict[str, str]]        = None
-    paths    : Optional[Dict[str, List[Path]]] = None
-
-    def __init__(self) -> None:
+    def __init__(self,
+                 version  : str,
+                 location : Path,
+                 env      : Optional[Dict[str, str]]       = None,
+                 paths    : Optional[Dict[str, List[str]]] = None,
+                 requires : Optional[List["Tool"]]         = None,
+                 default  : bool                           = False) -> None:
+        self.version = version
+        self.location = location
+        self.env = env or {}
+        self.paths = paths or {}
+        self.requires = requires
+        self.default = default
+        self.tool = None
         # Sanitise arguments
         self.requires = self.requires or []
-        self.vendor   = self.vendor.strip() if isinstance(self.vendor, str) else None
         self.paths    = self.paths or {}
         self.env      = self.env or {}
         if not isinstance(self.location, Path) or not self.location.exists():
@@ -51,20 +52,87 @@ class Tool(ABC):
             raise ToolError("Path keys must be strings and values must be lists")
         if not all(isinstance(y, Path) for x in self.paths.values() for y in x):
             raise ToolError("Path entries must be of type pathlib.Path")
+        if not isinstance(self.default, bool):
+            raise ToolError("Default must be either True or False")
+
+    @property
+    @functools.lru_cache()
+    def id_tuple(self) -> str:
+        return (*self.tool.base_id_tuple, self.version)
+
+    @property
+    @functools.lru_cache()
+    def id(self) -> str:
+        return "_".join(self.id_tuple)
+
+    @property
+    def path_chunk(self) -> Path:
+        if self.tool.vendor is not Tool.NO_VENDOR:
+            return Path(self.tool.vendor.lower()) / self.tool.name / self.version
+        else:
+            return Path(self.tool.name) / self.version
+
+
+class Tool(ABC):
+    """ Base class for tools """
+    # Tool root locator
+    TOOL_ROOT : Path = Path("/__tool_root__")
+
+    # Default vendor
+    NO_VENDOR = "N/A"
+
+    # Singleton handling
+    INSTANCES = {}
+
+    # Placeholders
+    vendor   : Optional[str]           = None
+    versions : Optional[List[Version]] = None
+
+    def __new__(cls) -> "Tool":
+        if Tool.__name__ not in Tool.INSTANCES:
+            Tool.INSTANCES[cls.__name__] = super().__new__(cls)
+        return Tool.INSTANCES[cls.__name__]
+
+    def __init__(self) -> None:
+        self.vendor = self.vendor.strip() if isinstance(self.vendor, str) else Tool.NO_VENDOR
+        self.versions = self.versions or []
+        if not isinstance(self.versions, list):
+            raise ToolError(f"Versions of tool {self.name} must be a list")
+        if not all(isinstance(x, Version) for x in self.versions):
+            raise ToolError(f"Versions of tool {self.name} must be a list of Version objects")
+        self.default = None
+        version_nums = []
+        for version in self.versions:
+            version.tool = self
+            # Check for multiple defaults
+            if version.default:
+                if self.default is not None:
+                    raise ToolError(f"Multiple versions marked default for tool {self.name} "
+                                    f"from vendor {self.vendor}")
+                self.default = version
+            # Check for repeated version numbers
+            if version.version in version_nums:
+                raise ToolError(f"Duplicate version {version.version} for tool "
+                                f"{self.name} from vendor {self.vendor}")
+            version_nums.append(version.version)
+        if self.default is None:
+            raise ToolError(f"No version of tool {self.name} from vendor "
+                            f"{self.vendor} marked as default")
 
     @property
     @functools.lru_cache()
     def name(self) -> str:
         return type(self).__name__.lower()
-
+    
     @property
     @functools.lru_cache()
-    def id(self) -> str:
-        return f"{self.vendor}_{self.name}_{self.version}"
-
-    @property
-    def path_chunk(self) -> Path:
+    def base_id_tuple(self) -> str:
         if self.vendor:
-            return Path(self.vendor.lower()) / self.name / self.version
+            return (self.vendor, self.name)
         else:
-            return Path(self.name) / self.version
+            return (self.name, )
+
+    @functools.lru_cache()
+    def get(self, version : str) -> Version:
+        match = [x for x in self.versions if x.version == version]
+        return match[0] if match else None

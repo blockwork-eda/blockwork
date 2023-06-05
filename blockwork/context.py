@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 from .config import Blockwork, Config
+from .tools.registry import Registry
 
 class Context:
     """ Tracks the working directory and project configuration """
@@ -57,3 +58,8 @@ class Context:
         if not isinstance(obj, Blockwork):
             raise Exception(f"Expected Blockwork object got {type(obj).__name__}: {self.config_path}")
         return obj
+
+    @property
+    @functools.lru_cache()
+    def registry(self) -> Registry:
+        return Registry(self.root, self.config.tooldefs)

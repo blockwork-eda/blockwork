@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Expose various definitions
-from .tool import Tool
+from .tool import Tool, Version
 
 # Unused import lint guards
-assert all((Tool, ))
+assert all((Tool, Version))
