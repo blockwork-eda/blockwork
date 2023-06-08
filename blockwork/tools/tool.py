@@ -22,6 +22,20 @@ class ToolError(Exception):
     pass
 
 
+class Require:
+    """ Forms a requirement on another tool and version """
+
+    def __init__(self,
+                 tool    : "Tool",
+                 version : Optional[str] = None) -> None:
+        self.tool = tool
+        self.version = version
+        if not issubclass(tool, Tool):
+            raise ToolError("Requirement tool must of type Tool")
+        if (self.version is not None) and not isinstance(self.version, str):
+            raise ToolError("Requirement version must be None or a string")
+
+
 class Version:
     """ Defines a version of a tool """
 
@@ -30,7 +44,7 @@ class Version:
                  location : Path,
                  env      : Optional[Dict[str, str]]       = None,
                  paths    : Optional[Dict[str, List[str]]] = None,
-                 requires : Optional[List["Tool"]]         = None,
+                 requires : Optional[List[Require]]        = None,
                  default  : bool                           = False) -> None:
         self.version = version
         self.location = location
@@ -55,6 +69,10 @@ class Version:
             raise ToolError("Path entries must be of type pathlib.Path")
         if not isinstance(self.default, bool):
             raise ToolError("Default must be either True or False")
+        if not isinstance(self.requires, list):
+            raise ToolError("Requirements must be a list")
+        if not all(isinstance(x, Require) for x in self.requires):
+            raise ToolError("Requirements must be a list of Require objects")
 
     @property
     @functools.lru_cache()
@@ -142,11 +160,20 @@ class Tool(ABC):
     @functools.lru_cache()
     def name(self) -> str:
         return type(self).__name__.lower()
-    
+
     @property
     @functools.lru_cache()
     def base_id_tuple(self) -> str:
         return (self.vendor, self.name)
+
+    @property
+    @functools.lru_cache()
+    def base_id(self) -> str:
+        vend, name = self.base_id_tuple
+        if vend is Tool.NO_VENDOR:
+            return name
+        else:
+            return "_".join((vend, name))
 
     @functools.lru_cache()
     def get(self, version : str) -> Version:

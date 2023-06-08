@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import click
+from rich.console import Console
 from rich.logging import RichHandler
 
 from .activities import info, shell, tools
@@ -54,6 +55,7 @@ def main():
             logging.error(f"{type(e).__name__}: {e}")
         else:
             logging.error(str(e))
+        Console().print_exception(show_locals=True)
         sys.exit(1)
 
 if __name__ == "__main__":

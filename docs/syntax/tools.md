@@ -5,14 +5,14 @@ are three requirements:
  1. The binaries, libraries, and supporting files that form the tool need to be
     bound into the container instance;
 
- 2. Some environment variables may need to be setup to modify the execution 
+ 2. Some environment variables may need to be setup to modify the execution
     behaviour (e.g. `VERILATOR_ROOT`);
 
  3. Path-type environment variables need to be extended to include the tool's
-    binary and library directories (e.g. `PATH` for binaries and 
+    binary and library directories (e.g. `PATH` for binaries and
     `LD_LIBRARY_PATH` for shared object libraries).
 
-Blockwork tool declarations are handled in Python, and the following is an example 
+Blockwork tool declarations are handled in Python, and the following is an example
 of the syntax:
 
 ```python
@@ -43,12 +43,12 @@ Working through this example:
    * `location` - identifies the path on the **host** where the tool is installed,
      in this example all tools are installed under a common directory which is
      referenced via `install_root`;
-  
+
    * `version` - sets the version number for the tool, this is to make it distinct
      from other declarations;
-  
+
    * `env` - dictionary of variables to append into the container's shell environment;
-  
+
    * `paths` - dictionary of lists, where each list entry is a section to append to
      a `$PATH`-type variable within the container's shell environment.
 
@@ -67,6 +67,8 @@ the example given above this would mean `<TOOL_NAME>` becomes `verilator`. The
 Verilator example, this would give a path of:
 
 `/bw/tools/verilator/4.106`
+
+## Vendor Grouping
 
 If a suite of tools from a single supplier, the syntax also allows for the `vendor`
 keyword to be provided which adds an extra section into the path. For example:
@@ -90,6 +92,8 @@ Will be mapped using the form `/bw/tools/<VENDOR>/<TOOL_NAME>/<VERSION>` to:
     Vendor and tool name will always be converted to lowercase, Blockwork will check
     before binding that no two mapped tools collide
 
+## Multiple Versions
+
 When multiple tool versions are defined, there must be one marked as default which will
 be bound when a version is not explicitly given:
 
@@ -111,3 +115,38 @@ class Make(Tool):
 
     If no version is marked as default then a `ToolError` will be raised. Similarly,
     if multiple versions are marked as default then a `ToolError` will be raised.
+
+## Forming Requirements
+
+Tools may rely on other tools to provide binaries or libraries to support their
+execution, these relationships are described through `Require` objects:
+
+```python
+from blockwork.tools import Require, Tool, Version
+
+class Python(Tool):
+    """ Base Python installation """
+    versions = [
+        Version(location = install_root / "python-3.11",
+                version  = "3.11",
+                paths    = { "PATH"           : [Tool.TOOL_ROOT / "bin"],
+                             "LD_LIBRARY_PATH": [Tool.TOOL_ROOT / "lib"] })
+    ]
+
+class PythonSite(Tool):
+    """ Versioned package installation """
+    versions = [
+        Version(location = install_root / "python-site-3.11",
+                version  = "3.11",
+                env      = { "PYTHONUSERBASE": Tool.TOOL_ROOT },
+                paths    = { "PATH"      : [Tool.TOOL_ROOT / "bin"],
+                             "PYTHONPATH": [Tool.TOOL_ROOT / "lib" / "python3.11" / "site-packages"] },
+                requires = [Require(Python, "3.11")]),
+    ]
+```
+
+The `Require` class takes two arguments:
+
+ * `tool` - which must carry a `Tool` definition;
+ * `version` - which can either be omitted (implicitly selecting the default
+   version) or can be a string identifying a version number.

@@ -18,7 +18,7 @@ from pathlib import Path
 import click
 
 from ..foundation import Foundation
-from ..tools import Tool
+from ..tools import Tool, Version
 
 @click.command()
 @click.option("--tool", "-t", type=str, multiple=True, default=[],
@@ -45,9 +45,10 @@ def shell(ctx, tool, no_tools):
         for selection in tool:
             fullname, version, *_ = (selection + "=").split("=")
             vendor, name = (Tool.NO_VENDOR + ":" + fullname).split(":")[-2:]
-            matched = ctx.obj.registry.get(vendor, name, version or None)
+            matched : Version = ctx.obj.registry.get(vendor, name, version or None)
             if not matched:
                 raise Exception(f"Failed to identify tool '{selection}'")
-            logging.info(f"Binding tool {name} from {vendor} version {version} into shell")
+            logging.info(f"Binding tool {matched.tool.name} from {matched.tool.vendor} "
+                         f"version {matched.version} into shell")
             container.add_tool(matched)
     container.shell(workdir=Path("/bw/project"), show_detach=False)

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from blockwork.tools import Tool, Version
+from blockwork.tools import Require, Tool, Version
 
 tool_root = Path(__file__).absolute().parent.parent.parent.parent / "tools"
 
@@ -20,6 +20,7 @@ class PythonSite(Tool):
                 env      = { "PYTHONUSERBASE": Tool.TOOL_ROOT },
                 paths    = { "PATH"      : [Tool.TOOL_ROOT / "bin"],
                              "PYTHONPATH": [Tool.TOOL_ROOT / "lib" / "python3.11" / "site-packages"] },
+                requires = [Require(Python, "3.11.3")],
                 default  = True),
     ]
 
