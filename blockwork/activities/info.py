@@ -12,26 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
-
 import click
+from rich.console import Console
+from rich.table import Table
 
-from .activities import info, shell, tools
-from .context import Context
-
-@click.group()
+@click.command()
 @click.pass_context
-@click.option("--cwd", "-C", 
-              type=click.Path(exists=True, file_okay=False), 
-              default=None,
-              help="Override the working directory")
-def blockwork(ctx, cwd):
-    # Create the context object and attach to click
-    ctx.obj = Context(root=Path(cwd).absolute() if cwd else None)
-
-blockwork.add_command(info)
-blockwork.add_command(shell)
-blockwork.add_command(tools)
-
-if __name__ == "__main__":
-    blockwork()
+def info(ctx):
+    """ List information about the project """
+    table = Table(show_header=False)
+    table.add_row("Project", ctx.obj.config.project)
+    table.add_row("Root Directory", ctx.obj.root.as_posix())
+    table.add_row("Configuration File", ctx.obj.config_path.as_posix())
+    Console().print(table)

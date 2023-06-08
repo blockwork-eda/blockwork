@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .info import info
 from .shell import shell
+from .tools import tools
 
-assert all((shell, ))
+assert all((info, shell, tools))

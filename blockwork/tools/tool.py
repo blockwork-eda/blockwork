@@ -15,7 +15,7 @@
 import functools
 from abc import ABC
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 
 class ToolError(Exception):
@@ -118,6 +118,9 @@ class Tool(ABC):
         if self.default is None:
             raise ToolError(f"No version of tool {self.name} from vendor "
                             f"{self.vendor} marked as default")
+
+    def __iter__(self) -> Iterable[Version]:
+        yield from self.versions
 
     @property
     @functools.lru_cache()

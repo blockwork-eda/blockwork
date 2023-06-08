@@ -12,26 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
-
 import click
+from rich.console import Console
+from rich.table import Table
 
-from .activities import info, shell, tools
-from .context import Context
-
-@click.group()
+@click.command()
 @click.pass_context
-@click.option("--cwd", "-C", 
-              type=click.Path(exists=True, file_okay=False), 
-              default=None,
-              help="Override the working directory")
-def blockwork(ctx, cwd):
-    # Create the context object and attach to click
-    ctx.obj = Context(root=Path(cwd).absolute() if cwd else None)
-
-blockwork.add_command(info)
-blockwork.add_command(shell)
-blockwork.add_command(tools)
-
-if __name__ == "__main__":
-    blockwork()
+def tools(ctx):
+    """ Tabulate all of the available tools """
+    table = Table()
+    table.add_column("Vendor")
+    table.add_column("Tool")
+    table.add_column("Version")
+    table.add_column("Default")
+    for tool in ctx.obj.registry:
+        for idx, version in enumerate(tool):
+            table.add_row(
+                tool.vendor if idx == 0 else "",
+                tool.name   if idx == 0 else "",
+                version.version,
+                ["", ":heavy_check_mark:"][version.default]
+            )
+    Console().print(table)

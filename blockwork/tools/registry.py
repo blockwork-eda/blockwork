@@ -17,7 +17,7 @@ import inspect
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 from .tool import Tool, ToolError
 
@@ -58,3 +58,6 @@ class Registry:
             return tool.get(version)
         else:
             return tool.default
+
+    def __iter__(self) -> Iterable[Tool]:
+        yield from self.tools.values()
