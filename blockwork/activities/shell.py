@@ -18,6 +18,7 @@ from pathlib import Path
 import click
 
 from ..foundation import Foundation
+from ..context import Context
 from ..tools import Tool, Version
 
 @click.command()
@@ -29,23 +30,23 @@ from ..tools import Tool, Version
                    "'--tool <VENDOR>:<NAME>(=<VERSION>)'.")
 @click.option("--no-tools", is_flag=True, default=False,
               help="Do not bind any tools by default into the container")
-@click.pass_context
-def shell(ctx, tool, no_tools):
+@click.pass_obj
+def shell(ctx : Context, tool, no_tools):
     """ Launch a shell within the container environment """
     container = Foundation(hostname=f"{ctx.obj.config.project}_shell")
-    container.bind(ctx.obj.root, Path("/bw/project"), False)
+    container.bind(ctx.root, Path("/bw/project"), False)
     # If no tools specified and auto-binding is not disabled, bind all default
     # tool versions
     if not tool and not no_tools:
         logging.info("Binding all tools into shell")
-        for tool in ctx.obj.registry:
+        for tool in ctx.registry:
             container.add_tool(tool)
     # Bind selected tools
     elif tool:
         for selection in tool:
             fullname, version, *_ = (selection + "=").split("=")
             vendor, name = (Tool.NO_VENDOR + ":" + fullname).split(":")[-2:]
-            matched : Version = ctx.obj.registry.get(vendor, name, version or None)
+            matched : Version = ctx.registry.get(vendor, name, version or None)
             if not matched:
                 raise Exception(f"Failed to identify tool '{selection}'")
             logging.info(f"Binding tool {matched.tool.name} from {matched.tool.vendor} "

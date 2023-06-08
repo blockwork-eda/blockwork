@@ -16,12 +16,14 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from ..context import Context
+
 @click.command()
-@click.pass_context
-def info(ctx):
+@click.pass_obj
+def info(ctx : Context):
     """ List information about the project """
     table = Table(show_header=False)
-    table.add_row("Project", ctx.obj.config.project)
-    table.add_row("Root Directory", ctx.obj.root.as_posix())
-    table.add_row("Configuration File", ctx.obj.config_path.as_posix())
+    table.add_row("Project", ctx.config.project)
+    table.add_row("Root Directory", ctx.root.as_posix())
+    table.add_row("Configuration File", ctx.config_path.as_posix())
     Console().print(table)

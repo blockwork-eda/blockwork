@@ -16,16 +16,18 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from ..context import Context
+
 @click.command()
-@click.pass_context
-def tools(ctx):
+@click.pass_obj
+def tools(ctx : Context):
     """ Tabulate all of the available tools """
     table = Table()
     table.add_column("Vendor")
     table.add_column("Tool")
     table.add_column("Version")
     table.add_column("Default")
-    for tool in ctx.obj.registry:
+    for tool in ctx.registry:
         for idx, version in enumerate(tool):
             table.add_row(
                 tool.vendor if idx == 0 else "",
