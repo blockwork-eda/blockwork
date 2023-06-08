@@ -100,24 +100,31 @@ class Tool(ABC):
             raise ToolError(f"Versions of tool {self.name} must be a list")
         if not all(isinstance(x, Version) for x in self.versions):
             raise ToolError(f"Versions of tool {self.name} must be a list of Version objects")
-        self.default = None
-        version_nums = []
-        for version in self.versions:
-            version.tool = self
-            # Check for multiple defaults
-            if version.default:
-                if self.default is not None:
-                    raise ToolError(f"Multiple versions marked default for tool {self.name} "
-                                    f"from vendor {self.vendor}")
-                self.default = version
-            # Check for repeated version numbers
-            if version.version in version_nums:
-                raise ToolError(f"Duplicate version {version.version} for tool "
-                                f"{self.name} from vendor {self.vendor}")
-            version_nums.append(version.version)
-        if self.default is None:
-            raise ToolError(f"No version of tool {self.name} from vendor "
-                            f"{self.vendor} marked as default")
+        # If only one version is defined, make that the default
+        if len(self.versions) == 1:
+            self.versions[0].default = True
+            self.default = self.versions[0]
+        else:
+            # Check for collisions between versions and multiple defaults
+            self.default = None
+            version_nums = []
+            for version in self.versions:
+                version.tool = self
+                # Check for multiple defaults
+                if version.default:
+                    if self.default is not None:
+                        raise ToolError(f"Multiple versions marked default for tool {self.name} "
+                                        f"from vendor {self.vendor}")
+                    self.default = version
+                # Check for repeated version numbers
+                if version.version in version_nums:
+                    raise ToolError(f"Duplicate version {version.version} for tool "
+                                    f"{self.name} from vendor {self.vendor}")
+                version_nums.append(version.version)
+            # Check the default has been identified
+            if self.default is None:
+                raise ToolError(f"No version of tool {self.name} from vendor "
+                                f"{self.vendor} marked as default")
 
     def __iter__(self) -> Iterable[Version]:
         yield from self.versions
