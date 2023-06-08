@@ -5,7 +5,7 @@ theme:
   name: material
   palette:
     scheme: slate
-    primary: amber
+    primary: indigo
 plugins:
   - mkdocstrings:
       handlers:
@@ -32,3 +32,5 @@ nav:
   - Welcome: "index.md"
   - Technologies:
     - Containers: "tech/containers.md"
+  - Syntax:
+    - Tools: "syntax/tools.md"
