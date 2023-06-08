@@ -80,6 +80,6 @@ class Foundation(Container):
                 c_path = path
                 # If a subpath of 'TOOL_ROOT', then make it relative to the
                 # tool's base directory
-                if Tool.TOOL_ROOT in path.parents:
+                if Tool.TOOL_ROOT is path or Tool.TOOL_ROOT in path.parents:
                     c_path = full_location / path.relative_to(Tool.TOOL_ROOT)
                 self.prepend_env_path(key, c_path.as_posix())
