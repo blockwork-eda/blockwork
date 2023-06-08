@@ -13,7 +13,8 @@
 # limitations under the License.
 
 # Expose various definitions
+from .registry import Registry
 from .tool import Require, Tool, ToolError, Version
 
 # Unused import lint guards
-assert all((Require, Tool, ToolError, Version))
+assert all((Registry, Require, Tool, ToolError, Version))

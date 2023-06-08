@@ -17,39 +17,16 @@ from pathlib import Path
 
 import click
 
-from ..foundation import Foundation
+from .common import BwExecCommand
 from ..context import Context
+from ..foundation import Foundation
 from ..tools import Tool, Version
 
-@click.command()
-@click.option("--tool", "-t", type=str, multiple=True, default=[],
-              help="Bind specific tools into the shell, if omitted then all known "
-                   "tools will be bound. Either use the form '--tool <NAME>' or "
-                   "'--tool <NAME>=<VERSION>' where a specific version other than "
-                   "the default is desired. To specify a vendor use the form "
-                   "'--tool <VENDOR>:<NAME>(=<VERSION>)'.")
-@click.option("--no-tools", is_flag=True, default=False,
-              help="Do not bind any tools by default into the container")
+@click.command(cls=BwExecCommand)
 @click.pass_obj
 def shell(ctx : Context, tool, no_tools):
     """ Launch a shell within the container environment """
-    container = Foundation(hostname=f"{ctx.obj.config.project}_shell")
+    container = Foundation(hostname=f"{ctx.config.project}_shell")
     container.bind(ctx.root, Path("/bw/project"), False)
-    # If no tools specified and auto-binding is not disabled, bind all default
-    # tool versions
-    if not tool and not no_tools:
-        logging.info("Binding all tools into shell")
-        for tool in ctx.registry:
-            container.add_tool(tool)
-    # Bind selected tools
-    elif tool:
-        for selection in tool:
-            fullname, version, *_ = (selection + "=").split("=")
-            vendor, name = (Tool.NO_VENDOR + ":" + fullname).split(":")[-2:]
-            matched : Version = ctx.registry.get(vendor, name, version or None)
-            if not matched:
-                raise Exception(f"Failed to identify tool '{selection}'")
-            logging.info(f"Binding tool {matched.tool.name} from {matched.tool.vendor} "
-                         f"version {matched.version} into shell")
-            container.add_tool(matched)
+    BwExecCommand.bind_tools(ctx.registry, container, no_tools, tool)
     container.shell(workdir=Path("/bw/project"), show_detach=False)

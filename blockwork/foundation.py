@@ -68,7 +68,7 @@ class Foundation(Container):
             env = {}
             for key, value in tool_ver.env.items():
                 if isinstance(value, Path):
-                    if Tool.TOOL_ROOT in value.parents:
+                    if Tool.TOOL_ROOT is value or Tool.TOOL_ROOT in value.parents:
                         value = full_location / value.relative_to(Tool.TOOL_ROOT)
                     env[key] = value.as_posix()
                 else:
