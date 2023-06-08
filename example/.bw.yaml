@@ -1,4 +1,7 @@
 !Blockwork
 project: example
 tooldefs:
-  - tools
+  - infra.tools.misc
+  - infra.tools.compilers
+  - infra.tools.simulators
+  - infra.tools.wave_viewers
