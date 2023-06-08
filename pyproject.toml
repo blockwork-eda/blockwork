@@ -23,8 +23,8 @@ mkdocs-material = "^9.1.6"
 mkdocstrings = {extras = ["python"], version = "^0.21.2"}
 
 [tool.poetry.scripts]
-bw = "blockwork:__main__.blockwork"
-blockwork = "blockwork:__main__.blockwork"
+bw = "blockwork:__main__.main"
+blockwork = "blockwork:__main__.main"
 
 [tool.ruff]
 line-length = 120

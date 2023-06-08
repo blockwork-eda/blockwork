@@ -21,19 +21,20 @@ from ..foundation import Foundation
 from ..tools import Tool
 
 @click.command()
-@click.option("--tool", "-t", type=str, multiple=True, default=[], 
+@click.option("--tool", "-t", type=str, multiple=True, default=[],
               help="Bind specific tools into the shell, if omitted then all known "
                    "tools will be bound. Either use the form '--tool <NAME>' or "
                    "'--tool <NAME>=<VERSION>' where a specific version other than "
                    "the default is desired. To specify a vendor use the form "
                    "'--tool <VENDOR>:<NAME>(=<VERSION>)'.")
-@click.option("--no-tools", is_flag=True, default=False, 
+@click.option("--no-tools", is_flag=True, default=False,
               help="Do not bind any tools by default into the container")
 @click.pass_context
 def shell(ctx, tool, no_tools):
-    container = Foundation()
+    """ Launch a shell within the container environment """
+    container = Foundation(hostname=f"{ctx.obj.config.project}_shell")
     container.bind(ctx.obj.root, Path("/bw/project"), False)
-    # If no tools specified and auto-binding is not disabled, bind all default 
+    # If no tools specified and auto-binding is not disabled, bind all default
     # tool versions
     if not tool and not no_tools:
         logging.info("Binding all tools into shell")

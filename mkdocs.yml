@@ -32,5 +32,12 @@ nav:
   - Welcome: "index.md"
   - Technologies:
     - Containers: "tech/containers.md"
+  - Configuration:
+    - ".bw.yaml": "config/bw_yaml.md"
   - Syntax:
     - Tools: "syntax/tools.md"
+  - "Command Line Interface":
+    - Introduction: "cli/introduction.md"
+    - info: "cli/info.md"
+    - shell: "cli/shell.md"
+    - tools: "cli/tools.md"

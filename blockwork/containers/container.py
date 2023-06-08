@@ -54,6 +54,7 @@ class Container:
     :param image:       Container image to launch with
     :param workdir:     Default working directory (default: /)
     :param environment: Environment defaults to expose (empty by default)
+    :param hostname:    Set a custom hostname (defaults to None)
     """
 
     LAUNCH_ID = itertools.count()
@@ -61,10 +62,12 @@ class Container:
     def __init__(self,
                  image       : str,
                  workdir     : Path = Path("/"),
-                 environment : Optional[Dict[str, str]] = None) -> None:
+                 environment : Optional[Dict[str, str]] = None,
+                 hostname    : Optional[str] = None) -> None:
         # Store initialisation parameters
         self.image = image
         self.workdir = workdir
+        self.hostname = hostname
         # Configuration
         type_name = type(self).__name__.lower()
         issued_id = next(Container.LAUNCH_ID)
@@ -257,6 +260,8 @@ class Container:
                 network    ="host",
                 # Set the UID to 0
                 user       =0,
+                # Customise the hostname
+                hostname   =self.hostname,
             )
             # Register tidy-up mechanism in case of unexpected exit
             def _make_tidy_up(container):
@@ -300,8 +305,8 @@ class Container:
               command     : Tuple[str]     = ("/bin/bash", ),
               workdir     : Optional[Path] = None,
               show_detach : bool           = False) -> None:
-        self.launch(*command, 
-                    workdir=workdir, 
-                    interactive=True, 
+        self.launch(*command,
+                    workdir=workdir,
+                    interactive=True,
                     display=True,
                     show_detach=show_detach)

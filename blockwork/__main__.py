@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import sys
 from pathlib import Path
 
 import click
@@ -25,13 +26,15 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
     datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True, tracebacks_show_locals=True)]
+    handlers=[RichHandler(rich_tracebacks=True,
+                          tracebacks_show_locals=True,
+                          show_path=False)]
 )
 
 @click.group()
 @click.pass_context
-@click.option("--cwd", "-C", 
-              type=click.Path(exists=True, file_okay=False), 
+@click.option("--cwd", "-C",
+              type=click.Path(exists=True, file_okay=False),
               default=None,
               help="Override the working directory")
 def blockwork(ctx, cwd):
@@ -42,5 +45,16 @@ blockwork.add_command(info)
 blockwork.add_command(shell)
 blockwork.add_command(tools)
 
+def main():
+    try:
+        blockwork()
+        sys.exit(0)
+    except Exception as e:
+        if type(e) is not Exception:
+            logging.error(f"{type(e).__name__}: {e}")
+        else:
+            logging.error(str(e))
+        sys.exit(1)
+
 if __name__ == "__main__":
-    blockwork()
+    main()

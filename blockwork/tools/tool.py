@@ -64,7 +64,11 @@ class Version:
     @property
     @functools.lru_cache()
     def id(self) -> str:
-        return "_".join(self.id_tuple)
+        vend, name, vers = self.id_tuple
+        if vend is Tool.NO_VENDOR:
+            return "_".join((name, vers))
+        else:
+            return "_".join((vend, name, vers))
 
     @property
     def path_chunk(self) -> Path:
@@ -142,10 +146,7 @@ class Tool(ABC):
     @property
     @functools.lru_cache()
     def base_id_tuple(self) -> str:
-        if self.vendor is Tool.NO_VENDOR:
-            return (self.name, )
-        else:
-            return (self.vendor, self.name)
+        return (self.vendor, self.name)
 
     @functools.lru_cache()
     def get(self, version : str) -> Version:
