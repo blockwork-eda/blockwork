@@ -22,6 +22,14 @@ from typing import Iterable, List, Optional, Union
 from .tool import Tool, ToolError
 
 class Registry:
+    """ 
+    Discovers and registers all tools defined in lists of Python modules 
+
+    :param root:    Root path under which Python modules are defined, this is added
+                    to the PYTHONPATH prior to discovery
+    :param imports: List of Python modules to import, either system wide or relative
+                    to the root
+    """
 
     def __init__(self, root : Path, imports : List[str]) -> None:
         self.root = root
@@ -35,6 +43,15 @@ class Registry:
 
     @staticmethod
     def search(root : Path, import_from : str) -> List[Tool]:
+        """
+        Import all Tool definitions from a given Python module that's either system wide
+        or relative to a given root path.
+
+        :param root:        Root path under which Python modules are defined, this is added
+                            to the PYTHONPATH prior to discovery
+        :param import_from: Python module name to import from
+        :returns:           List of discovered Tool classes
+        """
         if root.absolute().as_posix() not in sys.path:
             sys.path.append(root.absolute().as_posix())
         mod   = importlib.import_module(import_from)
@@ -49,6 +66,16 @@ class Registry:
             vend_or_name : str, 
             name         : Optional[str] = None,
             version      : Optional[str] = None) -> Union[Tool, None]:
+        """
+        Retrieve a tool registered for a given vendor, name, and version. If only a
+        name is given, then NO_VENDOR is assumed for the vendor field. If no version
+        is given, then the default version is returned. If no tool is known for the
+        specification, then None is returned.
+
+        :param vend_or_name:    Vendor or tool name is no associated vendor
+        :param name:            Name if a vendor is specified
+        :param version:         Version of the tool (optional)
+        """
         vendor      = vend_or_name if name else Tool.NO_VENDOR
         name        = name if name else vend_or_name
         tool : Tool = self.tools.get((vendor, name), None)
@@ -60,4 +87,5 @@ class Registry:
             return tool.default
 
     def __iter__(self) -> Iterable[Tool]:
+        """ Iterate through all registered tools """
         yield from self.tools.values()

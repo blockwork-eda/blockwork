@@ -23,6 +23,7 @@ class ToolError(Exception):
 
 
 class Version:
+    """ Defines a version of a tool """
 
     def __init__(self,
                  version  : str,
@@ -75,6 +76,7 @@ class Version:
 
 class Tool(ABC):
     """ Base class for tools """
+
     # Tool root locator
     TOOL_ROOT : Path = Path("/__tool_root__")
 
