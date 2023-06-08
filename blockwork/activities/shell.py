@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from pathlib import Path
 
 import click
@@ -20,7 +19,6 @@ import click
 from .common import BwExecCommand
 from ..context import Context
 from ..foundation import Foundation
-from ..tools import Tool, Version
 
 @click.command(cls=BwExecCommand)
 @click.pass_obj
