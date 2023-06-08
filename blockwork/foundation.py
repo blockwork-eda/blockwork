@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Optional, Type, Union
 
 from .containers import Container
-from .tools import Tool
+from .tools import Tool, Version
 
 class FoundationError(Exception):
     pass
@@ -39,12 +39,13 @@ class Foundation(Container):
 
     def add_tool(self, tool : Union[Type[Tool], Tool]) -> None:
         # If class has been provided, create an instance
-        if not isinstance(tool, Tool):
+        if not isinstance(tool, (Tool, Version)):
             if not issubclass(tool, Tool):
                 raise Foundation("Tool definitions must inherit from the Tool class")
             tool = tool()
         # Grab the default
-        tool = tool.default
+        if not isinstance(tool, Version):
+            tool = tool.default
         # Check tool is not already registered
         if tool.id in self.__tools:
             raise FoundationError(f"Tool already registered for ID '{tool.id}'")

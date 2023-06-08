@@ -12,12 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from pathlib import Path
 
 import click
+from rich.logging import RichHandler
 
 from .activities import info, shell, tools
 from .context import Context
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True, tracebacks_show_locals=True)]
+)
 
 @click.group()
 @click.pass_context
