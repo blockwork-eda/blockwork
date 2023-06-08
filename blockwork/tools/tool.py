@@ -37,15 +37,15 @@ class Version:
         self.paths = paths or {}
         self.requires = requires
         self.default = default
-        self.tool = None
+        self.tool : Optional["Tool"] = None
         # Sanitise arguments
         self.requires = self.requires or []
         self.paths    = self.paths or {}
         self.env      = self.env or {}
         if not isinstance(self.location, Path) or not self.location.exists():
-            raise ToolError(f"Bad location given for tool {self.name}: {self.location}")
+            raise ToolError(f"Bad location given for version {self.version}: {self.location}")
         if not isinstance(self.version, str) or len(self.version.strip()) == 0:
-            raise ToolError(f"A version must be specified for {self.name}")
+            raise ToolError("A version must be specified")
         if not isinstance(self.paths, dict):
             raise ToolError("Paths must be specified as a dictionary")
         if not all(isinstance(k, str) and isinstance(v, list) for k, v in self.paths.items()):
@@ -89,9 +89,11 @@ class Tool(ABC):
     versions : Optional[List[Version]] = None
 
     def __new__(cls) -> "Tool":
-        if Tool.__name__ not in Tool.INSTANCES:
-            Tool.INSTANCES[cls.__name__] = super().__new__(cls)
-        return Tool.INSTANCES[cls.__name__]
+        # Maintain a singleton instance of each tool definition
+        tool_id = id(cls)
+        if tool_id not in Tool.INSTANCES:
+            Tool.INSTANCES[tool_id] = super().__new__(cls)
+        return Tool.INSTANCES[tool_id]
 
     def __init__(self) -> None:
         self.vendor = self.vendor.strip() if isinstance(self.vendor, str) else Tool.NO_VENDOR
@@ -103,6 +105,7 @@ class Tool(ABC):
         # If only one version is defined, make that the default
         if len(self.versions) == 1:
             self.versions[0].default = True
+            self.versions[0].tool = self
             self.default = self.versions[0]
         else:
             # Check for collisions between versions and multiple defaults
@@ -137,10 +140,10 @@ class Tool(ABC):
     @property
     @functools.lru_cache()
     def base_id_tuple(self) -> str:
-        if self.vendor:
-            return (self.vendor, self.name)
-        else:
+        if self.vendor is Tool.NO_VENDOR:
             return (self.name, )
+        else:
+            return (self.vendor, self.name)
 
     @functools.lru_cache()
     def get(self, version : str) -> Version:

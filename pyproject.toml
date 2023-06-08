@@ -14,6 +14,9 @@ pyyaml = "^6.0"
 rich = "^13.3.4"
 
 [tool.poetry.group.dev.dependencies]
+pytest = "^7.3.1"
+pytest-cov = "^4.0.0"
+pytest-mock = "^3.10.0"
 ruff = "^0.0.270"
 mkdocs = "^1.4.2"
 mkdocs-material = "^9.1.6"
@@ -25,6 +28,11 @@ blockwork = "blockwork:__main__.blockwork"
 
 [tool.ruff]
 line-length = 120
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--cov=blockwork --cov-branch --cov-report html --cov-report term -x"
+testpaths = ["tests"]
 
 [tool.poe.tasks.lint]
 shell = "poetry run ruff check blockwork"
