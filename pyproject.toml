@@ -35,6 +35,9 @@ minversion = "6.0"
 addopts = "--cov=blockwork --cov-branch --cov-report html --cov-report term -x"
 testpaths = ["tests"]
 
+[tool.poe.tasks.test]
+shell = "poetry run pytest"
+
 [tool.poe.tasks.lint]
 shell = "poetry run ruff check blockwork"
 

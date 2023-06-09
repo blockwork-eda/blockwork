@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import inspect
 from abc import ABC
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
@@ -30,8 +31,8 @@ class Require:
                  version : Optional[str] = None) -> None:
         self.tool = tool
         self.version = version
-        if not issubclass(tool, Tool):
-            raise ToolError("Requirement tool must of type Tool")
+        if not inspect.isclass(tool) or not issubclass(tool, Tool):
+            raise ToolError("Requirement tool must be of type Tool")
         if (self.version is not None) and not isinstance(self.version, str):
             raise ToolError("Requirement version must be None or a string")
 

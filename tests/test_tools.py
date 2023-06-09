@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from blockwork.tools import Tool, ToolError, Version
+from blockwork.tools import Require, Tool, ToolError, Version
 
 class TestTools:
     """ Exercise tool and version definitions """
@@ -39,6 +39,7 @@ class TestTools:
         # Check that instance is a singleton
         assert inst is Widget()
         # Check attributes
+        assert inst.base_id == "company_widget"
         assert inst.vendor == "company"
         assert len(inst.versions) == 1
         assert inst.versions[0].version == "1.1"
@@ -69,6 +70,7 @@ class TestTools:
         # Check that instance is a singleton
         assert inst is Widget()
         # Check attributes
+        assert inst.base_id == "widget"
         assert inst.vendor is Tool.NO_VENDOR
         assert len(inst.versions) == 1
         assert inst.versions[0].version == "1.1"
@@ -113,10 +115,33 @@ class TestTools:
         assert inst.get("1.2") is Widget.versions[1]
         assert inst.get("1.2").location == loc_1_2
         assert inst.get("1.2").version == "1.2"
-        assert not inst.get("1.2").default 
+        assert not inst.get("1.2").default
         assert inst.get("1.2").path_chunk == Path("company/widget/1.2")
         # Iterate all versions
         assert [x for x in inst] == [Widget.versions[0], Widget.versions[1]]
+
+    def test_tool_requirement(self, tmp_path : Path) -> None:
+        """ Require one tool from another """
+        ta_1_1 = tmp_path / "tool_a_1_1"
+        ta_1_2 = tmp_path / "tool_a_1_2"
+        tb_2_1 = tmp_path / "tool_b_2_1"
+        tb_2_2 = tmp_path / "tool_b_2_2"
+        for dirx in (ta_1_1, ta_1_2, tb_2_1, tb_2_2):
+            dirx.mkdir()
+        class ToolA(Tool):
+            versions = [Version("1.1", ta_1_1),
+                        Version("1.2", ta_1_2, default=True)]
+        class ToolB(Tool):
+            versions = [Version("2.1", tb_2_1, default=True, requires=[Require(ToolA, "1.1")]),
+                        Version("2.2", tb_2_2, requires=[Require(ToolA, "1.2")])]
+        inst_a = ToolA()
+        inst_b = ToolB()
+        assert inst_a.default.version == "1.2"
+        assert inst_b.default.version == "2.1"
+        assert inst_a.default.requires == []
+        assert inst_b.default.requires[0].tool is ToolA
+        assert inst_b.default.requires[0].version == "1.1"
+
 
     def test_tool_bad_versions(self, tmp_path : Path) -> None:
         """ Test bad version lists """
@@ -202,3 +227,40 @@ class TestTools:
             Widget()
         assert str(exc.value) == "No version of tool widget from vendor N/A marked as default"
 
+    def test_tool_bad_require(self, tmp_path) -> None:
+        tool_loc = tmp_path / "widget"
+        tool_loc.mkdir()
+        # Non-list of requirements
+        with pytest.raises(ToolError) as exc:
+            class Widget(Tool):
+                versions = [
+                    Version(version="1.1", location=tool_loc, requires="ABC"),
+                ]
+            Widget()
+        assert str(exc.value) == "Requirements must be a list"
+        # List of non-Require objects
+        with pytest.raises(ToolError) as exc:
+            class Widget(Tool):
+                versions = [
+                    Version(version="1.1", location=tool_loc, requires=["ABC"]),
+                ]
+            Widget()
+        assert str(exc.value) == "Requirements must be a list of Require objects"
+        # Requirement not referring to another tool
+        with pytest.raises(ToolError) as exc:
+            class Widget(Tool):
+                versions = [
+                    Version(version="1.1", location=tool_loc, requires=[Require("ABC")]),
+                ]
+            Widget()
+        assert str(exc.value) == "Requirement tool must be of type Tool"
+        # Requirement version not a string
+        with pytest.raises(ToolError) as exc:
+            class ToolA(Tool):
+                versions = [Version(version="1.0", location=tool_loc)]
+            class ToolB(Tool):
+                versions = [
+                    Version(version="1.1", location=tool_loc, requires=[Require(ToolA, 123)]),
+                ]
+            ToolB()
+        assert str(exc.value) == "Requirement version must be None or a string"
