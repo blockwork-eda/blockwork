@@ -60,7 +60,8 @@ class Config:
         """
         with path.open("r", encoding="utf-8") as fh:
             parsed : ConfigBase = yaml.load(fh, Loader=Loader)
-        parsed.check()
+        if isinstance(parsed, ConfigBase):
+            parsed.check()
         return parsed
 
     @staticmethod
@@ -72,7 +73,8 @@ class Config:
         :returns:    Parsed config object
         """
         parsed : ConfigBase = yaml.load(data, Loader=Loader)
-        parsed.check()
+        if isinstance(parsed, ConfigBase):
+            parsed.check()
         return parsed
 
     @staticmethod
