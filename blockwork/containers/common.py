@@ -60,16 +60,20 @@ def read_stream(socket : SocketIO, e_done : Event) -> Thread:
     """ Wrapped thread method to capture from the container STDOUT """
     def _inner(socket, e_done):
         try:
+            base = fcntl.fcntl(socket, fcntl.F_GETFL)
+            fcntl.fcntl(socket, fcntl.F_SETFL, base | os.O_NONBLOCK)
             while not e_done.is_set():
-                buff = socket.read(1)
-                if len(buff) > 0:
-                    try:
-                        sys.stdout.write(buff.decode("utf-8"))
-                        sys.stdout.flush()
-                    except UnicodeDecodeError:
-                        pass
-                else:
-                    break
+                rlist, _, _ = select.select([socket], [], [], 1.0)
+                if rlist:
+                    buff = socket.read(406)
+                    if len(buff) > 0:
+                        try:
+                            sys.stdout.write(buff.decode("utf-8"))
+                            sys.stdout.flush()
+                        except UnicodeDecodeError:
+                            pass
+                    else:
+                        break
             e_done.set()
         except BrokenPipeError:
             pass
