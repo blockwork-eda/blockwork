@@ -59,7 +59,9 @@ class Config:
         :returns:    Parsed config object
         """
         with path.open("r", encoding="utf-8") as fh:
-            return yaml.load(fh, Loader=Loader)
+            parsed : ConfigBase = yaml.load(fh, Loader=Loader)
+        parsed.check()
+        return parsed
 
     @staticmethod
     def parse_str(data : str) -> ConfigBase:
@@ -69,7 +71,9 @@ class Config:
         :param data: YAML string
         :returns:    Parsed config object
         """
-        return yaml.load(data, Loader=Loader)
+        parsed : ConfigBase = yaml.load(data, Loader=Loader)
+        parsed.check()
+        return parsed
 
     @staticmethod
     def dump(object : ConfigBase) -> str:

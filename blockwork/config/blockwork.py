@@ -12,16 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
+from typing import List, Optional
 
-from .common import ConfigBase
+from .common import ConfigBase, ConfigError
 
 
 class Blockwork(ConfigBase):
     yaml_tag = "!Blockwork"
 
     def __init__(self,
-                 project : str,
-                 tooldefs : List[str]) -> None:
+                 project  : Optional[str]       = None,
+                 tooldefs : Optional[List[str]] = None) -> None:
         self.project = project
-        self.tooldefs = tooldefs
+        self.tooldefs = tooldefs or []
+
+    def check(self) -> None:
+        if not self.project or not isinstance(self.project, str):
+            raise ConfigError(self, "project", "Project name has not been specified")
+        if not isinstance(self.tooldefs, list):
+            raise ConfigError(self, "tooldefs", "Tool definitions must be a list")
+        if not all(isinstance(x, str) for x in self.tooldefs):
+            raise ConfigError(self, "tooldefs", "Tool definitions must be a list of strings")
