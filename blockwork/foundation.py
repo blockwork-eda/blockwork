@@ -48,6 +48,8 @@ class Foundation(Container):
         tool     = tool_ver.tool
         # Check tool is not already registered
         if tool.base_id in self.__tools:
+            if self.__tools[tool.base_id] is tool_ver:
+                return
             raise FoundationError(f"Tool already registered for ID '{tool.base_id}'")
         # Load any requirements
         for req in tool_ver.requires:

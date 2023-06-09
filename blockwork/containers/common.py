@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import contextlib
+import fcntl
+import os
 import select
 import sys
 import termios
@@ -23,22 +25,36 @@ from typing import List, Optional
 
 @contextlib.contextmanager
 def get_raw_input():
-    """ Context manager to capture raw STDIN """
-    stdin  = sys.stdin.fileno()
-    before = termios.tcgetattr(stdin)
+    """
+    Context manager to capture raw STDIN - this uses a raw I/O stream set to be
+    non-blocking in order to forward every character. Control sequences such as
+    arrow keys (up/down/left/right) are multiple character sequences which means
+    that reading a single character at a time is not correct. Instead, a large
+    read is executed in non-blocking mode which allows these multiple character
+    sequences to be captured without deadlocking.
+    """
+    # Capture the base configuration of termios and fcntl
+    stdin        = sys.stdin.fileno()
+    orig_termios = termios.tcgetattr(stdin)
+    orig_fcntl   = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
+    # If any exception occurs, always capture it to avoid exception escaping
     try:
+        # Set TTY into raw mode
         tty.setraw(stdin)
-        # TODO: There is an issue here with arrow key sequences lagging by
-        #       one keypress
+        # Set STDIN file to be non-blocking
+        fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fcntl | os.O_NONBLOCK)
+        # Yield a function to get a input
         def _get_char():
+            # Use a select with a 1 second timeout to avoid infinite deadlock
             rlist, _, _ = select.select([sys.stdin], [], [], 1.0)
+            # If STDIN has data, read up to 4096 characters
             if rlist:
-                return sys.stdin.read(1)
-            else:
-                return None
+                return sys.stdin.read(4096)
         yield _get_char
     finally:
-        termios.tcsetattr(stdin, termios.TCSADRAIN, before)
+        # Reset termios and fcntl back to base values
+        termios.tcsetattr(stdin, termios.TCSADRAIN, orig_termios)
+        fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fcntl)
 
 def read_stream(socket : SocketIO, e_done : Event) -> Thread:
     """ Wrapped thread method to capture from the container STDOUT """
