@@ -60,12 +60,14 @@ def read_stream(socket : SocketIO, e_done : Event) -> Thread:
     """ Wrapped thread method to capture from the container STDOUT """
     def _inner(socket, e_done):
         try:
+            # Move socket into non-blocking mode
             base = fcntl.fcntl(socket, fcntl.F_GETFL)
             fcntl.fcntl(socket, fcntl.F_SETFL, base | os.O_NONBLOCK)
+            # Keep reading until done event set (or we break out)
             while not e_done.is_set():
                 rlist, _, _ = select.select([socket], [], [], 1.0)
                 if rlist:
-                    buff = socket.read(406)
+                    buff = socket.read(4096)
                     if len(buff) > 0:
                         try:
                             sys.stdout.write(buff.decode("utf-8"))
@@ -74,9 +76,10 @@ def read_stream(socket : SocketIO, e_done : Event) -> Thread:
                             pass
                     else:
                         break
-            e_done.set()
         except BrokenPipeError:
             pass
+        # Set event to signal completion of stream
+        e_done.set()
     thread = Thread(target=_inner, args=(socket, e_done), daemon=True)
     thread.start()
     return thread
@@ -95,6 +98,8 @@ def write_stream(socket : SocketIO,
                         socket._sock.send(char.encode("utf-8"))
             except BrokenPipeError:
                 pass
+        # Set event to signal completion of stream
+        e_done.set()
     thread = Thread(target=_inner, args=(socket, e_done, command), daemon=True)
     thread.start()
     return thread
