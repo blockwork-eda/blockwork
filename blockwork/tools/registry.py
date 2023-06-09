@@ -22,8 +22,8 @@ from typing import Iterable, List, Optional, Union
 from .tool import Tool, ToolError
 
 class Registry:
-    """ 
-    Discovers and registers all tools defined in lists of Python modules 
+    """
+    Discovers and registers all tools defined in lists of Python modules
 
     :param root:    Root path under which Python modules are defined, this is added
                     to the PYTHONPATH prior to discovery
@@ -56,14 +56,14 @@ class Registry:
             sys.path.append(root.absolute().as_posix())
         mod   = importlib.import_module(import_from)
         tools = [y for _, y in inspect.getmembers(mod) if (y is not Tool) and
-                                                          inspect.isclass(y) and 
+                                                          inspect.isclass(y) and
                                                           issubclass(y, Tool)]
         if len(tools) == 0:
             raise ToolError(f"Located no subclasses of Tool in {import_from}")
         return tools
 
-    def get(self, 
-            vend_or_name : str, 
+    def get(self,
+            vend_or_name : str,
             name         : Optional[str] = None,
             version      : Optional[str] = None) -> Union[Tool, None]:
         """
@@ -76,8 +76,8 @@ class Registry:
         :param name:            Name if a vendor is specified
         :param version:         Version of the tool (optional)
         """
-        vendor      = vend_or_name if name else Tool.NO_VENDOR
-        name        = name if name else vend_or_name
+        vendor      = vend_or_name.lower() if name else Tool.NO_VENDOR
+        name        = (name if name else vend_or_name).lower()
         tool : Tool = self.tools.get((vendor, name), None)
         if not tool:
             return None
