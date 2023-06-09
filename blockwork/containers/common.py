@@ -91,8 +91,10 @@ def write_stream(socket : SocketIO,
     def _inner(socket, e_done, command):
         with get_raw_input() as get_char:
             try:
+                # Send the initial command sequence
                 if command:
                     socket._sock.send((" ".join(command) + "\n").encode("utf-8"))
+                # Monitor for further STDIO
                 while not e_done.is_set():
                     if (char := get_char()) is not None:
                         socket._sock.send(char.encode("utf-8"))

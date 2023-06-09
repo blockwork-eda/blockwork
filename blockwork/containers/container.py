@@ -15,6 +15,7 @@
 import atexit
 import dataclasses
 import itertools
+import logging
 import os
 from pathlib import Path
 from threading import Event
@@ -232,6 +233,12 @@ class Container:
                 mounts.append(bind_x11_unix.as_configuration())
             else:
                 env["DISPLAY"] = "host.containers.internal:0"
+        # Expose terminal dimensions
+        tsize = os.get_terminal_size()
+        logging.info(f"Setting terminal to {tsize.columns}x{tsize.lines}")
+        env["LINES"]   = str(tsize.lines)
+        env["COLUMNS"] = str(tsize.columns)
+        env["TERM"]    = "xterm-256color"
         # Get access to Podman within a context manager
         with Podman.get_client() as client:
             # Create the container
@@ -247,9 +254,9 @@ class Container:
                 # Launch as detached so that a container handle is returned
                 detach     =True,
                 # Attach a TTY to the process running in the container
-                tty        =True,
+                tty        =interactive,
                 # Hold STDIN open even when nothing is attached
-                stdin_open =True,
+                stdin_open =interactive,
                 # Mark the root filesystem as readonly
                 read_only  =True,
                 # Setup environment variables
@@ -289,13 +296,18 @@ class Container:
                 e_done.wait()
                 t_read.join()
                 t_write.join()
+                # Clear the screen
+                os.system("cls || clear")
             # Otherwise, track the task
             else:
                 while True:
                     line = socket.readline()
                     if not line:
                         break
-                    print(line.decode("utf-8"), end="")
+                    try:
+                        print(line.decode("utf-8"), end="")
+                    except UnicodeDecodeError:
+                        pass
             # Tidy up
             atexit.unregister(tidy_up)
             self.__container.remove(force=True)

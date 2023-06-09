@@ -12,8 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Expose activities
 from .info import info
+from .run import run
 from .shell import shell
 from .tools import tools
 
-assert all((info, shell, tools))
+# List all activities
+activities = (info, run, shell, tools)
+
+# Lint guard
+assert activities

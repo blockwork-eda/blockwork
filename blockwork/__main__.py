@@ -20,7 +20,7 @@ import click
 from rich.console import Console
 from rich.logging import RichHandler
 
-from .activities import info, shell, tools
+from .activities import activities
 from .context import Context
 
 logging.basicConfig(
@@ -42,9 +42,8 @@ def blockwork(ctx, cwd):
     # Create the context object and attach to click
     ctx.obj = Context(root=Path(cwd).absolute() if cwd else None)
 
-blockwork.add_command(info)
-blockwork.add_command(shell)
-blockwork.add_command(tools)
+for activity in activities:
+    blockwork.add_command(activity)
 
 def main():
     try:
