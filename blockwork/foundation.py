@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Optional, Type, Union
 
 from .containers import Container
-from .tools import Tool, Version
+from .tools import Invocation, Tool, Version
 
 class FoundationError(Exception):
     pass
@@ -36,6 +36,19 @@ class Foundation(Container):
 
     def add_input(self, path : Path, name : Optional[str] = None) -> None:
         self.bind_readonly(path, Path("/bw/input") / (name or path.name))
+
+    def get_tool_path(self, version : Version, path : Path) -> Path:
+        """
+        Map a path relative to a tool root to the absolute path within the container.
+        :param version: Tool version
+        :param path:    Path relative to TOOL_ROOT
+        :returns:       Absolute path
+        """
+        if Tool.TOOL_ROOT is path or Tool.TOOL_ROOT in path.parents:
+            full_loc = self.__tool_root / version.path_chunk
+            return full_loc / path.relative_to(Tool.TOOL_ROOT)
+        else:
+            return path
 
     def add_tool(self, tool : Union[Type[Tool], Tool, Version]) -> None:
         # If class has been provided, create an instance
@@ -70,18 +83,29 @@ class Foundation(Container):
             env = {}
             for key, value in tool_ver.env.items():
                 if isinstance(value, Path):
-                    if Tool.TOOL_ROOT is value or Tool.TOOL_ROOT in value.parents:
-                        value = full_location / value.relative_to(Tool.TOOL_ROOT)
-                    env[key] = value.as_posix()
+                    env[key] = self.get_tool_path(tool_ver, value).as_posix()
                 else:
                     env[key] = value
             self.overlay_env(env, strict=True)
         # Append to $PATH
         for key, paths in tool_ver.paths.items():
             for path in paths:
-                c_path = path
-                # If a subpath of 'TOOL_ROOT', then make it relative to the
-                # tool's base directory
-                if Tool.TOOL_ROOT is path or Tool.TOOL_ROOT in path.parents:
-                    c_path = full_location / path.relative_to(Tool.TOOL_ROOT)
-                self.prepend_env_path(key, c_path.as_posix())
+                self.prepend_env_path(key, self.get_tool_path(tool_ver, path).as_posix())
+
+    def invoke(self, invocation : Invocation) -> None:
+        """
+        Evaluate a tool invocation by binding the required tools and setting up
+        the environment as per the request.
+
+        :param invocation:  An Invocation object
+        """
+        self.add_tool(invocation.version)
+        for h_path, c_path in invocation.binds:
+            self.bind(h_path, c_path, False)
+        command = self.get_tool_path(invocation.version, invocation.execute).as_posix()
+        self.launch(command,
+                    *invocation.args,
+                    workdir=invocation.workdir,
+                    interactive=invocation.interactive,
+                    display=invocation.display,
+                    show_detach=False)

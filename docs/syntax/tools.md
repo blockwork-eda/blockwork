@@ -150,3 +150,58 @@ The `Require` class takes two arguments:
  * `tool` - which must carry a `Tool` definition;
  * `version` - which can either be omitted (implicitly selecting the default
    version) or can be a string identifying a version number.
+
+## Actions and Invocations
+
+Many tools will offer a command line interface that can perform certain discrete
+tasks, for example a wave viewer like GTKWave will be able to display the
+contents of a VCD. Such tasks can be wrapped up as an 'action' within a tool
+declaration, which can then be invoked directly from the command line.
+
+Actions return `Invocation` objects that encapsulates the command to run, any
+arguments to provide, and files or folders to be bound in to the container.
+
+```python
+from pathlib import Path
+from typing import List
+
+from blockwork.tools import Invocation, Tool, Version
+
+class GTKWave(Tool):
+    versions = [
+        Version(location = tool_root / "gtkwave-3.3.113",
+                version  = "3.3.113",
+                paths    = { "PATH": [Tool.TOOL_ROOT / "src"] }),
+    ]
+
+    @Tool.action("GTKWave")
+    def view(self,
+             version  : Version,
+             wavefile : str,
+             *args    : List[str]) -> Invocation:
+        h_path = Path(wavefile).absolute()
+        c_path = Path("/bw/project") / h_path.name
+        return Invocation(
+            version = version,
+            execute = Tool.TOOL_ROOT / "src" / "gtkwave",
+            args    = [c_path.as_posix(), *args],
+            display = True,
+            binds   = [(h_path, c_path)]
+        )
+```
+
+!!!warning
+
+    The name provided as the first argument to `@Tool.action()` must match the
+    name of the class that declares the tool.
+
+This action can then be invoked from the shell using the `bw tool` command:
+
+```bash
+$> bw tool gtkwave view waves.vcd
+```
+
+!!!note
+
+    As this action will invoke an X11 GUI, the `display = True` argument must be
+    provided in the `Invocation` instance.

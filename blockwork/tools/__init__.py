@@ -14,7 +14,7 @@
 
 # Expose various definitions
 from .registry import Registry
-from .tool import Require, Tool, ToolError, Version
+from .tool import Invocation, Require, Tool, ToolError, Version
 
 # Unused import lint guards
-assert all((Registry, Require, Tool, ToolError, Version))
+assert all((Invocation, Registry, Require, Tool, ToolError, Version))

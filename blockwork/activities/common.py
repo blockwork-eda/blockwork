@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import List
+from typing import List, Tuple, Union
 
 from click.core import Command, Option
 
@@ -43,9 +43,23 @@ class BwExecCommand(Command):
                                   default=False,
                                   help="Do not bind any tools by default"))
 
-    @classmethod
-    def bind_tools(cls,
-                   registry  : Registry,
+    @staticmethod
+    def decode_tool(fullname : str) -> Tuple[str, str, Union[str, None]]:
+        """
+        Decode a tool vendor, name, and version from a string - in one of the
+        forms <VENDOR>:<NAME>=<VERSION>, <NAME>=<VERSION>, <VENDOR>:<NAME>, or
+        just <NAME>. Where a vendor is not provided, NO_VENDOR is assumed. Where
+        no version is provided None is returned to select the default variant
+
+        :param fullname:    Encoded tool using one of the forms described.
+        :returns:           Tuple of vendor, name, and version
+        """
+        fullname, version, *_ = (fullname + "=").split("=")
+        vendor, name = (Tool.NO_VENDOR + ":" + fullname).split(":")[-2:]
+        return vendor, name, (version or None)
+
+    @staticmethod
+    def bind_tools(registry  : Registry,
                    container : Foundation,
                    no_tools  : bool,
                    tools     : List[str]) -> None:
@@ -58,8 +72,7 @@ class BwExecCommand(Command):
         # Bind selected tools
         elif tools:
             for selection in tools:
-                fullname, version, *_ = (selection + "=").split("=")
-                vendor, name = (Tool.NO_VENDOR + ":" + fullname).split(":")[-2:]
+                vendor, name, version = BwExecCommand.decode_tool(selection)
                 matched : Version = registry.get(vendor, name, version or None)
                 if not matched:
                     raise Exception(f"Failed to identify tool '{selection}'")

@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import List
+
 import click
 from rich.console import Console
 from rich.table import Table
 
+from .common import BwExecCommand
 from ..context import Context
+from ..foundation import Foundation
 
 @click.command()
 @click.pass_obj
@@ -36,3 +40,24 @@ def tools(ctx : Context):
                 ["", ":heavy_check_mark:"][version.default]
             )
     Console().print(table)
+
+@click.command()
+@click.argument("tool", type=str)
+@click.argument("action", type=str, default="default")
+@click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
+@click.pass_obj
+def tool(ctx : Context,
+         tool : str,
+         action : str,
+         runargs : List[str]) -> None:
+    """ Run an action defined by a specific tool """
+    # Find the tool
+    vendor, name, version = BwExecCommand.decode_tool(tool)
+    if (tool_ver := ctx.registry.get(vendor, name, version)) is None:
+        raise Exception(f"Cannot locate tool for {tool}")
+    # See if there is an action registered
+    if (act_def := tool_ver.get_action(action)) is None:
+        raise Exception(f"No action known for '{action}' on tool {tool}")
+    # Run the action
+    container = Foundation(hostname=f"{ctx.config.project}_{tool}_{action}")
+    container.invoke(act_def(*runargs))

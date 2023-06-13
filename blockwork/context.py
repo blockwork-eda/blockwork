@@ -21,9 +21,8 @@ from .tools.registry import Registry
 
 class Context:
     """ Tracks the working directory and project configuration """
-    
 
-    def __init__(self, 
+    def __init__(self,
                  root     : Optional[Path] = None,
                  cfg_file : str            = ".bw.yaml") -> None:
         self.__file = cfg_file
@@ -49,7 +48,7 @@ class Context:
             if (nxtdir := current.parent).samefile(current):
                 break
             current = nxtdir
-        raise Exception(f"Could not identify work area in parents of {under}") 
+        raise Exception(f"Could not identify work area in parents of {under}")
 
     @property
     @functools.lru_cache()

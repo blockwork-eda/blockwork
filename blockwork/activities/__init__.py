@@ -14,12 +14,12 @@
 
 # Expose activities
 from .info import info
-from .run import run
+from .exec import exec
 from .shell import shell
-from .tools import tools
+from .tools import tool, tools
 
 # List all activities
-activities = (info, run, shell, tools)
+activities = (info, exec, shell, tool, tools)
 
 # Lint guard
 assert activities

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
+from typing import List
 
 import click
 
@@ -27,12 +28,12 @@ from ..foundation import Foundation
               help="Set the working directory within the container")
 @click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
-def run(ctx : Context,
-        tool,
-        no_tools,
-        interactive,
-        cwd,
-        runargs):
+def exec(ctx : Context,
+         tool : str,
+         no_tools : bool,
+         interactive : bool,
+         cwd : str,
+         runargs : List[str]) -> None:
     """ Run a command within the container environment """
     container = Foundation(hostname=f"{ctx.config.project}_run")
     container.bind(ctx.root, Path("/bw/project"), False)

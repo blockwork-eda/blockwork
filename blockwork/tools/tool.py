@@ -15,8 +15,9 @@
 import functools
 import inspect
 from abc import ABC
+from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 
 class ToolError(Exception):
@@ -96,6 +97,13 @@ class Version:
         else:
             return Path(self.tool.name) / self.version
 
+    def get_action(self, name : str) -> Union[Callable, None]:
+        action = self.tool.get_action(name)
+        # Return a wrapper that inserts the active version
+        def _wrap(*args, **kwargs):
+            return action(self, *args, **kwargs)
+        return _wrap
+
 
 class Tool(ABC):
     """ Base class for tools """
@@ -108,6 +116,9 @@ class Tool(ABC):
 
     # Singleton handling
     INSTANCES = {}
+
+    # Action registration
+    ACTIONS = defaultdict(dict)
 
     # Placeholders
     vendor   : Optional[str]           = None
@@ -165,7 +176,7 @@ class Tool(ABC):
     @property
     @functools.lru_cache()
     def base_id_tuple(self) -> str:
-        return (self.vendor, self.name)
+        return (self.vendor.lower(), self.name)
 
     @property
     @functools.lru_cache()
@@ -180,3 +191,87 @@ class Tool(ABC):
     def get(self, version : str) -> Version:
         match = [x for x in self.versions if x.version == version]
         return match[0] if match else None
+
+    @classmethod
+    def action(cls,
+               tool_name : str,
+               name      : Optional[str] = None,
+               default   : bool          = False) -> Callable:
+        """
+        Decorator to mark a Tool method as an action, which can be called either
+        by other tools or from the command line.
+
+        :param tool_name:   Name of the tool, which should match the class name
+                            of the tool. This must be provided as an argument as
+                            unbound methods do not have a relationship to their
+                            parent.
+        :param name:        Optional name of the action, if not provided then
+                            the name of the function will be used
+        :param default:     Whether to also associate this as the default action
+                            for the tool
+        """
+        def _inner(method : Callable) -> Callable:
+            nonlocal name
+            name = (name or method.__name__).lower()
+            if name == "default":
+                raise Exception("The action name 'default' is reserved, use the "
+                                "default=True option instead")
+            cls.ACTIONS[tool_name.lower()][name] = method
+            if default:
+                cls.ACTIONS[tool_name.lower()]["default"] = method
+            return method
+        return _inner
+
+    def get_action(self, name : str) -> Union[Callable, None]:
+        """
+        Return an action registered for this tool if known.
+
+        :param name:    Name of the action
+        :returns:       The instance wrapped decorated method if known, else None
+        """
+        tool_cls = type(self)
+        tool_name = tool_cls.__name__.lower()
+        if (actions := tool_cls.ACTIONS.get(tool_name, None)) is None:
+            return None
+        if (raw_act := actions.get(name.lower(), None)) is None:
+            return None
+        # The method held in the actions dictionary is unbound, so this wrapper
+        # provides the instance as the first argument
+        def _wrap(*args, **kwargs):
+            return raw_act(self, *args, **kwargs)
+        return _wrap
+
+
+class Invocation:
+    """
+    Encapsulates the invocation of a tool within the container environment, this
+    is returned by an method marked with @Tool.action(). The action may specify
+    the tool version to use, the binary to launch, arguments to provide, whether
+    or not X11 display forwarding is required, whether or not an interactive
+    terminal is required, and any files/folders to bind in to the container.
+
+    :param version:     Tool version to execute
+    :param execute:     Binary to execute
+    :param args:        Arguments to call the tool with
+    :param workdir:     Working directory within the container
+    :param display:     Whether to forward X11 display (forces interactive mode)
+    :param interactive: Whether to attach an interactive shell
+    :param binds:       List of tuples of path outside the container and path
+                        inside the container
+    """
+
+    def __init__(self,
+                 version     : Version,
+                 execute     : Path,
+                 args        : Optional[List[str]] = None,
+                 workdir     : Optional[Path] = None,
+                 display     : bool = False,
+                 interactive : bool = False,
+                 binds       : Optional[List[Tuple[Path, Path]]] = None) -> None:
+        self.version     = version
+        self.execute     = execute
+        self.args        = args or []
+        self.workdir     = workdir
+        self.display     = display
+        self.interactive = interactive or display
+        self.binds       = binds or []
