@@ -23,6 +23,8 @@ from rich.logging import RichHandler
 from .activities import activities
 from .context import Context
 
+VERBOSE = False
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
@@ -38,7 +40,17 @@ logging.basicConfig(
               type=click.Path(exists=True, file_okay=False),
               default=None,
               help="Override the working directory")
-def blockwork(ctx, cwd):
+@click.option("--verbose", "-v",
+              is_flag=True,
+              default=False,
+              help="Raise the verbosity of messages")
+def blockwork(ctx, cwd : str, verbose : bool) -> None:
+    global VERBOSE
+    # Setup the verbosity
+    if verbose:
+        logging.info("Setting logging verbosity to DEBUG")
+        logging.getLogger().setLevel(logging.DEBUG)
+        VERBOSE = True
     # Create the context object and attach to click
     ctx.obj = Context(root=Path(cwd).absolute() if cwd else None)
 
@@ -46,6 +58,7 @@ for activity in activities:
     blockwork.add_command(activity)
 
 def main():
+    global VERBOSE
     try:
         blockwork()
         sys.exit(0)
@@ -54,7 +67,8 @@ def main():
             logging.error(f"{type(e).__name__}: {e}")
         else:
             logging.error(str(e))
-        Console().print_exception(show_locals=True)
+        if VERBOSE:
+            Console().print_exception(show_locals=True)
         sys.exit(1)
 
 if __name__ == "__main__":
