@@ -76,7 +76,7 @@ class Registry:
         :param name:            Name if a vendor is specified
         :param version:         Version of the tool (optional)
         """
-        vendor      = vend_or_name.lower() if name else Tool.NO_VENDOR
+        vendor      = vend_or_name.lower() if name else Tool.NO_VENDOR.lower()
         name        = (name if name else vend_or_name).lower()
         tool : Tool = self.tools.get((vendor, name), None)
         if not tool:

@@ -50,7 +50,7 @@ class TestToolRegistry:
                            ])
         # Create  registry
         reg = Registry(tmp_path, ["infra.toolset_one", "infra.toolset_two"])
-        assert set(reg.tools.keys()) == {("N/A", "toola"),
+        assert set(reg.tools.keys()) == {("n/a", "toola"),
                                          ("company", "toolb"),
                                          ("other", "toolc")}
         # Try getting tools

@@ -85,7 +85,7 @@ class Version:
     @functools.lru_cache()
     def id(self) -> str:
         vend, name, vers = self.id_tuple
-        if vend is Tool.NO_VENDOR:
+        if vend.casefold() == Tool.NO_VENDOR.casefold():
             return "_".join((name, vers))
         else:
             return "_".join((vend, name, vers))
@@ -183,7 +183,7 @@ class Tool(ABC):
     @functools.lru_cache()
     def base_id(self) -> str:
         vend, name = self.base_id_tuple
-        if vend is Tool.NO_VENDOR:
+        if vend.casefold() == Tool.NO_VENDOR.casefold():
             return name
         else:
             return "_".join((vend, name))

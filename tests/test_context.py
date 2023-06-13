@@ -38,18 +38,20 @@ class TestContext:
         with bw_yaml.open("w", encoding="utf-8") as fh:
             fh.write("!Blockwork\n"
                      "project: test_project\n"
+                     "root: /bw/a/b\n"
                      "tooldefs:\n"
                      "  - infra.tools\n")
         # Create a context
         ctx = Context(tmp_path)
-        assert ctx.root == tmp_path
+        assert ctx.host_root == tmp_path
+        assert ctx.container_root == Path("/bw/a/b")
         assert ctx.file == ".bw.yaml"
         assert ctx.config_path == bw_yaml
         assert isinstance(ctx.config, Blockwork)
         assert ctx.config.project == "test_project"
         assert len(ctx.registry.tools) == 1
-        assert isinstance(ctx.registry.tools["N/A", "toola"], Tool)
-        assert ctx.registry.tools["N/A", "toola"].default.version == "1.1"
+        assert isinstance(ctx.registry.tools["n/a", "toola"], Tool)
+        assert ctx.registry.tools["n/a", "toola"].default.version == "1.1"
 
     def test_context_dig(self, tmp_path : Path) -> None:
         """ Context should recognise the .bw.yaml file in a parent layer """
@@ -66,20 +68,22 @@ class TestContext:
         with bw_yaml.open("w", encoding="utf-8") as fh:
             fh.write("!Blockwork\n"
                      "project: test_project\n"
+                     "root: /bw/a/b\n"
                      "tooldefs:\n"
                      "  - infra.tools\n")
         # Create a context in a sub-path
         sub_path = tmp_path / "a" / "b" / "c"
         sub_path.mkdir(parents=True)
         ctx = Context(sub_path)
-        assert ctx.root == tmp_path
+        assert ctx.host_root == tmp_path
+        assert ctx.container_root == Path("/bw/a/b")
         assert ctx.file == ".bw.yaml"
         assert ctx.config_path == bw_yaml
         assert isinstance(ctx.config, Blockwork)
         assert ctx.config.project == "test_project"
         assert len(ctx.registry.tools) == 1
-        assert isinstance(ctx.registry.tools["N/A", "toola"], Tool)
-        assert ctx.registry.tools["N/A", "toola"].default.version == "1.1"
+        assert isinstance(ctx.registry.tools["n/a", "toola"], Tool)
+        assert ctx.registry.tools["n/a", "toola"].default.version == "1.1"
 
     def test_context_bad_path(self, tmp_path : Path) -> None:
         """ A bad root should raise an exception """
