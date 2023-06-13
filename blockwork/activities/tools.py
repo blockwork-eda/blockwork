@@ -35,7 +35,7 @@ def tools(ctx : Context):
     table.add_column("Vendor")
     table.add_column("Tool")
     table.add_column("Version")
-    table.add_column("Default")
+    table.add_column("Default", justify="center")
     table.add_column("Actions")
     for tool in ctx.registry:
         t_acts = Tool.ACTIONS.get(tool.name, {})
