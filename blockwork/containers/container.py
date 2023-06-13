@@ -21,10 +21,8 @@ from pathlib import Path
 from threading import Event
 from typing import Dict, List, Optional, Tuple, Union
 
-import docker
-
 from .client import Podman
-from .common import read_stream, write_stream
+from .common import read_stream, write_stream, forwarding_host
 
 
 class ContainerError(Exception):
@@ -235,6 +233,11 @@ class Container:
         env["TERM"]    = "xterm-256color"
         # Get access to Podman within a context manager
         with Podman.get_client() as client:
+            # Create a thread-safe event to mark when container finishes
+            e_done = Event()
+            # Start a forwarding host
+            t_host, host_port = forwarding_host(e_done)
+            env["BLOCKWORK_FWD"] = f"host.containers.internal:{host_port}"
             # Create the container
             container = client.containers.run(
                 # Give the container an identifiable name
@@ -284,7 +287,6 @@ class Container:
                 if show_detach:
                     print(">>> Use CTRL+P to detach from container <<<")
                 # Start monitoring for STDIN and STDOUT
-                e_done = Event()
                 t_write = write_stream(socket, e_done)
                 t_read  = read_stream(socket, e_done)
                 e_done.wait()
@@ -305,6 +307,9 @@ class Container:
                         pass
             # Get the result (carries the status code)
             result = container.wait()
+            # Ensure the host thread has exited
+            e_done.set()
+            t_host.join()
             # Tidy up
             atexit.unregister(tidy_up)
             container.remove(force=True)

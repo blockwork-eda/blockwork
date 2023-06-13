@@ -1,0 +1,46 @@
+#!/bin/env python3
+
+# ==============================================================================
+# This is a simple socket interface that relies only on a basic Python 3 install
+# without any additional packages. It forwards the arguments and the working
+# directory to the Blockwork host process and waits for a response. Data passing
+# over the socket interface is encoded as JSON, with a simple header that carries
+# the data length as a 4-byte integer.
+# ==============================================================================
+
+import json
+import os
+import socket
+import sys
+
+host_port = os.environ.get("BLOCKWORK_FWD", None)
+if host_port is None:
+    print("ERROR: The BLOCKWORK_FWD environment variable has not been set")
+    sys.exit(1)
+host, port, *_ = host_port.split(":")
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.connect((host, int(port)))
+    # Encode request as JSON
+    encoded = json.dumps({ "args": sys.argv[1:],
+                           "cwd" : os.getcwd() }).encode("utf-8")
+    # Send the total encoded data size
+    s.sendall(bytearray(((len(encoded) >> (x * 8)) & 0xFF) for x in range(4)))
+    # Send the encoded data
+    s.sendall(encoded)
+    # Receive the response data size
+    raw_size = s.recv(4)
+    size     = sum([(int(x) << (i * 8)) for i, x in enumerate(raw_size)])
+    # Receive the response data
+    raw_data = s.recv(size)
+    # Decode JSON
+    try:
+        data = json.loads(raw_data)
+    except json.JSONDecodeError:
+        print("Error occurred while decoding response")
+        sys.exit(255)
+    # Log the response text
+    if (message := data.get("message", None)) is not None:
+        print(message)
+    # Exit with the right code
+    sys.exit(data.get("exitcode", 0))
