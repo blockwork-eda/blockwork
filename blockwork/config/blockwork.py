@@ -22,13 +22,17 @@ class Blockwork(ConfigBase):
 
     def __init__(self,
                  project  : Optional[str]       = None,
+                 root     : Optional[str]       = "/bw/project",
                  tooldefs : Optional[List[str]] = None) -> None:
         self.project = project
+        self.root     = root
         self.tooldefs = tooldefs or []
 
     def check(self) -> None:
         if not self.project or not isinstance(self.project, str):
             raise ConfigError(self, "project", "Project name has not been specified")
+        if not isinstance(self.root, str) or not self.root:
+            raise ConfigError(self, "root", "Root must be a string")
         if not isinstance(self.tooldefs, list):
             raise ConfigError(self, "tooldefs", "Tool definitions must be a list")
         if not all(isinstance(x, str) for x in self.tooldefs):

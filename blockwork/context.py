@@ -25,12 +25,16 @@ class Context:
     def __init__(self,
                  root     : Optional[Path] = None,
                  cfg_file : str            = ".bw.yaml") -> None:
-        self.__file = cfg_file
-        self.__root = self.locate_root(root or Path.cwd())
+        self.__file      = cfg_file
+        self.__host_root = self.locate_root(root or Path.cwd())
 
     @property
-    def root(self) -> Path:
-        return self.__root
+    def host_root(self) -> Path:
+        return self.__host_root
+
+    @property
+    def container_root(self) -> Path:
+        return Path(self.config.root)
 
     @property
     def file(self) -> str:
@@ -38,7 +42,7 @@ class Context:
 
     @property
     def config_path(self) -> Path:
-        return self.__root / self.__file
+        return self.__host_root / self.__file
 
     def locate_root(self, under : Path) -> Path:
         current = under
@@ -61,4 +65,4 @@ class Context:
     @property
     @functools.lru_cache()
     def registry(self) -> Registry:
-        return Registry(self.root, self.config.tooldefs)
+        return Registry(self.host_root, self.config.tooldefs)

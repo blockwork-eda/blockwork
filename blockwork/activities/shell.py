@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
-
 import click
 
 from .common import BwExecCommand
@@ -25,6 +23,6 @@ from ..foundation import Foundation
 def shell(ctx : Context, tool, no_tools):
     """ Launch a shell within the container environment """
     container = Foundation(hostname=f"{ctx.config.project}_shell")
-    container.bind(ctx.root, Path("/bw/project"), False)
+    container.bind(ctx.host_root, ctx.container_root, False)
     BwExecCommand.bind_tools(ctx.registry, container, no_tools, tool)
-    container.shell(workdir=Path("/bw/project"), show_detach=False)
+    container.shell(workdir=ctx.container_root, show_detach=False)

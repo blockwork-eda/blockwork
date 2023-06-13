@@ -264,7 +264,7 @@ class Invocation:
     def __init__(self,
                  version     : Version,
                  execute     : Path,
-                 args        : Optional[List[str]] = None,
+                 args        : Optional[List[Union[str, Path]]] = None,
                  workdir     : Optional[Path] = None,
                  display     : bool = False,
                  interactive : bool = False,

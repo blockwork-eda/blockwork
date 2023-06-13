@@ -24,6 +24,7 @@ def info(ctx : Context):
     """ List information about the project """
     table = Table(show_header=False)
     table.add_row("Project", ctx.config.project)
-    table.add_row("Root Directory", ctx.root.as_posix())
+    table.add_row("Host Root Directory", ctx.host_root.as_posix())
+    table.add_row("Container Root Directory", ctx.container_root.as_posix())
     table.add_row("Configuration File", ctx.config_path.as_posix())
     Console().print(table)

@@ -56,9 +56,9 @@ def tools(ctx : Context):
 @click.argument("tool_action", type=str)
 @click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
-def tool(ctx : Context,
+def tool(ctx         : Context,
          tool_action : str,
-         runargs : List[str]) -> None:
+         runargs     : List[str]) -> None:
     """
     Run an action defined by a specific tool. The tool and action is selected by
     the first argument either using the form <TOOL>.<ACTION> or just <TOOL>
@@ -75,4 +75,4 @@ def tool(ctx : Context,
         raise Exception(f"No action known for '{action}' on tool {tool}")
     # Run the action
     container = Foundation(hostname=f"{ctx.config.project}_{tool}_{action}")
-    container.invoke(act_def(*runargs))
+    container.invoke(ctx, act_def(*runargs))

@@ -179,14 +179,13 @@ class GTKWave(Tool):
              version  : Version,
              wavefile : str,
              *args    : List[str]) -> Invocation:
-        h_path = Path(wavefile).absolute()
-        c_path = Path("/bw/project") / h_path.name
+        path = Path(wavefile).absolute()
         return Invocation(
             version = version,
             execute = Tool.TOOL_ROOT / "src" / "gtkwave",
-            args    = [c_path.as_posix(), *args],
+            args    = [path, *args],
             display = True,
-            binds   = [(h_path, c_path)]
+            binds   = [path.parent]
         )
 ```
 
@@ -211,3 +210,16 @@ $> bw tool gtkwave waves.vcd
 
     As this action will invoke an X11 GUI, the `display = True` argument must be
     provided in the `Invocation` instance.
+
+### Paths and Binds
+
+The example of the GTKWave `view` action above relies on reading files from the
+host filesystem, this means that they need to be bound into the container prior
+to invoking the tool. When an action is invoked it may manually specify binds,
+but the arguments list can also contain paths which will be automatically bound
+into the container.
+
+Each bound path must be relative to the project root directory on the host, for
+example if a project is located under `/home/fred/example` then all paths bound
+in must be under this directory - that is to say `/home/fred/example/waves.vcd`
+is okay, but `/home/fred/outside.vcd` is not.

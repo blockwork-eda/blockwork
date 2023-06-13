@@ -18,15 +18,13 @@ class GTKWave(Tool):
              version  : Version,
              wavefile : str,
              *args    : List[str]) -> Invocation:
-        h_path = Path(wavefile).absolute()
-        c_path = Path("/bw/project") / h_path.name
+        path = Path(wavefile).absolute()
         return Invocation(
             version = version,
-            workdir = c_path.parent,
             execute = Tool.TOOL_ROOT / "src" / "gtkwave",
-            args    = [c_path.name, *args],
+            args    = [path, *args],
             display = True,
-            binds   = [(h_path.parent, c_path.parent)]
+            binds   = [path.parent]
         )
 
     @Tool.action("GTKWave")
