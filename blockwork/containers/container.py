@@ -192,7 +192,8 @@ class Container:
                workdir     : Optional[Path] = None,
                interactive : bool           = False,
                display     : bool           = False,
-               show_detach : bool           = True) -> None:
+               show_detach : bool           = True,
+               clear       : bool           = False) -> None:
         """
         Launch a task within the container either interactively (STDIN and STDOUT
         streamed from/to the console) or non-interactively (STDOUT is captured).
@@ -203,6 +204,7 @@ class Container:
         :param interactive: Whether to interactively forward STDIN and STDOUT
         :param display:     Expose the host's DISPLAY variable to the container
         :param show_detach: Whether to show the detach key message
+        :param clear:       Whether to clear the screen after the command completes
         """
         # Check if a container is already running
         if self.__container:
@@ -297,7 +299,8 @@ class Container:
                 t_read.join()
                 t_write.join()
                 # Clear the screen
-                os.system("cls || clear")
+                if clear:
+                    os.system("cls || clear")
             # Otherwise, track the task
             else:
                 while True:

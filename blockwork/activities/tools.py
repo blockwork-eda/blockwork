@@ -21,23 +21,34 @@ from rich.table import Table
 from .common import BwExecCommand
 from ..context import Context
 from ..foundation import Foundation
+from ..tools import Tool
 
 @click.command()
 @click.pass_obj
 def tools(ctx : Context):
-    """ Tabulate all of the available tools """
+    """
+    Tabulate all of the available tools including vendor name, tool name, version,
+    which version is default, and a list of supported actions. The default action
+    will be marked with an asterisk ('*').
+    """
     table = Table()
     table.add_column("Vendor")
     table.add_column("Tool")
     table.add_column("Version")
     table.add_column("Default")
+    table.add_column("Actions")
     for tool in ctx.registry:
+        t_acts = Tool.ACTIONS.get(tool.name, {})
+        actions = [(x, y) for x, y in t_acts.items() if x != "default"]
+        default = t_acts.get("default", None)
+        act_str = ", ".join(f"{x}{'*' if y is default else ''}" for x, y in actions)
         for idx, version in enumerate(tool):
             table.add_row(
                 tool.vendor if idx == 0 else "",
                 tool.name   if idx == 0 else "",
                 version.version,
-                ["", ":heavy_check_mark:"][version.default]
+                ["", ":heavy_check_mark:"][version.default],
+                act_str     if idx == 0 else "",
             )
     Console().print(table)
 

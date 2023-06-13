@@ -28,3 +28,14 @@ class GTKWave(Tool):
             display = True,
             binds   = [(h_path.parent, c_path.parent)]
         )
+
+    @Tool.action("GTKWave")
+    def version(self,
+                version : Version,
+                *args   : List[str]) -> Invocation:
+        return Invocation(
+            version = version,
+            execute = Tool.TOOL_ROOT / "src" / "gtkwave",
+            args    = ["--version", *args],
+            display = True,
+        )
