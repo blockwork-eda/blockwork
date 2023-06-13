@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from typing import List
 
 import click
@@ -73,6 +74,6 @@ def tool(ctx         : Context,
     # See if there is an action registered
     if (act_def := tool_ver.get_action(action)) is None:
         raise Exception(f"No action known for '{action}' on tool {tool}")
-    # Run the action
+    # Run the action and forward the exit code
     container = Foundation(hostname=f"{ctx.config.project}_{tool}_{action}")
-    container.invoke(ctx, act_def(*runargs))
+    sys.exit(container.invoke(ctx, act_def(*runargs)))

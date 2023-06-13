@@ -43,14 +43,20 @@ logging.basicConfig(
 @click.option("--verbose", "-v",
               is_flag=True,
               default=False,
-              help="Raise the verbosity of messages")
-def blockwork(ctx, cwd : str, verbose : bool) -> None:
+              help="Raise the verbosity of messages to debug")
+@click.option("--quiet", "-q",
+              is_flag=True,
+              default=False,
+              help="Lower the verbosity of messages to warning")
+def blockwork(ctx, cwd : str, verbose : bool, quiet : bool) -> None:
     global VERBOSE
     # Setup the verbosity
     if verbose:
         logging.info("Setting logging verbosity to DEBUG")
         logging.getLogger().setLevel(logging.DEBUG)
         VERBOSE = True
+    elif quiet:
+        logging.getLogger().setLevel(logging.WARNING)
     # Create the context object and attach to click
     ctx.obj = Context(root=Path(cwd).absolute() if cwd else None)
 

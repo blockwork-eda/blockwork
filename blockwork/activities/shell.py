@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+
 import click
 
 from .common import BwExecCommand
@@ -25,4 +27,5 @@ def shell(ctx : Context, tool, no_tools):
     container = Foundation(hostname=f"{ctx.config.project}_shell")
     container.bind(ctx.host_root, ctx.container_root, False)
     BwExecCommand.bind_tools(ctx.registry, container, no_tools, tool)
-    container.shell(workdir=ctx.container_root, show_detach=False)
+    # Launch the shell and forward the exit code
+    sys.exit(container.shell(workdir=ctx.container_root, show_detach=False))

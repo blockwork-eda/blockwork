@@ -77,8 +77,6 @@ class Container:
         self.__environment : Dict[str, str] = {}
         if isinstance(environment, dict):
             self.__environment.update(environment)
-        # State
-        self.__container : Union[docker.Container, None] = None
 
     @property
     def id(self):
@@ -99,8 +97,6 @@ class Container:
         :param readonly:    Whether to bind as readonly (default: False)
         :returns:           Mapped path within the container
         """
-        if self.__container:
-            raise ContainerError("Binds must be applied before launch")
         if not container:
             container = Path("/bw") / host.name
         self.__binds.append(ContainerBind(host, container, readonly))
@@ -125,8 +121,6 @@ class Container:
         :param key:     Environment variable name
         :param value:   Value of the environment variable
         """
-        if self.__container:
-            raise ContainerError("Environment must be set before launch")
         self.__environment[str(key)] = str(value)
 
     def append_env_path(self, key : str, value : str) -> None:
@@ -193,7 +187,7 @@ class Container:
                interactive : bool           = False,
                display     : bool           = False,
                show_detach : bool           = True,
-               clear       : bool           = False) -> None:
+               clear       : bool           = False) -> int:
         """
         Launch a task within the container either interactively (STDIN and STDOUT
         streamed from/to the console) or non-interactively (STDOUT is captured).
@@ -205,10 +199,8 @@ class Container:
         :param display:     Expose the host's DISPLAY variable to the container
         :param show_detach: Whether to show the detach key message
         :param clear:       Whether to clear the screen after the command completes
+        :returns:           Exit code of the executed process
         """
-        # Check if a container is already running
-        if self.__container:
-            raise ContainerError("Container has already been launched")
         # Check for a command
         if not command:
             raise ContainerError("No command provided to execute")
@@ -244,7 +236,7 @@ class Container:
         # Get access to Podman within a context manager
         with Podman.get_client() as client:
             # Create the container
-            self.__container = client.containers.run(
+            container = client.containers.run(
                 # Give the container an identifiable name
                 name       =self.__id,
                 # Set the image the container should launch
@@ -277,15 +269,15 @@ class Container:
                 def _tidy_up():
                     container.remove(force=True)
                 return _tidy_up
-            tidy_up = _make_tidy_up(self.__container)
+            tidy_up = _make_tidy_up(container)
             atexit.register(tidy_up)
             # Open a socket onto the container
-            socket = self.__container.attach_socket(params={ "stdin"     : True,
-                                                             "stdout"    : True,
-                                                             "stderr"    : True,
-                                                             "logs"      : True,
-                                                             "detachKeys": "ctrl-p",
-                                                             "stream"    : True })
+            socket = container.attach_socket(params={ "stdin"     : True,
+                                                      "stdout"    : True,
+                                                      "stderr"    : True,
+                                                      "logs"      : True,
+                                                      "detachKeys": "ctrl-p",
+                                                      "stream"    : True })
             # If interactive, open a shell
             if interactive:
                 # Log the keys to detach
@@ -311,17 +303,30 @@ class Container:
                         print(line.decode("utf-8"), end="")
                     except UnicodeDecodeError:
                         pass
+            # Get the result (carries the status code)
+            result = container.wait()
             # Tidy up
             atexit.unregister(tidy_up)
-            self.__container.remove(force=True)
-            self.__container = None
+            container.remove(force=True)
+            container = None
+        # Extract the status code (assume error if not set)
+        return result.get("StatusCode", 1)
 
     def shell(self,
               command     : Tuple[str]     = ("/bin/bash", ),
               workdir     : Optional[Path] = None,
-              show_detach : bool           = False) -> None:
-        self.launch(*command,
-                    workdir=workdir,
-                    interactive=True,
-                    display=True,
-                    show_detach=show_detach)
+              show_detach : bool           = False) -> int:
+        """
+        Open an interactive shell in the container. This is similar to launch,
+        but always enables and interactive shell and forwards the X11 display.
+
+        :param command:     Command to execute (defaults to /bin/bash)
+        :param workdir:     Working directory (defaults to /)
+        :param show_detach: Whether to show the detach key message
+        :returns:           Exit code from the executed process
+        """
+        return self.launch(*command,
+                           workdir=workdir,
+                           interactive=True,
+                           display=True,
+                           show_detach=show_detach)

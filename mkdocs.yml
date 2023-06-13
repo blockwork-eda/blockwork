@@ -39,5 +39,7 @@ nav:
   - "Command Line Interface":
     - Introduction: "cli/introduction.md"
     - info: "cli/info.md"
+    - exec: "cli/exec.md"
     - shell: "cli/shell.md"
+    - tool: "cli/tool.md"
     - tools: "cli/tools.md"

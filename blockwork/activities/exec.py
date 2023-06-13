@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from pathlib import Path
 from typing import List
 
@@ -38,8 +39,9 @@ def exec(ctx : Context,
     container = Foundation(hostname=f"{ctx.config.project}_run")
     container.bind(ctx.host_root, ctx.container_root, False)
     BwExecCommand.bind_tools(ctx.registry, container, no_tools, tool)
-    container.launch(*runargs,
-                     workdir=Path(cwd) if cwd else None,
-                     interactive=interactive,
-                     display=True,
-                     show_detach=False)
+    # Execute and forward the exit code
+    sys.exit(container.launch(*runargs,
+                              workdir=Path(cwd) if cwd else ctx.container_root,
+                              interactive=interactive,
+                              display=True,
+                              show_detach=False))

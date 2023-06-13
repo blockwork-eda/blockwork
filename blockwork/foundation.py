@@ -93,13 +93,14 @@ class Foundation(Container):
             for path in paths:
                 self.prepend_env_path(key, self.get_tool_path(tool_ver, path).as_posix())
 
-    def invoke(self, context : Context, invocation : Invocation) -> None:
+    def invoke(self, context : Context, invocation : Invocation) -> int:
         """
         Evaluate a tool invocation by binding the required tools and setting up
         the environment as per the request.
 
         :param context:     Context in which invocation is launched
         :param invocation:  An Invocation object
+        :returns:           Exit code from the executed process
         """
         # Add the tool into the container (also adds dependencies)
         self.add_tool(invocation.version)
@@ -138,9 +139,9 @@ class Foundation(Container):
         # Resolve the binary
         command = self.get_tool_path(invocation.version, invocation.execute).as_posix()
         # Launch
-        self.launch(command,
-                    *args,
-                    workdir=invocation.workdir or context.container_root,
-                    interactive=invocation.interactive,
-                    display=invocation.display,
-                    show_detach=False)
+        return self.launch(command,
+                           *args,
+                           workdir=invocation.workdir or context.container_root,
+                           interactive=invocation.interactive,
+                           display=invocation.display,
+                           show_detach=False)
