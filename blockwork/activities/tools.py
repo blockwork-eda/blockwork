@@ -42,15 +42,19 @@ def tools(ctx : Context):
     Console().print(table)
 
 @click.command()
-@click.argument("tool", type=str)
-@click.argument("action", type=str, default="default")
+@click.argument("tool_action", type=str)
 @click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
 def tool(ctx : Context,
-         tool : str,
-         action : str,
+         tool_action : str,
          runargs : List[str]) -> None:
-    """ Run an action defined by a specific tool """
+    """
+    Run an action defined by a specific tool. The tool and action is selected by
+    the first argument either using the form <TOOL>.<ACTION> or just <TOOL>
+    where the default action is acceptable.
+    """
+    # Split <TOOL>.<ACTION> or <TOOL> into parts
+    tool, action, *_ = (tool_action + ".default").split(".")
     # Find the tool
     vendor, name, version = BwExecCommand.decode_tool(tool)
     if (tool_ver := ctx.registry.get(vendor, name, version)) is None:

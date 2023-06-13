@@ -98,7 +98,8 @@ class Version:
             return Path(self.tool.name) / self.version
 
     def get_action(self, name : str) -> Union[Callable, None]:
-        action = self.tool.get_action(name)
+        if (action := self.tool.get_action(name)) is None:
+            return None
         # Return a wrapper that inserts the active version
         def _wrap(*args, **kwargs):
             return action(self, *args, **kwargs)

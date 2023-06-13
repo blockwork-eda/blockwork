@@ -13,7 +13,7 @@ class GTKWave(Tool):
                 default  = True),
     ]
 
-    @Tool.action("GTKWave")
+    @Tool.action("GTKWave", default=True)
     def view(self,
              version  : Version,
              wavefile : str,

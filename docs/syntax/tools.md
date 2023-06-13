@@ -174,7 +174,7 @@ class GTKWave(Tool):
                 paths    = { "PATH": [Tool.TOOL_ROOT / "src"] }),
     ]
 
-    @Tool.action("GTKWave")
+    @Tool.action("GTKWave", default=True)
     def view(self,
              version  : Version,
              wavefile : str,
@@ -198,7 +198,13 @@ class GTKWave(Tool):
 This action can then be invoked from the shell using the `bw tool` command:
 
 ```bash
-$> bw tool gtkwave view waves.vcd
+$> bw tool gtkwave.view waves.vcd
+```
+
+Or, as `view` is marked as a default action, this can be shortened to just:
+
+```bash
+$> bw tool gtkwave waves.vcd
 ```
 
 !!!note
