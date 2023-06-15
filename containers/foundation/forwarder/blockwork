@@ -10,20 +10,30 @@
 
 import json
 import os
+import select
 import socket
 import sys
 
+# Determine the location of the blockwork host
 host_port = os.environ.get("BLOCKWORK_FWD", None)
 if host_port is None:
     print("ERROR: The BLOCKWORK_FWD environment variable has not been set")
     sys.exit(1)
 host, port, *_ = host_port.split(":")
 
+# Read data from STDIN if it's immediately available
+if select.select([sys.stdin], [], [], 0.0)[0]:
+    stdin = sys.stdin.read()
+else:
+    stdin = ""
+
+# Connect to forwarding host
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((host, int(port)))
     # Encode request as JSON
-    encoded = json.dumps({ "args": sys.argv[1:],
-                           "cwd" : os.getcwd() }).encode("utf-8")
+    encoded = json.dumps({ "args" : sys.argv[1:],
+                           "cwd"  : os.getcwd(),
+                           "stdin": stdin }).encode("utf-8")
     # Send the total encoded data size
     s.sendall(bytearray(((len(encoded) >> (x * 8)) & 0xFF) for x in range(4)))
     # Send the encoded data
@@ -39,8 +49,10 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     except json.JSONDecodeError:
         print("Error occurred while decoding response")
         sys.exit(255)
-    # Log the response text
-    if (message := data.get("message", None)) is not None:
-        print(message)
+    # Log the response STDOUT and STDERR
+    if (stdout := data.get("stdout", None)) is not None:
+        sys.stdout.write(stdout)
+    if (stderr := data.get("stderr", None)) is not None:
+        sys.stderr.write(stderr)
     # Exit with the right code
     sys.exit(data.get("exitcode", 0))

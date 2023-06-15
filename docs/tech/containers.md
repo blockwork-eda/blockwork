@@ -130,3 +130,46 @@ This is handled in various ways by different platforms:
 The container launch routine can abstract this complexity so that X11 applications
 starting within the container do not need to concern themselves with the behaviour
 of the host.
+
+## Container-to-Host Interface
+
+Activities running within the container may need to invoke other Blockwork actions
+or launch long-running parallel tasks such as regressions. To avoid introducing
+many required packages into the contained environment (which would be required
+to run these tools directly), a basic 'forwarder' tool is exposed which can send
+requests back to the host via a socket connection. The host is then responsible
+for executing the request.
+
+The socket carries a simple protocol:
+
+ * The first 4 bytes of the request to the host carries the payload size;
+ * The rest of the request is a JSON encoded dictionary of the size carried in
+   the first 4 bytes;
+ * The response from the host is encoded in the same manner.
+
+The request payload carries three fields `args`, `cwd`, and `stdin`:
+
+ * `args` - is a dictionary of the command line arguments provided to the
+   forwarder;
+ * `cwd` - carries the shell's working directory within the contained environment
+   at the point the forwarder is invoked;
+ * `stdin` - carries any data that has been piped into the forwarder.
+
+The response payload carries three fields `stdout`, `stderr`, and `exitcode`:
+
+ * `stdout` and `stderr` - carry the text response from the host which will be
+   written to STDOUT and STDERR respectively;
+ * `exitcode` - determines the shell exit code of the call, allowing control flow
+   to be based on the success or failure of a forwarded call.
+
+For example - a request may look like:
+
+```json
+{ "args": ["some", "action", "--flag"], "cwd": "/bw/project", "stdin": "Content of a file" }
+```
+
+The response to which may look like:
+
+```json
+{ "stdout": "An info message", "stderr": "An error message", "exitcode": 3 }
+```
