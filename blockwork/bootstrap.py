@@ -61,7 +61,13 @@ class Bootstrap:
         """
         Register a method as a bootstrapping step, with an optional touch point
         which will be used to determine if the step is out-of-date and needs to
-        be re-run.
+        be re-run. The bootstrap method must accept two arguments - the first
+        called 'context' which will carry an instance of Context, and the second
+        called 'last_run' which will be an instance of datetime carrying the last
+        date the step was run. The bootstrap method should return a boolean value
+        to indicate whether it was already up-to-date - True indicates no actions
+        needed to be run, False indicates it was out-of-date and some actions
+        were performed.
 
         :param check_point: Optional file path to use when determining if the
                             step is out-of-date
@@ -88,6 +94,9 @@ class Bootstrap:
                 datetime.fromtimestamp(step.check_point.stat().st_mtime) <= last_run):
                 logging.info(f"Bootstrap step '{step.full_path}' is already up to date")
                 continue
-            logging.info(f"Running bootstrap step '{step.full_path}'")
-            step.method(context=context, last_run=last_run)
+            result = step.method(context=context, last_run=last_run)
+            if result is True:
+                logging.info(f"Bootstrap step '{step.full_path}' is already up to date")
+            else:
+                logging.info(f"Ran bootstrap step '{step.full_path}'")
             tracking.set(step.id, datetime.now().isoformat())
