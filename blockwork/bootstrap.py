@@ -12,17 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dataclasses
 import importlib
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable, Dict, List, Optional
 
 from .context import Context
 
+@dataclasses.dataclass
+class BootstrapStep:
+    full_path   : str
+    method      : Callable
+    check_point : Optional[Path]
+
+    @property
+    def id(self) -> str:
+        return self.full_path.replace(".", "__")
+
+
 class Bootstrap:
     """ Collects bootstrapping routines together """
-    REGISTERED = []
+    REGISTERED : Dict[str, BootstrapStep] = {}
 
     @classmethod
     def setup(cls, root : Path, paths : List[str]) -> None:
@@ -44,21 +57,37 @@ class Bootstrap:
                 raise Exception(f"No bootstrap methods registered by '{path}'")
 
     @classmethod
-    def register(cls, method : Callable) -> None:
+    def register(cls, check_point : Optional[Path] = None) -> None:
         """
-        Register a method as a bootstrapping stage. The method must accept only
-        a single argument of the Context object for the project.
+        Register a method as a bootstrapping step, with an optional touch point
+        which will be used to determine if the step is out-of-date and needs to
+        be re-run.
 
-        :param method:  The method to register
+        :param check_point: Optional file path to use when determining if the
+                            step is out-of-date
+        :returns:           The inner decorating method
         """
-        # Avoid registering a bootstrapping method twice. Use this rather than
-        # a set to still guarantee ordering.
-        if method not in cls.REGISTERED:
-            cls.REGISTERED.append(method)
+        def _inner(method : Callable) -> None:
+            step = BootstrapStep(method.__module__ + "." + method.__qualname__,
+                                 method,
+                                 check_point)
+            # Avoid registering a bootstrapping method twice, Python dictionaries
+            # maintain order so this will run steps in the order of declaration.
+            if step.id not in cls.REGISTERED:
+                cls.REGISTERED[step.id] = step
+        return _inner
 
     @classmethod
     def invoke(cls, context : Context) -> None:
-        for method in cls.REGISTERED:
-            logging.info(f"Running bootstrap step '{method.__module__}."
-                         f"{method.__qualname__}'")
-            method(context)
+        tracking  = context.state.bootstrap
+        for step in cls.REGISTERED.values():
+            raw      = tracking.get(step.id, None)
+            last_run = datetime.fromisoformat(raw) if raw else datetime.min
+            if (step.check_point and
+                step.check_point.exists() and
+                datetime.fromtimestamp(step.check_point.stat().st_mtime) <= last_run):
+                logging.info(f"Bootstrap step '{step.full_path}' is already up to date")
+                continue
+            logging.info(f"Running bootstrap step '{step.full_path}'")
+            step.method(context=context, last_run=last_run)
+            tracking.set(step.id, datetime.now().isoformat())
