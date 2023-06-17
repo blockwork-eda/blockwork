@@ -85,7 +85,13 @@ class Bootstrap:
 
     @classmethod
     def invoke(cls, context : Context) -> None:
-        tracking  = context.state.bootstrap
+        """
+        Evaluate all of the registered bootstrap methods, checking to see whether
+        they are out-of-date based on their 'check_point' before executing them.
+
+        :param context: The context object of the current session
+        """
+        tracking = context.state.bootstrap
         for step in cls.REGISTERED.values():
             raw      = tracking.get(step.id, None)
             last_run = datetime.fromisoformat(raw) if raw else datetime.min
