@@ -46,7 +46,7 @@ def get_raw_input():
         # Yield a function to get a input
         def _get_char():
             # Wait up to one second for data
-            rlist, _, _ = select.select([sys.stdin], [], [], 1.0)
+            rlist, _, _ = select.select([sys.stdin], [], [], 0.1)
             # If data available
             if sys.stdin in rlist:
                 # Peek at the next (up to) 4096 bytes of data
@@ -72,7 +72,7 @@ def read_stream(socket : SocketIO, e_done : Event) -> Thread:
             fcntl.fcntl(socket, fcntl.F_SETFL, base | os.O_NONBLOCK)
             # Keep reading until done event set (or we break out)
             while not e_done.is_set():
-                rlist, _, _ = select.select([socket], [], [], 1.0)
+                rlist, _, _ = select.select([socket], [], [], 0.1)
                 if rlist:
                     buff = socket.read(1024)
                     if len(buff) > 0:
