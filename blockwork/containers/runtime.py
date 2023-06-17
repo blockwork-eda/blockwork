@@ -79,6 +79,20 @@ class Runtime:
 
     @classmethod
     @functools.lru_cache()
+    def get_host_address(cls) -> str:
+        """
+        Determine the hostname used to access the container host from within the
+        running container.
+
+        :returns:   String of the hostname
+        """
+        if cls.is_podman_available():
+            return "host.containers.internal"
+        else:
+            return "host.internal"
+
+    @classmethod
+    @functools.lru_cache()
     def get_podman_info(cls) -> Dict[str, Any]:
         """
         Read back the information dictionary from the local Podman client which

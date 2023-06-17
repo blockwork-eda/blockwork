@@ -224,7 +224,7 @@ class Container:
                 bind_x11_unix = ContainerBind(x11_path, x11_path, False)
                 mounts.append(bind_x11_unix.as_configuration())
             else:
-                env["DISPLAY"] = "host.containers.internal:0"
+                env["DISPLAY"] = f"{Runtime.get_host_address()}:0"
         # Expose terminal dimensions
         tsize = os.get_terminal_size()
         logging.info(f"Setting terminal to {tsize.columns}x{tsize.lines}")
@@ -237,7 +237,7 @@ class Container:
             e_done = Event()
             # Start a forwarding host
             t_host, host_port = forwarding_host(e_done)
-            env["BLOCKWORK_FWD"] = f"host.containers.internal:{host_port}"
+            env["BLOCKWORK_FWD"] = f"{Runtime.get_host_address()}:{host_port}"
             # Create the container
             container = client.containers.run(
                 # Give the container an identifiable name

@@ -166,7 +166,8 @@ def forwarding_host(e_done : Event) -> Tuple[Thread, int]:
                         break
                     # TODO: DO SOMETHING WITH DATA!
                     # Encode response
-                    raw_resp = json.dumps({ "message" : f"Got data {data}",
+                    raw_resp = json.dumps({ "stdout"  : f"STDOUT for {data}",
+                                            "stderr"  : f"STDERR for {data}",
                                             "exitcode": 1 }).encode("utf-8")
                     # Send the data size as the first 4 bytes
                     conn.sendall(bytearray(((len(raw_resp) >> (x * 8)) & 0xFF) for x in range(4)))
