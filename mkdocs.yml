@@ -35,9 +35,11 @@ nav:
   - Configuration:
     - ".bw.yaml": "config/bw_yaml.md"
   - Syntax:
+    - Bootstrap: "syntax/bootstrap.md"
     - Tools: "syntax/tools.md"
   - "Command Line Interface":
     - Introduction: "cli/introduction.md"
+    - bootstrap: "cli/bootstrap.md"
     - info: "cli/info.md"
     - exec: "cli/exec.md"
     - shell: "cli/shell.md"

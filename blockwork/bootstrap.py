@@ -18,7 +18,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Union
 
 from .context import Context
 
@@ -57,7 +57,7 @@ class Bootstrap:
                 raise Exception(f"No bootstrap methods registered by '{path}'")
 
     @classmethod
-    def register(cls, check_point : Optional[Path] = None) -> None:
+    def register(cls, check_point : Optional[Union[str, Path]] = None) -> None:
         """
         Register a method as a bootstrapping step, with an optional touch point
         which will be used to determine if the step is out-of-date and needs to
@@ -76,7 +76,7 @@ class Bootstrap:
         def _inner(method : Callable) -> None:
             step = BootstrapStep(method.__module__ + "." + method.__qualname__,
                                  method,
-                                 check_point)
+                                 Path(check_point))
             # Avoid registering a bootstrapping method twice, Python dictionaries
             # maintain order so this will run steps in the order of declaration.
             if step.id not in cls.REGISTERED:
@@ -95,11 +95,12 @@ class Bootstrap:
         for step in cls.REGISTERED.values():
             raw      = tracking.get(step.id, None)
             last_run = datetime.fromisoformat(raw) if raw else datetime.min
-            if (step.check_point and
-                step.check_point.exists() and
-                datetime.fromtimestamp(step.check_point.stat().st_mtime) <= last_run):
-                logging.info(f"Bootstrap step '{step.full_path}' is already up to date")
-                continue
+            if step.check_point:
+                full_path  = context.host_root / step.check_point
+                if (full_path.exists() and
+                    datetime.fromtimestamp(full_path.stat().st_mtime) <= last_run):
+                    logging.info(f"Bootstrap step '{step.full_path}' is already up to date")
+                    continue
             result = step.method(context=context, last_run=last_run)
             if result is True:
                 logging.info(f"Bootstrap step '{step.full_path}' is already up to date")

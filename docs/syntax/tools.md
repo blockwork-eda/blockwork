@@ -1,4 +1,3 @@
-
 As many tools and versions may be declared, the syntax needs to be concise. There
 are three requirements:
 
