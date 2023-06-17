@@ -21,7 +21,7 @@ from pathlib import Path
 from threading import Event
 from typing import Dict, List, Optional, Tuple, Union
 
-from .client import Podman
+from .runtime import Runtime
 from .common import read_stream, write_stream, forwarding_host
 
 
@@ -47,8 +47,8 @@ class ContainerBind:
 
 class Container:
     """
-    Wrapper around Podman container launch and management that can be extended
-    to support specific tools and workflows.
+    Wrapper around container launch and management that can be extended to support
+    specific tools and workflows.
 
     :param image:       Container image to launch with
     :param workdir:     Default working directory (default: /)
@@ -231,8 +231,8 @@ class Container:
         env["LINES"]   = str(tsize.lines)
         env["COLUMNS"] = str(tsize.columns)
         env["TERM"]    = "xterm-256color"
-        # Get access to Podman within a context manager
-        with Podman.get_client() as client:
+        # Get access to container within a context manager
+        with Runtime.get_client() as client:
             # Create a thread-safe event to mark when container finishes
             e_done = Event()
             # Start a forwarding host

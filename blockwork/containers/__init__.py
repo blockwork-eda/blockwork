@@ -13,8 +13,8 @@
 # limitations under the License.
 
 # Expose various definitions
-from .client import Podman
 from .container import Container, ContainerError
+from .runtime import Runtime
 
 # Unused import lint guards
-assert all((Podman, Container, ContainerError))
+assert all((Container, ContainerError, Runtime))

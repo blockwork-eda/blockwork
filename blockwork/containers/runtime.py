@@ -15,6 +15,7 @@
 import contextlib
 import functools
 import json
+import shutil
 import subprocess
 import tempfile
 import time
@@ -24,17 +25,61 @@ from pathlib import Path
 
 from docker import DockerClient
 
-class Podman:
+class Runtime:
     """
-    Wraps the Podman REST API with a Docker Python client, adjusting for whether
-    Podman is running locally or remotely. The Docker Python client is more fully
-    featured that the Podman Python client, and is compatible with the Podman
-    REST API.
+    Wraps a Docker-compatible REST API with the Docker Python client, this is
+    compatible with Docker and other container runtimes like Podman and Orbstack.
     """
 
-    @staticmethod
+    @classmethod
     @functools.lru_cache()
-    def get_info() -> Dict[str, Any]:
+    def is_orbstack_available(cls) -> bool:
+        if shutil.which("orbctl") is None:
+            return False
+        if subprocess.run(["orbctl", "status"], capture_output=True).returncode != 0:
+            return False
+        return True
+
+    @classmethod
+    @functools.lru_cache()
+    def is_podman_available(cls) -> bool:
+        if shutil.which("podman") is None:
+            return False
+        if subprocess.run(["podman", "system", "info"], capture_output=True).returncode != 0:
+            return False
+        return True
+
+    @classmethod
+    @functools.lru_cache()
+    def is_docker_available(cls) -> bool:
+        if shutil.which("docker") is None:
+            return False
+        if subprocess.run(["docker", "info"], capture_output=True).returncode != 0:
+            return False
+        return True
+
+    @classmethod
+    @functools.lru_cache()
+    def identify_runtime(cls) -> str:
+        """
+        Attempt to identify which container runtime is being used by testing for
+        different binaries. Test for 'docker' last as many other runtimes offer
+        a 'dummy' docker command.
+
+        :returns:   Name of the identified runtime
+        """
+        if cls.is_orbstack_available():
+            return "orbstack"
+        elif cls.is_podman_available():
+            return "podman"
+        elif cls.is_docker_available():
+            return "docker"
+        else:
+            raise Exception("Could not identify a container runtime")
+
+    @classmethod
+    @functools.lru_cache()
+    def get_podman_info(cls) -> Dict[str, Any]:
         """
         Read back the information dictionary from the local Podman client which
         contains details on the host.
@@ -47,19 +92,19 @@ class Podman:
         assert proc.returncode == 0, f"Bad podman exit code: {proc.returncode}"
         return json.loads(out)
 
-    @staticmethod
+    @classmethod
     @functools.lru_cache()
-    def is_remote() -> bool:
+    def is_podman_remote(cls) -> bool:
         """
         Determine if Podman is running locally or remote
 
         :returns:   True if remote, or False if locally
         """
-        return Podman.get_info()["host"]["serviceIsRemote"]
+        return cls.get_info()["host"]["serviceIsRemote"]
 
-    @staticmethod
+    @classmethod
     @functools.lru_cache()
-    def get_rootless_remote_details() -> Tuple[str, str, int, str, str]:
+    def get_rootless_remote_podman_details(cls) -> Tuple[str, str, int, str, str]:
         """
         Get the rootless remote access details.
 
@@ -75,9 +120,9 @@ class Podman:
         assert parsed.scheme == "ssh", f"Unsupported scheme {parsed.scheme}"
         return parsed.username, parsed.hostname, parsed.port, parsed.path, default["Identity"]
 
-    @staticmethod
+    @classmethod
     @contextlib.contextmanager
-    def get_socket() -> Path:
+    def get_podman_socket(cls) -> Path:
         """
         Get a local handle to the Podman socket. If Podamn is running locally
         this just returns the socket, otherwise it opens an SSH link and forwards
@@ -86,8 +131,8 @@ class Podman:
 
         :yields:    Path to the local socket
         """
-        if Podman.is_remote():
-            user, host, port, path, identity = Podman.get_rootless_remote_details()
+        if cls.is_podman_remote():
+            user, host, port, path, identity = cls.get_rootless_remote_podman_details()
             tmpdir   = Path(tempfile.mkdtemp())
             sockfile = tmpdir / "podman.sock"
             command  = ["ssh", "-L", f"{sockfile.as_posix()}:{path}",
@@ -108,19 +153,34 @@ class Podman:
             sockfile.unlink()
             tmpdir.rmdir()
         else:
-            yield Path(Podman.get_info()["host"]["remoteSocket"]["path"])
+            yield Path(cls.get_podman_info()["host"]["remoteSocket"]["path"])
 
-    @staticmethod
+    @classmethod
     @contextlib.contextmanager
-    def get_client() -> DockerClient:
+    def get_docker_socket(cls) -> Path:
         """
-        Get a Docker API client wrapped around the Podman API endpoint, either
-        using the local or remote Podman service. This should be consumed as a
+        Get a local handle to the Docker REST API socket.
+
+        :yields:    Path to the Docker socket file
+        """
+        yield Path("/var/run/docker.sock")
+
+    @classmethod
+    @contextlib.contextmanager
+    def get_client(cls) -> DockerClient:
+        """
+        Get a Docker API client wrapped around the runtime API endpoint, either
+        using the local or remote runtime service. This should be consumed as a
         context using the `with` keyword.
 
-        :yields:    DockerClient instance wrapped around the Podman API
+        :yields:    DockerClient instance wrapped around the runtime's API
         """
-        with Podman.get_socket() as sockpath:
+        runtime = cls.identify_runtime()
+        if runtime == "podman":
+            get_sock = cls.get_podman_socket
+        else:
+            get_sock = cls.get_docker_socket
+        with get_sock() as sockpath:
             client = DockerClient(f"unix://{sockpath.as_posix()}")
             yield client
             client.close()
