@@ -21,19 +21,27 @@ class Blockwork(ConfigBase):
     yaml_tag = "!Blockwork"
 
     def __init__(self,
-                 project  : Optional[str]       = None,
-                 root     : Optional[str]       = "/bw/project",
-                 tooldefs : Optional[List[str]] = None) -> None:
-        self.project = project
-        self.root     = root
-        self.tooldefs = tooldefs or []
+                 project   : Optional[str]       = None,
+                 root      : Optional[str]       = "/bw/project",
+                 state_dir : Optional[str]       = ".bw_state",
+                 bootstrap : Optional[List[str]] = None,
+                 tooldefs  : Optional[List[str]] = None) -> None:
+        self.project   = project
+        self.root      = root
+        self.state_dir = state_dir
+        self.bootstrap = bootstrap or []
+        self.tooldefs  = tooldefs or []
 
     def check(self) -> None:
         if not self.project or not isinstance(self.project, str):
             raise ConfigError(self, "project", "Project name has not been specified")
         if not isinstance(self.root, str) or not self.root:
             raise ConfigError(self, "root", "Root must be a string")
-        if not isinstance(self.tooldefs, list):
-            raise ConfigError(self, "tooldefs", "Tool definitions must be a list")
-        if not all(isinstance(x, str) for x in self.tooldefs):
-            raise ConfigError(self, "tooldefs", "Tool definitions must be a list of strings")
+        if not isinstance(self.state_dir, str) or not self.state_dir:
+            raise ConfigError(self, "state_dir", "State directory must be string")
+        for key, name in (("bootstrap", "Bootstrap"), ("tooldefs", "Tool")):
+            obj = getattr(self, key)
+            if not isinstance(obj, list):
+                raise ConfigError(self, "tooldefs", f"{name} definitions must be a list")
+            if not all(isinstance(x, str) for x in obj):
+                raise ConfigError(self, "tooldefs", f"{name} definitions must be a list of strings")

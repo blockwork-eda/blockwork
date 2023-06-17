@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 from .config import Blockwork, Config
+from .state import State
 from .tools.registry import Registry
 
 class Context:
@@ -61,6 +62,11 @@ class Context:
         if not isinstance(obj, Blockwork):
             raise Exception(f"Expected Blockwork object got {type(obj).__name__}: {self.config_path}")
         return obj
+
+    @property
+    @functools.lru_cache()
+    def state(self) -> State:
+        return State((self.__host_root / self.config.state_dir).absolute())
 
     @property
     @functools.lru_cache()

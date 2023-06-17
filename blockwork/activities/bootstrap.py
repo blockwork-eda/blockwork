@@ -12,15 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Expose activities
-from .bootstrap import bootstrap
-from .info import info
-from .exec import exec
-from .shell import shell
-from .tools import tool, tools
+import logging
 
-# List all activities
-activities = (bootstrap, info, exec, shell, tool, tools)
+import click
 
-# Lint guard
-assert activities
+from ..bootstrap import Bootstrap
+from ..context import Context
+
+@click.command()
+@click.pass_obj
+def bootstrap(ctx : Context) -> None:
+    """ Run all bootstrapping actions """
+    logging.info(f"Importing {len(ctx.config.bootstrap)} bootstrapping paths")
+    Bootstrap.setup(ctx.host_root, ctx.config.bootstrap)
+    logging.info(f"Invoking {len(Bootstrap.REGISTERED)} bootstrap methods")
+    Bootstrap.invoke(ctx)
+    logging.info("Bootstrap complete")

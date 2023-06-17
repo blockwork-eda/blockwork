@@ -1,5 +1,7 @@
 !Blockwork
 project: example
+bootstrap:
+  - infra.bootstrap.demo
 tooldefs:
   - infra.tools.misc
   - infra.tools.compilers
