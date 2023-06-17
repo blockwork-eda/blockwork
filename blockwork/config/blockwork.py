@@ -22,7 +22,7 @@ class Blockwork(ConfigBase):
 
     def __init__(self,
                  project   : Optional[str]       = None,
-                 root      : Optional[str]       = "/bw/project",
+                 root      : Optional[str]       = "/project",
                  state_dir : Optional[str]       = ".bw_state",
                  bootstrap : Optional[List[str]] = None,
                  tooldefs  : Optional[List[str]] = None) -> None:

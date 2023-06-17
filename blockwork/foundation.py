@@ -26,17 +26,17 @@ class Foundation(Container):
     """ Standard baseline container for Blockwork """
 
     def __init__(self, **kwargs) -> None:
-        super().__init__(image="foundation", workdir=Path("/bw/scratch"), **kwargs)
+        super().__init__(image="foundation", workdir=Path("/scratch"), **kwargs)
         cwd = Path.cwd()
         # self.bind_readonly(cwd / "bw" / "input")
         self.bind(cwd / "bw" / "output")
         self.bind(cwd / "bw" / "scratch")
         self.set_env("PATH", "usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
         self.__tools     = {}
-        self.__tool_root = Path("/") / "bw" / "tools"
+        self.__tool_root = Path("/") / "tools"
 
     def add_input(self, path : Path, name : Optional[str] = None) -> None:
-        self.bind_readonly(path, Path("/bw/input") / (name or path.name))
+        self.bind_readonly(path, Path("/input") / (name or path.name))
 
     def get_tool_path(self, version : Version, path : Path) -> Path:
         """

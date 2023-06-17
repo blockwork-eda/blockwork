@@ -43,15 +43,20 @@ def get_raw_input():
     try:
         # Set TTY into raw mode
         tty.setraw(stdin)
-        # Set STDIN file to be non-blocking
-        fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fcntl | os.O_NONBLOCK)
         # Yield a function to get a input
         def _get_char():
-            # Use a select with a 1 second timeout to avoid infinite deadlock
+            # Wait up to one second for data
             rlist, _, _ = select.select([sys.stdin], [], [], 1.0)
-            # If STDIN has data, read up to 4096 characters
-            if rlist:
-                return sys.stdin.read(4096)
+            # If data available
+            if sys.stdin in rlist:
+                # Peek at the next (up to) 4096 bytes of data
+                # NOTE: This is done to reliably capture multi-character control
+                #       sequences while still maintaining updates on every single
+                #       key press
+                data = sys.stdin.buffer.peek(4096)
+                # Read as much data as was 'peeked' to move the cursor forwards
+                sys.stdin.buffer.read(len(data))
+                return data
         yield _get_char
     finally:
         # Reset termios and fcntl back to base values
@@ -69,7 +74,7 @@ def read_stream(socket : SocketIO, e_done : Event) -> Thread:
             while not e_done.is_set():
                 rlist, _, _ = select.select([socket], [], [], 1.0)
                 if rlist:
-                    buff = socket.read(4096)
+                    buff = socket.read(1024)
                     if len(buff) > 0:
                         try:
                             sys.stdout.write(buff.decode("utf-8"))
@@ -99,7 +104,7 @@ def write_stream(socket : SocketIO,
                 # Monitor for further STDIO
                 while not e_done.is_set():
                     if (char := get_char()) is not None:
-                        socket._sock.send(char.encode("utf-8"))
+                        socket._sock.send(char)
             except BrokenPipeError:
                 pass
         # Set event to signal completion of stream
