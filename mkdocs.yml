@@ -3,6 +3,7 @@ repo_name: intuity/blockwork
 repo_url: https://github.com/intuity/Blockwork
 theme:
   name: material
+  logo: assets/mascot_white.svg
   palette:
     scheme: slate
     primary: indigo
