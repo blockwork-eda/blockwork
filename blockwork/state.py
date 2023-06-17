@@ -117,7 +117,7 @@ class State:
     def __getattr__(self, name: str) -> Any:
         try:
             return super().__getattr__(name)
-        except:
+        except Exception:
             return self.get(name)
 
     def get(self, name: str) -> StateFile:
