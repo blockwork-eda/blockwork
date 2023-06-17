@@ -15,7 +15,7 @@ for testing if an action needs to be re-run (discussed in more detail below).
 A bootstrap step is declared simply as a method marked with the `@Bootstrap.register()`
 decorator, for example:
 
-```python title="infra/bootstrap/tool_a.py" linenums="1"
+```python linenums="1" title="infra/bootstrap/tool_a.py"
 import tempfile
 import zipfile
 from datetime import datetime
@@ -66,7 +66,7 @@ Paths to bootstrapping routines must also be added into the
 
 For example:
 
-```yaml title=".bw.yaml" linenums="1"
+```yaml linenums="1" title=".bw.yaml"
 !Blockwork
 project  : my_project
 bootstrap:
@@ -113,7 +113,8 @@ the bootstrapping step whenever:
  3. The last recorded run of the step is older than the last modified date of
     the checkpoint file.
 
-```python title="infra/bootstrap/tool_a.py linenums="1"
+
+```python linenums="1" title="infra/bootstrap/tool_a.py"
 from datetime import datetime
 from pathlib import Path
 
@@ -140,7 +141,7 @@ compute and should return `True` if the step is already up-to-date.
 The example below implements the same check as is performed by check point files,
 just to demonstrate how the mechanism may be used:
 
-```python title="infra/bootstrap/tool_a.py linenums="1"
+```python linenums="1" title="infra/bootstrap/tool_a.py"
 from datetime import datetime
 from pathlib import Path
 
