@@ -131,7 +131,9 @@ class TestBootstrap:
         Bootstrap.invoke(context)
         ts_post_c = datetime.now()
         # Check bs_step_b WAS run
+        print(f"OLD TS: {ts_step}")
         ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_b__bs_step_b"))
+        print(f"TS: {ts_step}, C: {ts_pre_c}, {ts_post_c}, B: {ts_pre_b}, A: {ts_pre_a}, {ts_post_a}")
         assert ts_pre_c <= ts_step
         assert ts_post_c >= ts_step
         mk_log.info.assert_called_with("Ran bootstrap step 'bootstrap.step_b.bs_step_b'")
