@@ -93,10 +93,11 @@ class Bootstrap:
             raw      = tracking.get(step.id, 0)
             last_run = datetime.fromisoformat(raw) if raw else datetime.min
             if step.check_point:
-                full_path = context.host_root / step.check_point
-                if (full_path.exists() and
-                    datetime.fromtimestamp(full_path.stat().st_mtime) <= last_run):
-                    logging.info(f"Bootstrap step '{step.full_path}' is already up to date")
+                chk_point = context.host_root / step.check_point
+                if (chk_point.exists() and
+                    (mtime := datetime.fromtimestamp(chk_point.stat().st_mtime)) <= last_run):
+                    logging.info(f"Bootstrap step '{step.full_path}' is already up to date "
+                                 f"MTIME: {mtime}, LAST_RUN: {last_run}")
                     continue
             if step.method(context=context, last_run=last_run) is True:
                 logging.info(f"Bootstrap step '{step.full_path}' is already up to date")

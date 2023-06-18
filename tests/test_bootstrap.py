@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from datetime import datetime
 from pathlib import Path
 
@@ -85,7 +86,7 @@ class TestBootstrap:
     def test_bootstrap_check_pointing(self, mocker, context : Context) -> None:
         """ Use a check point file to reduce redundant invocations """
         # Mock logging
-        mk_log = mocker.patch("blockwork.bootstrap.logging")
+        mk_log = mocker.patch("blockwork.bootstrap.logging", wraps=logging)
         # Choose test directories
         bs_dir    = context.host_root / "bootstrap"
         test_file = context.host_root / "test.txt"
