@@ -35,13 +35,13 @@ class Blockwork(ConfigBase):
     def check(self) -> None:
         if not self.project or not isinstance(self.project, str):
             raise ConfigError(self, "project", "Project name has not been specified")
-        if not isinstance(self.root, str) or not self.root:
-            raise ConfigError(self, "root", "Root must be a string")
-        if not isinstance(self.state_dir, str) or not self.state_dir:
-            raise ConfigError(self, "state_dir", "State directory must be string")
+        if not isinstance(self.root, str) or not self.root or not self.root.startswith("/"):
+            raise ConfigError(self, "root", "Root must be an absolute path")
+        if not isinstance(self.state_dir, str) or not self.state_dir or self.state_dir.startswith("/"):
+            raise ConfigError(self, "state_dir", "State directory must be a relative path")
         for key, name in (("bootstrap", "Bootstrap"), ("tooldefs", "Tool")):
             obj = getattr(self, key)
             if not isinstance(obj, list):
-                raise ConfigError(self, "tooldefs", f"{name} definitions must be a list")
+                raise ConfigError(self, key, f"{name} definitions must be a list")
             if not all(isinstance(x, str) for x in obj):
-                raise ConfigError(self, "tooldefs", f"{name} definitions must be a list of strings")
+                raise ConfigError(self, key, f"{name} definitions must be a list of strings")

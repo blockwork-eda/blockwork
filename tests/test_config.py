@@ -19,15 +19,34 @@ from blockwork.config import Blockwork, Config, ConfigError
 class TestConfig:
 
     def test_config(self) -> None:
-        """ Simple project configuration """
+        """ Custom project configuration """
         cfg = Config.parse_str("!Blockwork\n"
                                "project: test_project\n"
+                               "root: /my_root\n"
+                               "state_dir: .my_state\n"
+                               "bootstrap:\n"
+                               "  - infra.bootstrap.step_a\n"
+                               "  - infra.bootstrap.step_b\n"
                                "tooldefs:\n"
                                "  - infra.tools.set_a\n"
                                "  - infra.tools.set_b\n")
         assert isinstance(cfg, Blockwork)
         assert cfg.project == "test_project"
+        assert cfg.root == "/my_root"
+        assert cfg.state_dir == ".my_state"
+        assert cfg.bootstrap == ["infra.bootstrap.step_a", "infra.bootstrap.step_b"]
         assert cfg.tooldefs == ["infra.tools.set_a", "infra.tools.set_b"]
+
+    def test_config_default(self) -> None:
+        """ Simple project configuration using mostly default values """
+        cfg = Config.parse_str("!Blockwork\n"
+                               "project: test_project\n")
+        assert isinstance(cfg, Blockwork)
+        assert cfg.project == "test_project"
+        assert cfg.root == "/project"
+        assert cfg.state_dir == ".bw_state"
+        assert cfg.bootstrap == []
+        assert cfg.tooldefs == []
 
     def test_config_error(self) -> None:
         """ Different syntax errors """
@@ -38,19 +57,53 @@ class TestConfig:
         assert isinstance(exc.value.obj, Blockwork)
         assert exc.value.field == "project"
         assert str(exc.value) == "Project name has not been specified"
-        # Tool definitions not a list
+        # Bad root directory (integer)
         with pytest.raises(ConfigError) as exc:
             Config.parse_str("!Blockwork\n"
                              "project: test\n"
-                             "tooldefs: abcd\n")
+                             "root: 123\n")
         assert isinstance(exc.value.obj, Blockwork)
-        assert exc.value.field == "tooldefs"
-        assert str(exc.value) == "Tool definitions must be a list"
-        # Tool definitions not a list of strings
+        assert exc.value.field == "root"
+        assert str(exc.value) == "Root must be an absolute path"
+        # Bad root directory (relative path)
         with pytest.raises(ConfigError) as exc:
             Config.parse_str("!Blockwork\n"
                              "project: test\n"
-                             "tooldefs: [1, 2, 3]\n")
+                             "root: a/b\n")
         assert isinstance(exc.value.obj, Blockwork)
-        assert exc.value.field == "tooldefs"
-        assert str(exc.value) == "Tool definitions must be a list of strings"
+        assert exc.value.field == "root"
+        assert str(exc.value) == "Root must be an absolute path"
+        # Bad state directory (integer)
+        with pytest.raises(ConfigError) as exc:
+            Config.parse_str("!Blockwork\n"
+                             "project: test\n"
+                             "state_dir: 123\n")
+        assert isinstance(exc.value.obj, Blockwork)
+        assert exc.value.field == "state_dir"
+        assert str(exc.value) == "State directory must be a relative path"
+        # Bad state directory (absolute path)
+        with pytest.raises(ConfigError) as exc:
+            Config.parse_str("!Blockwork\n"
+                             "project: test\n"
+                             "state_dir: /a/b\n")
+        assert isinstance(exc.value.obj, Blockwork)
+        assert exc.value.field == "state_dir"
+        assert str(exc.value) == "State directory must be a relative path"
+        # Bootstrap and tool definitions
+        for key, name in (("bootstrap", "Bootstrap"), ("tooldefs", "Tool")):
+            # Definitions not a list
+            with pytest.raises(ConfigError) as exc:
+                Config.parse_str("!Blockwork\n"
+                                 "project: test\n"
+                                 f"{key}: abcd\n")
+            assert isinstance(exc.value.obj, Blockwork)
+            assert exc.value.field == key
+            assert str(exc.value) == f"{name} definitions must be a list"
+            # Definitions not a list of strings
+            with pytest.raises(ConfigError) as exc:
+                Config.parse_str("!Blockwork\n"
+                                 "project: test\n"
+                                 f"{key}: [1, 2, 3]\n")
+            assert isinstance(exc.value.obj, Blockwork)
+            assert exc.value.field == key
+            assert str(exc.value) == f"{name} definitions must be a list of strings"
