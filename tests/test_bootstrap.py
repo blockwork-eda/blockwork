@@ -124,8 +124,12 @@ class TestBootstrap:
         mk_log.info.reset_mock()
         assert not test_file.exists()
         # Modify the checkpoint file
-        chk_point.unlink()
+        pre_mtime = datetime.fromtimestamp(chk_point.stat().st_mtime)
+        print(f"PRE MTIME: {pre_mtime}")
         chk_point.write_text("def\n")
+        post_mtime = datetime.fromtimestamp(chk_point.stat().st_mtime)
+        print(f"POST MTIME: {post_mtime}")
+        print(f"POST > PRE: {post_mtime > pre_mtime}")
         # Invoke bootstrapping again
         ts_pre_c = datetime.now()
         Bootstrap.invoke(context)
