@@ -22,7 +22,7 @@ class StateError(Exception):
     pass
 
 
-class StateFile:
+class StateNamespace:
     """
     A wrapper around a state tracking file, which is simply a JSON dictionary
     written to disk. The wrapper allows arbitrary keys to be set and retrieved,
@@ -104,7 +104,7 @@ class State:
 
     def __init__(self, location : Path) -> None:
         self.__location = location
-        self.__files : Dict[str, StateFile] = {}
+        self.__files : Dict[str, StateNamespace] = {}
         # When the program exits, ensure all modifications are saved to disk
         atexit.register(self.save_all)
 
@@ -120,14 +120,14 @@ class State:
         except Exception:
             return self.get(name)
 
-    def get(self, name: str) -> StateFile:
+    def get(self, name: str) -> StateNamespace:
         """
         Retrieve a state file wrapper for a given name, generating a new wrapper
         on the fly if one has never been retrieved before.
 
         :param name:    Name of the state file
-        :returns:       Instance of StateFile
+        :returns:       Instance of StateNamespace
         """
         if name not in self.__files:
-            self.__files[name] = StateFile(name, self.__location / f"{name}.json")
+            self.__files[name] = StateNamespace(name, self.__location / f"{name}.json")
         return self.__files[name]

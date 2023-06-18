@@ -33,6 +33,7 @@ nav:
   - Welcome: "index.md"
   - Technologies:
     - Containers: "tech/containers.md"
+    - State: "tech/state.md"
   - Configuration:
     - ".bw.yaml": "config/bw_yaml.md"
   - Syntax:
