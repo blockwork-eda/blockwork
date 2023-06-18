@@ -86,7 +86,8 @@ class TestBootstrap:
     def test_bootstrap_check_pointing(self, mocker, context : Context) -> None:
         """ Use a check point file to reduce redundant invocations """
         # Mock logging
-        mk_log = mocker.patch("blockwork.bootstrap.logging", wraps=logging)
+        mk_log = mocker.patch("blockwork.bootstrap.logging")
+        mk_log.info.side_effect = print
         # Choose test directories
         bs_dir    = context.host_root / "bootstrap"
         test_file = context.host_root / "test.txt"
@@ -144,6 +145,7 @@ class TestBootstrap:
         mk_log.info.assert_called_with("Ran bootstrap step 'bootstrap.step_b.bs_step_b'")
         mk_log.info.reset_mock()
         assert test_file.exists()
+        assert False
 
     def test_bootstrap_last_run(self, mocker, context : Context) -> None:
         """ Use the 'last_run' variable to manually test out-of-date-ness """
