@@ -107,8 +107,8 @@ class TestBootstrap:
         ts_post_a = datetime.now()
         # Check bs_step_b was run
         ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_b__bs_step_b"))
-        assert ts_pre_a < ts_step
-        assert ts_post_a > ts_step
+        assert ts_pre_a <= ts_step
+        assert ts_post_a >= ts_step
         mk_log.info.assert_called_with("Ran bootstrap step 'bootstrap.step_b.bs_step_b'")
         mk_log.info.reset_mock()
         assert test_file.exists()
@@ -131,8 +131,8 @@ class TestBootstrap:
         ts_post_c = datetime.now()
         # Check bs_step_b WAS run
         ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_b__bs_step_b"))
-        assert ts_pre_c < ts_step
-        assert ts_post_c > ts_step
+        assert ts_pre_c <= ts_step
+        assert ts_post_c >= ts_step
         mk_log.info.assert_called_with("Ran bootstrap step 'bootstrap.step_b.bs_step_b'")
         mk_log.info.reset_mock()
         assert test_file.exists()
@@ -163,8 +163,8 @@ class TestBootstrap:
         ts_post_a = datetime.now()
         # Check bs_step_c was run
         ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_c__bs_step_c"))
-        assert ts_pre_a < ts_step
-        assert ts_post_a > ts_step
+        assert ts_pre_a <= ts_step
+        assert ts_post_a >= ts_step
         mk_log.info.assert_called_with("Ran bootstrap step 'bootstrap.step_c.bs_step_c'")
         mk_log.info.reset_mock()
         assert test_file.exists()
