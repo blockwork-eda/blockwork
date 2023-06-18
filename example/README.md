@@ -3,11 +3,11 @@
 ## Running Testbench
 
 ```bash
-$> bw run --cwd /project -- make -f /project/bench/Makefile run_cocotb
+$> bw exec --cwd /project -- make -f /project/bench/Makefile run_cocotb
 ```
 
 ## Viewing Waves
 
 ```bash
-$> bw run --cwd /project -- gtkwave /project/waves.vcd
+$> bw exec --cwd /project -- gtkwave /project/waves.vcd
 ```

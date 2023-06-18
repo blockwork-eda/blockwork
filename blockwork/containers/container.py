@@ -231,6 +231,10 @@ class Container:
         env["LINES"]   = str(tsize.lines)
         env["COLUMNS"] = str(tsize.columns)
         env["TERM"]    = "xterm-256color"
+        # Map /tmp to a tmpfs and set TMPDIR and TMP environment variables
+        mounts.append({ "type": "tmpfs", "target": "/tmp" })
+        env["TMPDIR"] = "/tmp"
+        env["TMP"]    = "/tmp"
         # Get access to container within a context manager
         with Runtime.get_client() as client:
             # Create a thread-safe event to mark when container finishes
