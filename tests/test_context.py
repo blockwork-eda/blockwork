@@ -26,9 +26,10 @@ class TestContext:
 
     def test_context(self, tmp_path : Path) -> None:
         """ Context should recognise the .bw.yaml file """
-        bw_yaml = tmp_path / ".bw.yaml"
-        infra   = tmp_path / "infra"
-        infra.mkdir()
+        root    = tmp_path / "project"
+        bw_yaml = root / ".bw.yaml"
+        infra   = root / "infra"
+        infra.mkdir(parents=True)
         # Create a tool definition
         with (infra / "tools.py").open("w", encoding="utf-8") as fh:
             fh.write("from pathlib import Path\n"
@@ -39,13 +40,18 @@ class TestContext:
         with bw_yaml.open("w", encoding="utf-8") as fh:
             fh.write("!Blockwork\n"
                      "project: test_project\n"
-                     "root: /bw/a/b\n"
+                     "root: /a/b\n"
                      "tooldefs:\n"
                      "  - infra.tools\n")
         # Create a context
-        ctx = Context(tmp_path)
-        assert ctx.host_root == tmp_path
-        assert ctx.container_root == Path("/bw/a/b")
+        ctx = Context(root)
+        assert ctx.host_root == root
+        assert ctx.host_scratch.samefile(tmp_path / "test_project.scratch")
+        assert ctx.host_state.samefile(tmp_path / "test_project.state")
+        assert ctx.host_scratch.exists()
+        assert ctx.host_state.exists()
+        assert ctx.container_root == Path("/a/b")
+        assert ctx.container_scratch == Path("/scratch")
         assert ctx.file == ".bw.yaml"
         assert ctx.config_path == bw_yaml
         assert isinstance(ctx.config, Blockwork)
@@ -69,7 +75,7 @@ class TestContext:
         with bw_yaml.open("w", encoding="utf-8") as fh:
             fh.write("!Blockwork\n"
                      "project: test_project\n"
-                     "root: /bw/a/b\n"
+                     "root: /a/b\n"
                      "tooldefs:\n"
                      "  - infra.tools\n")
         # Create a context in a sub-path
@@ -77,7 +83,7 @@ class TestContext:
         sub_path.mkdir(parents=True)
         ctx = Context(sub_path)
         assert ctx.host_root == tmp_path
-        assert ctx.container_root == Path("/bw/a/b")
+        assert ctx.container_root == Path("/a/b")
         assert ctx.file == ".bw.yaml"
         assert ctx.config_path == bw_yaml
         assert isinstance(ctx.config, Blockwork)
@@ -105,7 +111,7 @@ class TestContext:
         """ Check that a state object is created at the right path """
         bw_yaml = tmp_path / ".bw.yaml"
         with bw_yaml.open("w", encoding="utf-8") as fh:
-            fh.write("!Blockwork\nproject: test\nstate_dir: .my_state\n")
+            fh.write("!Blockwork\nproject: test\nhost_state: .my_{project}_state\n")
         ctx = Context(tmp_path)
         assert isinstance(ctx.state, State)
-        assert ctx.state._State__location == tmp_path / ".my_state"
+        assert ctx.state._State__location == tmp_path / ".my_test_state"

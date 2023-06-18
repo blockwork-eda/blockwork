@@ -6,22 +6,32 @@ The file must use a `!Blockwork` tag as its root element, as per the example bel
 
 ```yaml linenums="1"
 !Blockwork
-project  : example
-root     : /bw/project
-state_dir: .bw_state
-bootstrap:
+project     : example
+root        : /project
+scratch     : /scratch
+host_scratch: ../{project}.scratch
+host_state  : ../{project}.state
+bootstrap   :
   - infra.bootstrap.setup
-tooldefs :
+tooldefs    :
   - infra.tools.linters
   - infra.tools.compilers
 ```
 
 The fields of the `!Blockwork` tag are:
 
-| Field     | Required         | Default       | Description                                                             |
-|-----------|:----------------:|---------------|-------------------------------------------------------------------------|
-| project   | :material-check: |               | Sets the project's name                                                 |
-| root      |                  | `/bw/project` | Root directory where project is mapped inside the container             |
-| state_dir |                  | `.bw_state`   | Directory to store Blockwork's state information for the project        |
-| bootstrap |                  |               | Python paths containing [Bootstrap](../syntax/bootstrap.md) definitions |
-| tooldefs  | :material-check: |               | Python paths containing [Tool](../syntax/tools.md) definitions          |
+| Field        | Required         | Default                | Description                                                             |
+|--------------|:----------------:|------------------------|-------------------------------------------------------------------------|
+| project      | :material-check: |                        | Sets the project's name                                                 |
+| root         |                  | `/project`             | Location to map the project's root directory inside the container       |
+| scratch      |                  | `/scratch`             | Location to map the scratch area inside the container                   |
+| host_scratch |                  | `../{project}.scratch` | Directory to store build objects and other artefacts                    |
+| host_state   |                  | `../{project}.state`   | Directory to store Blockwork's state information for the project        |
+| bootstrap    |                  |                        | Python paths containing [Bootstrap](../syntax/bootstrap.md) definitions |
+| tooldefs     |                  |                        | Python paths containing [Tool](../syntax/tools.md) definitions          |
+
+!!!note
+
+    The `host_scratch` and `host_state` directories are resolved relative to the
+    project's root directory on the host, and the `{project}` keyword will be
+    substituted for the projects name (taken from the `project` field).

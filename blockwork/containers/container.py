@@ -88,7 +88,7 @@ class Container:
         """
         Bind a folder with read-write access from the host into the container at
         a given path, if the container path is not given then it uses the final
-        path component and places it under the '/bw' directory.
+        path component and places it under the root directory.
 
         :param host:        Path on the host
         :param container:   Optional path within the container
@@ -96,7 +96,7 @@ class Container:
         :returns:           Mapped path within the container
         """
         if not container:
-            container = Path("/bw") / host.name
+            container = Path("/") / host.name
         self.__binds.append(ContainerBind(host, container, readonly))
         return container
 
@@ -104,7 +104,7 @@ class Container:
         """
         Bind a folder with read-only access from the host into the container at
         a given path, if the container path is not given then it uses the final
-        path component and places it under the '/bw' directory.
+        path component and places it under the root directory.
 
         :param host:        Path on the host
         :param container:   Optional path within the container

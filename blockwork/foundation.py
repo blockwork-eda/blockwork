@@ -25,12 +25,9 @@ class FoundationError(Exception):
 class Foundation(Container):
     """ Standard baseline container for Blockwork """
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, context : Context, **kwargs) -> None:
         super().__init__(image="foundation", workdir=Path("/scratch"), **kwargs)
-        cwd = Path.cwd()
-        # self.bind_readonly(cwd / "bw" / "input")
-        self.bind(cwd / "bw" / "output")
-        self.bind(cwd / "bw" / "scratch")
+        self.bind(context.host_scratch, context.container_scratch)
         self.set_env("PATH", "usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
         self.__tools     = {}
         self.__tool_root = Path("/") / "tools"

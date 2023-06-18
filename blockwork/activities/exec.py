@@ -36,7 +36,7 @@ def exec(ctx : Context,
          cwd : str,
          runargs : List[str]) -> None:
     """ Run a command within the container environment """
-    container = Foundation(hostname=f"{ctx.config.project}_run")
+    container = Foundation(ctx, hostname=f"{ctx.config.project}_run")
     container.bind(ctx.host_root, ctx.container_root, False)
     BwExecCommand.bind_tools(ctx.registry, container, no_tools, tool)
     # Execute and forward the exit code

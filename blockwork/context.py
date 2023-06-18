@@ -34,8 +34,44 @@ class Context:
         return self.__host_root
 
     @property
+    @functools.lru_cache()
+    def host_scratch(self) -> Path:
+        # Substitute for {project} if required
+        subbed = self.config.host_scratch.format(project=self.config.project)
+        # Resolve to an absolute path
+        if subbed.startswith("/"):
+            path = Path(subbed)
+        else:
+            path = self.__host_root / subbed
+        # Fully resolve
+        path = path.absolute()
+        # Ensure it exists
+        path.mkdir(exist_ok=True, parents=True)
+        return path
+
+    @property
+    @functools.lru_cache()
+    def host_state(self) -> Path:
+        # Substitute for {project} if required
+        subbed = self.config.host_state.format(project=self.config.project)
+        # Resolve to an absolute path
+        if subbed.startswith("/"):
+            path = Path(subbed)
+        else:
+            path = self.__host_root / subbed
+        # Fully resolve
+        path = path.absolute()
+        # Ensure it exists
+        path.mkdir(exist_ok=True, parents=True)
+        return path
+
+    @property
     def container_root(self) -> Path:
         return Path(self.config.root)
+
+    @property
+    def container_scratch(self) -> Path:
+        return Path(self.config.scratch)
 
     @property
     def file(self) -> str:
@@ -66,7 +102,7 @@ class Context:
     @property
     @functools.lru_cache()
     def state(self) -> State:
-        return State((self.__host_root / self.config.state_dir).absolute())
+        return State(self.host_state)
 
     @property
     @functools.lru_cache()

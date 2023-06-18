@@ -75,5 +75,5 @@ def tool(ctx         : Context,
     if (act_def := tool_ver.get_action(action)) is None:
         raise Exception(f"No action known for '{action}' on tool {tool}")
     # Run the action and forward the exit code
-    container = Foundation(hostname=f"{ctx.config.project}_{tool}_{action}")
+    container = Foundation(ctx, hostname=f"{ctx.config.project}_{tool}_{action}")
     sys.exit(container.invoke(ctx, act_def(*runargs)))

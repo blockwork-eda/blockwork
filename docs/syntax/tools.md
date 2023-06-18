@@ -58,14 +58,14 @@ Working through this example:
 
 Tools are mapped into the container using a standard path structure:
 
-`/bw/tools/<TOOL_NAME>/<VERSION>`
+`/tools/<TOOL_NAME>/<VERSION>`
 
 The `<TOOL_NAME>` will be replaced by a lowercase version of the class name, for
 the example given above this would mean `<TOOL_NAME>` becomes `verilator`. The
 `<VERSION>` always matches the `version` field (i.e. `4.106` in this case). For the
 Verilator example, this would give a path of:
 
-`/bw/tools/verilator/4.106`
+`/tools/verilator/4.106`
 
 ## Vendor Grouping
 
@@ -82,9 +82,9 @@ class Make(Tool):
     ]
 ```
 
-Will be mapped using the form `/bw/tools/<VENDOR>/<TOOL_NAME>/<VERSION>` to:
+Will be mapped using the form `/tools/<VENDOR>/<TOOL_NAME>/<VERSION>` to:
 
-`/bw/tools/gnu/make/4.4`
+`/tools/gnu/make/4.4`
 
 !!!note
 

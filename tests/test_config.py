@@ -23,7 +23,9 @@ class TestConfig:
         cfg = Config.parse_str("!Blockwork\n"
                                "project: test_project\n"
                                "root: /my_root\n"
-                               "state_dir: .my_state\n"
+                               "scratch: /my_scratch\n"
+                               "host_state: ../my_{project}_state\n"
+                               "host_scratch: ../my_{project}_scratch\n"
                                "bootstrap:\n"
                                "  - infra.bootstrap.step_a\n"
                                "  - infra.bootstrap.step_b\n"
@@ -33,7 +35,9 @@ class TestConfig:
         assert isinstance(cfg, Blockwork)
         assert cfg.project == "test_project"
         assert cfg.root == "/my_root"
-        assert cfg.state_dir == ".my_state"
+        assert cfg.scratch == "/my_scratch"
+        assert cfg.host_state == "../my_{project}_state"
+        assert cfg.host_scratch == "../my_{project}_scratch"
         assert cfg.bootstrap == ["infra.bootstrap.step_a", "infra.bootstrap.step_b"]
         assert cfg.tooldefs == ["infra.tools.set_a", "infra.tools.set_b"]
 
@@ -44,7 +48,9 @@ class TestConfig:
         assert isinstance(cfg, Blockwork)
         assert cfg.project == "test_project"
         assert cfg.root == "/project"
-        assert cfg.state_dir == ".bw_state"
+        assert cfg.scratch == "/scratch"
+        assert cfg.host_state == "../{project}.state"
+        assert cfg.host_scratch == "../{project}.scratch"
         assert cfg.bootstrap == []
         assert cfg.tooldefs == []
 
@@ -73,22 +79,38 @@ class TestConfig:
         assert isinstance(exc.value.obj, Blockwork)
         assert exc.value.field == "root"
         assert str(exc.value) == "Root must be an absolute path"
+        # Bad scratch directory (integer)
+        with pytest.raises(ConfigError) as exc:
+            Config.parse_str("!Blockwork\n"
+                             "project: test\n"
+                             "scratch: 123\n")
+        assert isinstance(exc.value.obj, Blockwork)
+        assert exc.value.field == "scratch"
+        assert str(exc.value) == "Scratch must be an absolute path"
+        # Bad scratch directory (relative path)
+        with pytest.raises(ConfigError) as exc:
+            Config.parse_str("!Blockwork\n"
+                             "project: test\n"
+                             "scratch: a/b\n")
+        assert isinstance(exc.value.obj, Blockwork)
+        assert exc.value.field == "scratch"
+        assert str(exc.value) == "Scratch must be an absolute path"
+        # Bad scratch directory (integer)
+        with pytest.raises(ConfigError) as exc:
+            Config.parse_str("!Blockwork\n"
+                             "project: test\n"
+                             "host_scratch: 123\n")
+        assert isinstance(exc.value.obj, Blockwork)
+        assert exc.value.field == "host_scratch"
+        assert str(exc.value) == "Host scratch directory must be a relative or absolute path"
         # Bad state directory (integer)
         with pytest.raises(ConfigError) as exc:
             Config.parse_str("!Blockwork\n"
                              "project: test\n"
-                             "state_dir: 123\n")
+                             "host_state: 123\n")
         assert isinstance(exc.value.obj, Blockwork)
-        assert exc.value.field == "state_dir"
-        assert str(exc.value) == "State directory must be a relative path"
-        # Bad state directory (absolute path)
-        with pytest.raises(ConfigError) as exc:
-            Config.parse_str("!Blockwork\n"
-                             "project: test\n"
-                             "state_dir: /a/b\n")
-        assert isinstance(exc.value.obj, Blockwork)
-        assert exc.value.field == "state_dir"
-        assert str(exc.value) == "State directory must be a relative path"
+        assert exc.value.field == "host_state"
+        assert str(exc.value) == "Host state directory must be a relative or absolute path"
         # Bootstrap and tool definitions
         for key, name in (("bootstrap", "Bootstrap"), ("tooldefs", "Tool")):
             # Definitions not a list

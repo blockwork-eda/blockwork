@@ -165,7 +165,7 @@ The response payload carries three fields `stdout`, `stderr`, and `exitcode`:
 For example - a request may look like:
 
 ```json
-{ "args": ["some", "action", "--flag"], "cwd": "/bw/project", "stdin": "Content of a file" }
+{ "args": ["some", "action", "--flag"], "cwd": "/project", "stdin": "Content of a file" }
 ```
 
 The response to which may look like:
