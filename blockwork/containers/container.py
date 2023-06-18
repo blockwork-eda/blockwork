@@ -97,6 +97,19 @@ class Container:
         """
         if not container:
             container = Path("/") / host.name
+        # Ensure paths are fully resolved
+        host      = host.resolve()
+        container = container.resolve()
+        # Check for duplicate bind inside the container
+        for bind in self.__binds:
+            c_match = bind.container_path == container
+            # If exact match, silently allow
+            if c_match and bind.host_path.samefile(host) and (bind.readonly == readonly):
+                return
+            # Otherwise if a match or a parent, fail
+            elif c_match or container in bind.container_path.parents:
+                raise ContainerError(f"Cannot bind {host} to {container} due to"
+                                     f"collision with existing bind from {bind.host_path}")
         self.__binds.append(ContainerBind(host, container, readonly))
         return container
 

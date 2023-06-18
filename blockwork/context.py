@@ -44,7 +44,7 @@ class Context:
         else:
             path = self.__host_root / subbed
         # Fully resolve
-        path = path.absolute()
+        path = path.resolve().absolute()
         # Ensure it exists
         path.mkdir(exist_ok=True, parents=True)
         return path
@@ -60,7 +60,7 @@ class Context:
         else:
             path = self.__host_root / subbed
         # Fully resolve
-        path = path.absolute()
+        path = path.resolve().absolute()
         # Ensure it exists
         path.mkdir(exist_ok=True, parents=True)
         return path

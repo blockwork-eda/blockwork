@@ -26,8 +26,11 @@ class Foundation(Container):
     """ Standard baseline container for Blockwork """
 
     def __init__(self, context : Context, **kwargs) -> None:
-        super().__init__(image="foundation", workdir=Path("/scratch"), **kwargs)
-        self.bind(context.host_scratch, context.container_scratch)
+        super().__init__(image="foundation",
+                         workdir=context.container_root,
+                         **kwargs)
+        self.__context   = context
+        self.bind(self.__context.host_scratch, self.__context.container_scratch)
         self.set_env("PATH", "usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
         self.__tools     = {}
         self.__tool_root = Path("/") / "tools"
@@ -101,16 +104,22 @@ class Foundation(Container):
         """
         # Add the tool into the container (also adds dependencies)
         self.add_tool(invocation.version)
+        # Define closure to identify a mapping pair in root or scratch
+        def _map_to_container(h_path : Path) -> Path:
+            for rel_host, rel_cont in ((context.host_root, context.container_root),
+                                       (context.host_scratch, context.container_scratch)):
+                if h_path.is_relative_to(rel_host):
+                    c_path = rel_cont / h_path.relative_to(rel_host)
+                    break
+            else:
+                raise FoundationError(f"Path {h_path} is not within the project "
+                                      f"working directory {context.host_root} or "
+                                      f"scratch area {context.host_scratch}")
+            return h_path, c_path
         # Bind requested files/folders to relative paths
-        bound = []
         for h_path in invocation.binds:
             h_path : Path = h_path.absolute()
-            if not h_path.is_relative_to(context.host_root):
-                raise FoundationError(f"Path {h_path} is not within the project "
-                                      f"working directory {context.host_root}")
-            c_path = context.container_root / h_path.relative_to(context.host_root)
-            self.bind(h_path, c_path, False)
-            bound.append(h_path)
+            self.bind(*_map_to_container(h_path), False)
         # Process path arguments to make them relative
         args = []
         for arg in invocation.args:
@@ -120,16 +129,10 @@ class Foundation(Container):
             # For path arguments, check they will be accessible in the container
             if isinstance(arg, Path):
                 arg = arg.absolute()
-                if not arg.is_relative_to(context.host_root):
-                    raise FoundationError(f"Path {arg} is not within the project "
-                                          f"working directory {context.host_root}")
-                # Convert to an absolute path within the container
-                c_path = context.container_root / arg.relative_to(context.host_root)
+                _, c_path = _map_to_container(arg)
                 args.append(c_path.as_posix())
                 # If the path is not bound, bind it in
-                if not any(arg.is_relative_to(x) for x in bound):
-                    self.bind(arg, c_path, False)
-                    bound.append(arg)
+                self.bind(arg, c_path, False)
             # Otherwise, just pass through the argument
             else:
                 args.append(arg)

@@ -144,3 +144,7 @@ tracking
 # Drawio
 *.drawio.bkp
 *.drawio.dtmp
+
+# Blockwork
+*.scratch/
+*.state/

@@ -37,9 +37,15 @@ adder #(
 );
 
 initial begin : init_waves
+    string f_name;
     $timeformat(-9, 2, " ns", 20);
-    $dumpfile("waves.vcd");
-    $dumpvars(0, top);
+    if ($value$plusargs("WAVE_FILE=%s", f_name)) begin
+        $display("%0t: Capturing wave file %s", $time, f_name);
+        $dumpfile(f_name);
+        $dumpvars(0, top);
+    end else begin
+        $display("%0t: No filename provided - disabling wave capture", $time);
+    end
 end
 
 endmodule : top
