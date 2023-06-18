@@ -1,5 +1,30 @@
 ![Blockwork](docs/assets/mascot_b_black_e_white.png)
 
+## Setting Up
+
+Follow these steps to get a development environment:
+
+```bash
+# Install Poetry locally if you don't already have it
+$> python3 -m pip install poetry
+# Clone the repository
+$> git clone git@github.com:blockwork-eda/blockwork.git
+$> cd blockwork
+# Activate a poetry shell
+$> poetry shell
+# Install all dependencies (including those just for development)
+$> poetry install --with=dev
+# Bootstrap the example project
+$> bw -C example bootstrap
+# Run a test command
+$> bw -C example exec -- echo "hi"
+```
+
+> **NOTE** It's recommended to use [pyenv](https://github.com/pyenv/pyenv) to
+> avoid polluting your system's Python installation, you can find instructions
+> for [installing and using pyenv](https://github.com/pyenv/pyenv#getting-pyenv)
+> on the project's GitHub README.
+
 ## X11 Forwarding under macOS
 
  * Install XQuartz
