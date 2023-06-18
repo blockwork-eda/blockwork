@@ -124,6 +124,7 @@ class TestBootstrap:
         mk_log.info.reset_mock()
         assert not test_file.exists()
         # Modify the checkpoint file
+        chk_point.unlink()
         chk_point.write_text("def\n")
         # Invoke bootstrapping again
         ts_pre_c = datetime.now()
