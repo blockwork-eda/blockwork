@@ -1,4 +1,11 @@
-# blockwork
+<table>
+    <tbody>
+        <tr>
+            <td><img src="docs/assets/mascot_b_black_e_white.png" /></td>
+            <td><h1>Blockwork</h1></td>
+        </tr>
+    </tbody>
+</table>
 
 ## X11 Forwarding under macOS
 
