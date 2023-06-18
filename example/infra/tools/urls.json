@@ -1,0 +1,9 @@
+{
+    "gcc/13.1.0"        : "https://drive.google.com/uc?export=download&id=1POZ_Kbz0Qu8SLC8lB0VyQi3cpHSvhFO_&confirm=t",
+    "gtkwave/v3.3.113"  : "https://drive.google.com/uc?export=download&id=18o5aB1ZZcvIO1SP06B5ZFD9fyIuhkCn9&confirm=t",
+    "iverilog/v11.0"    : "https://drive.google.com/uc?export=download&id=13l1oyM12Xnbk5FL7lHqo5T8XxCbfxTA9&confirm=t",
+    "make/4.4"          : "https://drive.google.com/uc?export=download&id=1P6tEG9uIXYnvvedmSHRdZhoSRXnAy6dd&confirm=t",
+    "python/3.11.3"     : "https://drive.google.com/uc?export=download&id=1Ht_yox0RFW8D3Ba7P6CG1tRAQOy705It&confirm=t",
+    "python-site/3.11.3": "https://drive.google.com/uc?export=download&id=1euhPJtH-TJdsp9y-KQsBjfGujWKMuTfw&confirm=t",
+    "verilator/v4.106"  : "https://drive.google.com/uc?export=download&id=1TD4uni5eT65SOcILvOht2s9690l-V7bI&confirm=t"
+}

@@ -34,7 +34,7 @@ def setup_tool_a(context : Context, last_run : datetime) -> bool:
         return True
     # Fetch the tool
     with tempfile.TemporaryDirectory() as tmpdir:
-        local = tmpdir / "tool_a.zip"
+        local = Path(tmpdir) / "tool_a.zip"
         request.urlretrieve("http://www.example.com/tool_a.zip", local)
         with zipfile.ZipFile(local, "r") as zh:
             zh.extractall(install_loc)

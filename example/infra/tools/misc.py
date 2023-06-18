@@ -2,7 +2,7 @@ from pathlib import Path
 
 from blockwork.tools import Require, Tool, Version
 
-tool_root = Path(__file__).absolute().parent.parent.parent.parent / "tools"
+tool_root = Path(__file__).absolute().parent.parent.parent.parent / "example.tools"
 
 class Python(Tool):
     versions = [

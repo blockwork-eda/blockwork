@@ -3,7 +3,7 @@ from typing import List
 
 from blockwork.tools import Invocation, Tool, Version
 
-tool_root = Path(__file__).absolute().parent.parent.parent.parent / "tools"
+tool_root = Path(__file__).absolute().parent.parent.parent.parent / "example.tools"
 
 class GTKWave(Tool):
     versions = [
