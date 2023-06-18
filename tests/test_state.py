@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -127,13 +128,17 @@ class TestState:
         mtime = ns_file.stat().st_mtime
         # Check alteration flag is now low
         assert not test_ns._StateNamespace__altered
+        # Delay a second to ensure modification time moves forward
+        time.sleep(1)
         # Save again, and check no modification occurred
         state.save_all()
         assert ns_file.stat().st_mtime == mtime
+        # Delay a second to ensure modification time moves forward
+        time.sleep(1)
         # Alter a value
         test_ns.some_var = 234
         assert test_ns._StateNamespace__altered
-        # Save again, and check file us updated
+        # Save again, and check file is updated
         state.save_all()
         new_mtime = ns_file.stat().st_mtime
         assert new_mtime > mtime
@@ -141,6 +146,8 @@ class TestState:
         # Write the same value a second time, no alteration should be recorded
         test_ns.some_var = 234
         assert not test_ns._StateNamespace__altered
+        # Delay a second to ensure modification time moves forward
+        time.sleep(1)
         # Save again, and check no modification occurred
         state.save_all()
         assert ns_file.stat().st_mtime == mtime

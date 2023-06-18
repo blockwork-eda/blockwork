@@ -95,9 +95,8 @@ class Bootstrap:
             if step.check_point:
                 chk_point = context.host_root / step.check_point
                 if (chk_point.exists() and
-                    (mtime := datetime.fromtimestamp(chk_point.stat().st_mtime)) <= last_run):
-                    logging.info(f"Bootstrap step '{step.full_path}' is already up to date "
-                                 f"MTIME: {mtime}, LAST_RUN: {last_run}")
+                    datetime.fromtimestamp(chk_point.stat().st_mtime) <= last_run):
+                    logging.info(f"Bootstrap step '{step.full_path}' is already up to date")
                     continue
             if step.method(context=context, last_run=last_run) is True:
                 logging.info(f"Bootstrap step '{step.full_path}' is already up to date")

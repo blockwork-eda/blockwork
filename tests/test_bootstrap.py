@@ -122,25 +122,18 @@ class TestBootstrap:
         # Check bs_step_b was NOT run
         ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_b__bs_step_b"))
         assert ts_step < ts_pre_b
-        # mk_log.info.assert_called_with("Bootstrap step 'bootstrap.step_b.bs_step_b' is already up to date")
+        mk_log.info.assert_called_with("Bootstrap step 'bootstrap.step_b.bs_step_b' is already up to date")
         mk_log.info.reset_mock()
         assert not test_file.exists()
         # Modify the checkpoint file
-        pre_mtime = datetime.fromtimestamp(chk_point.stat().st_mtime)
-        print(f"PRE MTIME: {pre_mtime}")
         time.sleep(1)
         chk_point.write_text("def\n")
-        post_mtime = datetime.fromtimestamp(chk_point.stat().st_mtime)
-        print(f"POST MTIME: {post_mtime}")
-        print(f"POST > PRE: {post_mtime > pre_mtime}")
         # Invoke bootstrapping again
         ts_pre_c = datetime.now()
         Bootstrap.invoke(context)
         ts_post_c = datetime.now()
         # Check bs_step_b WAS run
-        print(f"OLD TS: {ts_step}")
         ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_b__bs_step_b"))
-        print(f"TS: {ts_step}, C: {ts_pre_c}, {ts_post_c}, B: {ts_pre_b}, A: {ts_pre_a}, {ts_post_a}")
         assert ts_pre_c <= ts_step
         assert ts_post_c >= ts_step
         mk_log.info.assert_called_with("Ran bootstrap step 'bootstrap.step_b.bs_step_b'")
