@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -128,6 +128,7 @@ class TestBootstrap:
         # Modify the checkpoint file
         pre_mtime = datetime.fromtimestamp(chk_point.stat().st_mtime)
         print(f"PRE MTIME: {pre_mtime}")
+        time.sleep(1)
         chk_point.write_text("def\n")
         post_mtime = datetime.fromtimestamp(chk_point.stat().st_mtime)
         print(f"POST MTIME: {post_mtime}")
@@ -145,7 +146,6 @@ class TestBootstrap:
         mk_log.info.assert_called_with("Ran bootstrap step 'bootstrap.step_b.bs_step_b'")
         mk_log.info.reset_mock()
         assert test_file.exists()
-        assert False
 
     def test_bootstrap_last_run(self, mocker, context : Context) -> None:
         """ Use the 'last_run' variable to manually test out-of-date-ness """
