@@ -190,6 +190,12 @@ class Tool(ABC):
 
     @functools.lru_cache()
     def get(self, version : str) -> Version:
+        """
+        Retrieve a specific version of a tool from the version name.
+
+        :param version: Version name
+        :returns:       Matching Version instance, or None if it doesn't exist
+        """
         match = [x for x in self.versions if x.version == version]
         return match[0] if match else None
 

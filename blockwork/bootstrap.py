@@ -51,10 +51,7 @@ class Bootstrap:
         if root.absolute().as_posix() not in sys.path:
             sys.path.append(root.absolute().as_posix())
         for path in paths:
-            num_reg = len(cls.REGISTERED)
             importlib.import_module(path)
-            if len(cls.REGISTERED) == num_reg:
-                raise Exception(f"No bootstrap methods registered by '{path}'")
 
     @classmethod
     def register(cls, check_point : Optional[Union[str, Path]] = None) -> None:
@@ -76,7 +73,7 @@ class Bootstrap:
         def _inner(method : Callable) -> None:
             step = BootstrapStep(method.__module__ + "." + method.__qualname__,
                                  method,
-                                 Path(check_point))
+                                 Path(check_point) if check_point else None)
             # Avoid registering a bootstrapping method twice, Python dictionaries
             # maintain order so this will run steps in the order of declaration.
             if step.id not in cls.REGISTERED:
@@ -93,17 +90,16 @@ class Bootstrap:
         """
         tracking = context.state.bootstrap
         for step in cls.REGISTERED.values():
-            raw      = tracking.get(step.id, None)
+            raw      = tracking.get(step.id, 0)
             last_run = datetime.fromisoformat(raw) if raw else datetime.min
             if step.check_point:
-                full_path  = context.host_root / step.check_point
+                full_path = context.host_root / step.check_point
                 if (full_path.exists() and
                     datetime.fromtimestamp(full_path.stat().st_mtime) <= last_run):
                     logging.info(f"Bootstrap step '{step.full_path}' is already up to date")
                     continue
-            result = step.method(context=context, last_run=last_run)
-            if result is True:
+            if step.method(context=context, last_run=last_run) is True:
                 logging.info(f"Bootstrap step '{step.full_path}' is already up to date")
             else:
                 logging.info(f"Ran bootstrap step '{step.full_path}'")
-            tracking.set(step.id, datetime.now().isoformat())
+                tracking.set(step.id, datetime.now().isoformat())

@@ -13,13 +13,21 @@
 # limitations under the License.
 
 from pathlib import Path
+from typing import List
 
 import pytest
 
-from blockwork.tools import Require, Tool, ToolError, Version
+from blockwork.tools import Invocation, Require, Tool, ToolError, Version
 
 class TestTools:
     """ Exercise tool and version definitions """
+
+    @pytest.fixture(autouse=True)
+    def reset_tool(self) -> None:
+        """ Clear registrations/singleton instances after each test """
+        yield
+        Tool.INSTANCES.clear()
+        Tool.ACTIONS.clear()
 
     def test_tool(self, tmp_path : Path) -> None:
         """ Basic functionality """
@@ -227,7 +235,7 @@ class TestTools:
             Widget()
         assert str(exc.value) == "No version of tool widget from vendor N/A marked as default"
 
-    def test_tool_bad_require(self, tmp_path) -> None:
+    def test_tool_bad_require(self, tmp_path : Path) -> None:
         tool_loc = tmp_path / "widget"
         tool_loc.mkdir()
         # Non-list of requirements
@@ -264,3 +272,113 @@ class TestTools:
                 ]
             ToolB()
         assert str(exc.value) == "Requirement version must be None or a string"
+
+    def test_tool_actions(self, tmp_path : Path) -> None:
+        """ Define and invoke actions on a tool """
+        tool_loc = tmp_path / "widget-1.1"
+        tool_loc.mkdir()
+        # Define the tool with an action
+        class Widget(Tool):
+            vendor   = "company"
+            versions = [
+                Version(location = tool_loc,
+                        version  = "1.1",
+                        env      = { "KEY_A": "VAL_A" },
+                        paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] })
+            ]
+            @Tool.action("Widget")
+            def do_something(self,
+                             version : Version,
+                             an_arg  : str,
+                             *args   : List[str]) -> Invocation:
+                return Invocation(
+                    version = version,
+                    execute = Tool.TOOL_ROOT / "bin" / "widget",
+                    args    = [an_arg],
+                    display = True,
+                    binds   = [Path("/a/b/c")],
+                )
+            @Tool.action("Widget", default=True)
+            def other_thing(self, version : Version, *args : List[str]) -> Invocation:
+                return Invocation(version, execute=Tool.TOOL_ROOT / "bin" / "thing")
+        # Invoke the 'do_something' action
+        act = Widget().get("1.1").get_action("do_something")
+        assert callable(act)
+        ivk = act("the argument", "ignored")
+        assert isinstance(ivk, Invocation)
+        # Check attributes of the invocation
+        assert ivk.version is Widget().get("1.1")
+        assert ivk.execute == Tool.TOOL_ROOT / "bin" / "widget"
+        assert ivk.args == ["the argument"]
+        assert ivk.display
+        assert ivk.interactive
+        assert ivk.binds == [Path("/a/b/c")]
+        # Get the default action
+        act_dft = Widget().get_action("default")
+        assert callable(act_dft)
+        ivk_dft = act_dft(Widget().get("1.1"), "abc", "123")
+        assert isinstance(ivk_dft, Invocation)
+        assert ivk_dft.version is Widget().get("1.1")
+        assert ivk_dft.execute == Tool.TOOL_ROOT / "bin" / "thing"
+        assert ivk_dft.args == []
+        assert not ivk_dft.display
+        assert not ivk_dft.interactive
+        assert ivk_dft.binds == []
+
+    def test_tool_action_bad_register_default(self, tmp_path : Path) -> None:
+        """ Attempt to register an action called 'default' """
+        tool_loc = tmp_path / "widget-1.1"
+        tool_loc.mkdir()
+        with pytest.raises(Exception) as exc:
+            class Widget(Tool):
+                vendor   = "company"
+                versions = [
+                    Version(location = tool_loc,
+                            version  = "1.1",
+                            env      = { "KEY_A": "VAL_A" },
+                            paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] })
+                ]
+                @Tool.action("Widget")
+                def default(self, version : Version, *args : List[str]) -> Invocation:
+                    return Invocation(version, Tool.TOOL_ROOT / "bin" / "blah")
+        assert str(exc.value) == (
+            "The action name 'default' is reserved, use the default=True option "
+            "instead"
+        )
+
+    def test_tool_action_none(self, tmp_path : Path) -> None:
+        """ Check that a widget with no actions registered returns none """
+        tool_loc = tmp_path / "widget-1.1"
+        tool_loc.mkdir()
+        class Widget(Tool):
+            vendor   = "company"
+            versions = [
+                Version(location = tool_loc,
+                        version  = "1.1",
+                        env      = { "KEY_A": "VAL_A" },
+                        paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] })
+            ]
+        # Via the tool
+        assert Widget().get_action("blah") is None
+        # Via the version
+        assert Widget().get("1.1").get_action("blah") is None
+
+    def test_tool_action_bad_name(self, tmp_path : Path) -> None:
+        """ Check that a non-existent action returns 'None' """
+        tool_loc = tmp_path / "widget-1.1"
+        tool_loc.mkdir()
+        class Widget(Tool):
+            vendor   = "company"
+            versions = [
+                Version(location = tool_loc,
+                        version  = "1.1",
+                        env      = { "KEY_A": "VAL_A" },
+                        paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] })
+            ]
+            @Tool.action("Widget")
+            def blah(self, version : Version, *args : List[str]) -> Invocation:
+                return Invocation(version, Tool.TOOL_ROOT / "bin" / "blah")
+        # Via the tool
+        assert Widget().get_action("not_blah") is None
+        # Via the version
+        assert Widget().get("1.1").get_action("not_blah") is None
