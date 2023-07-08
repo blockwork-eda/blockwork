@@ -114,7 +114,7 @@ class Runtime:
 
         :returns:   True if remote, or False if locally
         """
-        return cls.get_info()["host"]["serviceIsRemote"]
+        return cls.get_podman_info()["host"]["serviceIsRemote"]
 
     @classmethod
     @functools.lru_cache()
