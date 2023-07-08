@@ -20,7 +20,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
-from .context import Context
+from ..context import Context
 
 @dataclasses.dataclass
 class BootstrapStep:
@@ -78,6 +78,7 @@ class Bootstrap:
             # maintain order so this will run steps in the order of declaration.
             if step.id not in cls.REGISTERED:
                 cls.REGISTERED[step.id] = step
+            return method
         return _inner
 
     @classmethod
