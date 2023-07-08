@@ -26,6 +26,7 @@ class TestBootstrap:
 
     @pytest.fixture(autouse=True)
     def reset_bootstrap(self):
+        Bootstrap.REGISTERED.clear()
         yield
         Bootstrap.REGISTERED.clear()
 
@@ -40,7 +41,7 @@ class TestBootstrap:
     def test_bootstrap(self, mocker, context : Context) -> None:
         """ Exercise bootstrap registration and invocation """
         # Mock logging
-        mk_log = mocker.patch("blockwork.bootstrap.logging")
+        mk_log = mocker.patch("blockwork.bootstrap.registry.logging")
         # Choose test directories
         bs_dir    = context.host_root / "bootstrap"
         test_file = context.host_root / "test.txt"
@@ -86,7 +87,7 @@ class TestBootstrap:
     def test_bootstrap_check_pointing(self, mocker, context : Context) -> None:
         """ Use a check point file to reduce redundant invocations """
         # Mock logging
-        mk_log = mocker.patch("blockwork.bootstrap.logging")
+        mk_log = mocker.patch("blockwork.bootstrap.registry.logging")
         mk_log.info.side_effect = print
         # Choose test directories
         bs_dir    = context.host_root / "bootstrap"
@@ -143,7 +144,7 @@ class TestBootstrap:
     def test_bootstrap_last_run(self, mocker, context : Context) -> None:
         """ Use the 'last_run' variable to manually test out-of-date-ness """
         # Mock logging
-        mk_log = mocker.patch("blockwork.bootstrap.logging")
+        mk_log = mocker.patch("blockwork.bootstrap.registry.logging")
         # Choose test directories
         bs_dir    = context.host_root / "bootstrap"
         test_file = context.host_root / "test.txt"

@@ -14,8 +14,10 @@
 
 # Bootstrap infrastructure
 from .registry import Bootstrap, BootstrapStep
-assert all((Bootstrap, BootstrapStep))
 
 # Built-in bootstrapping rules
 from .containers import build_foundation
+
+# Lint guards
+assert all((Bootstrap, BootstrapStep))
 assert all((build_foundation, ))
