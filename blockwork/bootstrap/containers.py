@@ -14,6 +14,7 @@
 
 import logging
 from datetime import datetime
+from docker.errors import ImageNotFound
 from pathlib import Path
 
 from ..containers.runtime import Runtime
@@ -27,9 +28,21 @@ cntr_dir = root_dir / "containers"
 
 foundation = cntr_dir / "foundation" / "Containerfile"
 
-@Bootstrap.register(check_point=foundation)
+@Bootstrap.register()
 def build_foundation(context : Context, last_run : datetime) -> bool:
     with Runtime.get_client() as client:
+        # Check if the image exists (in case it was removed manually)
+        try:
+            client.images.get('foundation')
+        except ImageNotFound:
+            last_run = datetime.min
+
+        if not foundation.exists():
+            raise FileExistsError(f"Foundation ContainerFile does not exist at '{foundation}'!")
+
+        if datetime.fromtimestamp(foundation.stat().st_mtime) <= last_run:
+            return True
+
         logging.info(f"Building the foundation container from {foundation} - "
                      f"this may take a while...")
         client.images.build(path=foundation.parent.as_posix(),
@@ -37,3 +50,4 @@ def build_foundation(context : Context, last_run : datetime) -> bool:
                             tag="foundation",
                             rm=True)
         logging.info("Foundation container built")
+        return False
