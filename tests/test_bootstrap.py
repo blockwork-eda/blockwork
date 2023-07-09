@@ -123,7 +123,7 @@ class TestBootstrap:
         # Check bs_step_b was NOT run
         ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_b__bs_step_b"))
         assert ts_step < ts_pre_b
-        mk_log.info.assert_called_with("Bootstrap step 'bootstrap.step_b.bs_step_b' is already up to date")
+        mk_log.info.assert_called_with("Bootstrap step 'bootstrap.step_b.bs_step_b' is already up to date (based on checkpoint)")
         mk_log.info.reset_mock()
         assert not test_file.exists()
         # Modify the checkpoint file
@@ -180,6 +180,6 @@ class TestBootstrap:
         # Check bs_step_c was NOT run
         ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_c__bs_step_c"))
         assert ts_step < ts_pre_b
-        mk_log.info.assert_called_with("Bootstrap step 'bootstrap.step_c.bs_step_c' is already up to date")
+        mk_log.info.assert_called_with("Bootstrap step 'bootstrap.step_c.bs_step_c' is already up to date (based on method)")
         mk_log.info.reset_mock()
         assert not test_file.exists()
