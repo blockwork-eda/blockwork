@@ -37,8 +37,10 @@ def build_foundation(context : Context, last_run : datetime) -> bool:
         except ImageNotFound:
             last_run = datetime.min
 
-        if (foundation.exists() and
-            datetime.fromtimestamp(foundation.stat().st_mtime) <= last_run):
+        if not foundation.exists():
+            raise FileExistsError(f"Foundation ContainerFile does not exist at '{foundation}'!")
+
+        if datetime.fromtimestamp(foundation.stat().st_mtime) <= last_run:
             return True
 
         logging.info(f"Building the foundation container from {foundation} - "
