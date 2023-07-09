@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Generator, Tuple
 from urllib.parse import urlparse
 from pathlib import Path
 
@@ -181,7 +181,7 @@ class Runtime:
 
     @classmethod
     @contextlib.contextmanager
-    def get_client(cls) -> DockerClient:
+    def get_client(cls) -> Generator[DockerClient, None, None]:
         """
         Get a Docker API client wrapped around the runtime API endpoint, either
         using the local or remote runtime service. This should be consumed as a
