@@ -15,6 +15,7 @@
 import contextlib
 import functools
 import json
+import logging
 import shutil
 import subprocess
 import tempfile
@@ -30,6 +31,12 @@ class Runtime:
     Wraps a Docker-compatible REST API with the Docker Python client, this is
     compatible with Docker and other container runtimes like Podman and Orbstack.
     """
+
+    PREFERENCE = None
+
+    @classmethod
+    def set_preferred_runtime(cls, preference : str) -> None:
+        cls.PREFERENCE = preference
 
     @classmethod
     @functools.lru_cache()
@@ -68,11 +75,20 @@ class Runtime:
 
         :returns:   Name of the identified runtime
         """
-        if cls.is_orbstack_available():
+        if cls.PREFERENCE is not None:
+            pref = cls.PREFERENCE.lower()
+            if pref not in ("orbstack", "podman", "docker"):
+                raise Exception(f"Unsupported runtime: {pref}")
+            logging.debug(f"Using preferred runtime: {pref}")
+            return pref
+        elif cls.is_orbstack_available():
+            logging.debug("Using Orbstack as the container runtime")
             return "orbstack"
         elif cls.is_podman_available():
+            logging.debug("Using Podman as the container runtime")
             return "podman"
         elif cls.is_docker_available():
+            logging.debug("Using Docker as the container runtime")
             return "docker"
         else:
             raise Exception("Could not identify a container runtime")

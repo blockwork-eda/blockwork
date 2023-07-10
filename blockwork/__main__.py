@@ -22,6 +22,7 @@ from rich.logging import RichHandler
 
 from .activities import activities
 from .context import Context
+from .containers.runtime import Runtime
 
 VERBOSE = False
 
@@ -48,7 +49,11 @@ logging.basicConfig(
               is_flag=True,
               default=False,
               help="Lower the verbosity of messages to warning")
-def blockwork(ctx, cwd : str, verbose : bool, quiet : bool) -> None:
+@click.option("--runtime", "-r",
+              type=str,
+              default=None,
+              help="Set a specific container runtime to use")
+def blockwork(ctx, cwd : str, verbose : bool, quiet : bool, runtime : str) -> None:
     global VERBOSE
     # Setup the verbosity
     if verbose:
@@ -57,6 +62,9 @@ def blockwork(ctx, cwd : str, verbose : bool, quiet : bool) -> None:
         VERBOSE = True
     elif quiet:
         logging.getLogger().setLevel(logging.WARNING)
+    # Set a preferred runtime, if provided
+    if runtime:
+        Runtime.set_preferred_runtime(runtime)
     # Create the context object and attach to click
     ctx.obj = Context(root=Path(cwd).absolute() if cwd else None)
 
