@@ -256,7 +256,7 @@ class Container:
             t_host, host_port = forwarding_host(e_done)
             env["BLOCKWORK_FWD"] = f"{Runtime.get_host_address()}:{host_port}"
             # Create the container
-            container = client.containers.run(
+            container = client.containers.create(
                 # Give the container an identifiable name
                 name       =self.__id,
                 # Set the image the container should launch
@@ -298,6 +298,8 @@ class Container:
                                                       "logs"      : True,
                                                       "detachKeys": "ctrl-p",
                                                       "stream"    : True })
+            # Start the job
+            container.start()
             # If interactive, open a shell
             if interactive:
                 # Log the keys to detach
