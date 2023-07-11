@@ -17,9 +17,12 @@ import dataclasses
 import itertools
 import logging
 import os
+import time
 from pathlib import Path
 from threading import Event
 from typing import Dict, List, Optional, Tuple, Union
+
+import requests
 
 from .runtime import Runtime
 from .common import read_stream, write_stream, forwarding_host
@@ -325,7 +328,18 @@ class Container:
                     except UnicodeDecodeError:
                         pass
             # Get the result (carries the status code)
-            result = container.wait()
+            # NOTE: Podman sometimes drops the connection during 'wait()' leading
+            #       to a connection aborted error, so retry the operation until
+            #       it succeeds or reaching 10 failed attempts
+            for _ in range(10):
+                try:
+                    result = container.wait()
+                    break
+                except requests.exceptions.ConnectionError:
+                    time.sleep(0.1)
+                    continue
+            else:
+                raise Exception("Failed to retrieve container result after 10 attempts")
             # Ensure the host thread has exited
             e_done.set()
             t_host.join()
