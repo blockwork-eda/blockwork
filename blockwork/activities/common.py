@@ -39,6 +39,14 @@ class BwExecCommand(Command):
                                        "default is desired. To specify a vendor use "
                                        "the form '--tool <VENDOR>:<NAME>(=<VERSION>)'."))
         self.params.insert(0,
+                           Option(("--tool-mode", ),
+                                  type=click.Choice(("readonly", "readwrite"), case_sensitive=False),
+                                  default="readonly",
+                                  help="Set the file mode used when binding tools "
+                                       "to enable write access. Legal values are "
+                                       "either 'readonly' or 'readwrite', defaults "
+                                       "to 'readonly'."))
+        self.params.insert(0,
                            Option(("--no-tools", ),
                                   is_flag=True,
                                   default=False,

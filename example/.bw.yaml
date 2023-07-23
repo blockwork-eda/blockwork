@@ -8,3 +8,5 @@ tooldefs:
   - infra.tools.compilers
   - infra.tools.simulators
   - infra.tools.wave_viewers
+transforms:
+  - infra.transforms.lint

@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 import functools
+import sys
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
+from .build import Transform
 from .config import Blockwork, Config
 from .state import State
 from .tools.registry import Registry
@@ -28,6 +31,8 @@ class Context:
                  cfg_file : str            = ".bw.yaml") -> None:
         self.__file      = cfg_file
         self.__host_root = self.locate_root(root or Path.cwd())
+        if self.__host_root.absolute().as_posix() not in sys.path:
+            sys.path.append(self.__host_root.absolute().as_posix())
 
     @property
     def host_root(self) -> Path:
@@ -108,3 +113,10 @@ class Context:
     @functools.lru_cache()
     def registry(self) -> Registry:
         return Registry(self.host_root, self.config.tooldefs)
+
+    @property
+    @functools.lru_cache()
+    def transforms(self) -> Dict[str, Transform]:
+        for trandef in self.config.transforms:
+            importlib.import_module(trandef)
+        return Transform.TRANSFORMS

@@ -12,16 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Expose activities
-from .bootstrap import bootstrap
-from .build import build
-from .info import info
-from .exec import exec
-from .shell import shell
-from .tools import tool, tools
+import logging
 
-# List all activities
-activities = (bootstrap, build, info, exec, shell, tool, tools)
+import click
 
-# Lint guard
-assert activities
+from ..context import Context
+
+@click.command()
+@click.argument("transform", type=str)
+@click.pass_obj
+def build(ctx : Context, transform : str) -> None:
+    """ Run a build step """
+    logging.info(f"Locating transform '{transform}'")
+    transform = ctx.transforms[transform]
+    breakpoint()

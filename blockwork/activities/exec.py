@@ -30,7 +30,7 @@ from ..foundation import Foundation
 @click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
 def exec(ctx : Context,
-         tool : str,
+         tool : List[str],
          no_tools : bool,
          tool_mode : str,
          interactive : bool,
