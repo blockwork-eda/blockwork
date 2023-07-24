@@ -10,3 +10,6 @@ tooldefs:
   - infra.tools.wave_viewers
 transforms:
   - infra.transforms.lint
+  - infra.transforms.templating
+entities:
+  - design.top

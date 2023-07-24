@@ -20,9 +20,13 @@ import click
 from rich.console import Console
 from rich.logging import RichHandler
 
+from .bootstrap import Bootstrap
+from .build import Entity, Transform
 from .activities import activities
 from .context import Context
 from .containers.runtime import Runtime
+from .tools import Tool
+
 
 VERBOSE = False
 
@@ -67,6 +71,12 @@ def blockwork(ctx, cwd : str, verbose : bool, quiet : bool, runtime : str) -> No
         Runtime.set_preferred_runtime(runtime)
     # Create the context object and attach to click
     ctx.obj = Context(root=Path(cwd).absolute() if cwd else None)
+    # Trigger registration procedures
+    Tool.setup(ctx.obj.host_root, ctx.obj.config.tooldefs)
+    Bootstrap.setup(ctx.obj.host_root, ctx.obj.config.bootstrap)
+    Transform.setup(ctx.obj.host_root, ctx.obj.config.transforms)
+    Entity.setup(ctx.obj.host_root, ctx.obj.config.entities)
+
 
 for activity in activities:
     blockwork.add_command(activity)

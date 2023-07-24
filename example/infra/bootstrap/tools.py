@@ -9,7 +9,8 @@ from urllib import request
 from blockwork.bootstrap import Bootstrap
 from blockwork.context import Context
 
-@Bootstrap.register(check_point=Path("infra/tools/urls.json"))
+@Bootstrap.register()
+@Bootstrap.checkpoint(Path("infra/tools/urls.json"))
 def download_tools(context : Context, last_run : datetime) -> bool:
     # Get the content of the tool URL JSON file
     tool_urls = context.host_root / "infra" / "tools" / "urls.json"

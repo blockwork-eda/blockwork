@@ -38,7 +38,8 @@ def tools(ctx : Context):
     table.add_column("Version")
     table.add_column("Default", justify="center")
     table.add_column("Actions")
-    for tool in ctx.registry:
+    for tool_def in Tool.get_all().values():
+        tool   = tool_def()
         t_acts = Tool.ACTIONS.get(tool.name, {})
         actions = [(x, y) for x, y in t_acts.items() if x != "default"]
         default = t_acts.get("default", None)
@@ -69,7 +70,7 @@ def tool(ctx         : Context,
     tool, action, *_ = (tool_action + ".default").split(".")
     # Find the tool
     vendor, name, version = BwExecCommand.decode_tool(tool)
-    if (tool_ver := ctx.registry.get(vendor, name, version)) is None:
+    if (tool_ver := Tool.get(vendor, name, version)) is None:
         raise Exception(f"Cannot locate tool for {tool}")
     # See if there is an action registered
     if (act_def := tool_ver.get_action(action)) is None:

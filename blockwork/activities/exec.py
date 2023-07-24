@@ -39,7 +39,7 @@ def exec(ctx : Context,
     """ Run a command within the container environment """
     container = Foundation(ctx, hostname=f"{ctx.config.project}_run")
     container.bind(ctx.host_root, ctx.container_root, False)
-    BwExecCommand.bind_tools(ctx.registry, container, no_tools, tool, tool_mode)
+    BwExecCommand.bind_tools(container, no_tools, tool, tool_mode)
     # Execute and forward the exit code
     sys.exit(container.launch(*runargs,
                               workdir=Path(cwd) if cwd else ctx.container_root,

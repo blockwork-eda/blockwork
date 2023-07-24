@@ -25,8 +25,8 @@ class Verilator(Tool):
     versions = [
         Version(location = install_root / "verilator-4.106"
                 version  = "4.106"
-                env      = { "VERILATOR_ROOT": Tool.TOOL_ROOT }
-                paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] }),
+                env      = { "VERILATOR_ROOT": Tool.ROOT }
+                paths    = { "PATH": [Tool.ROOT / "bin"] }),
     ]
 ```
 
@@ -53,7 +53,7 @@ Working through this example:
 
 !!!note
 
-    The `Tool.TOOL_ROOT` variable points to the equivalent of the `location` when
+    The `Tool.ROOT` variable points to the equivalent of the `location` when
     mapped into the container (i.e. the root directory of the bound tool)
 
 Tools are mapped into the container using a standard path structure:
@@ -78,7 +78,7 @@ class Make(Tool):
     versions = [
         Version(location = install_root / "make-4.4",
                 version  = "4.4",
-                paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] }),
+                paths    = { "PATH": [Tool.ROOT / "bin"] }),
     ]
 ```
 
@@ -102,11 +102,11 @@ class Make(Tool):
     versions = [
         Version(location = install_root / "make-4.4",
                 version  = "4.4",
-                paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] },
+                paths    = { "PATH": [Tool.ROOT / "bin"] },
                 default  = True),
         Version(location = install_root / "make-4.3",
                 version  = "4.3",
-                paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] }),
+                paths    = { "PATH": [Tool.ROOT / "bin"] }),
     ]
 ```
 
@@ -128,8 +128,8 @@ class Python(Tool):
     versions = [
         Version(location = install_root / "python-3.11",
                 version  = "3.11",
-                paths    = { "PATH"           : [Tool.TOOL_ROOT / "bin"],
-                             "LD_LIBRARY_PATH": [Tool.TOOL_ROOT / "lib"] })
+                paths    = { "PATH"           : [Tool.ROOT / "bin"],
+                             "LD_LIBRARY_PATH": [Tool.ROOT / "lib"] })
     ]
 
 class PythonSite(Tool):
@@ -137,9 +137,9 @@ class PythonSite(Tool):
     versions = [
         Version(location = install_root / "python-site-3.11",
                 version  = "3.11",
-                env      = { "PYTHONUSERBASE": Tool.TOOL_ROOT },
-                paths    = { "PATH"      : [Tool.TOOL_ROOT / "bin"],
-                             "PYTHONPATH": [Tool.TOOL_ROOT / "lib" / "python3.11" / "site-packages"] },
+                env      = { "PYTHONUSERBASE": Tool.ROOT },
+                paths    = { "PATH"      : [Tool.ROOT / "bin"],
+                             "PYTHONPATH": [Tool.ROOT / "lib" / "python3.11" / "site-packages"] },
                 requires = [Require(Python, "3.11")]),
     ]
 ```
@@ -170,7 +170,7 @@ class GTKWave(Tool):
     versions = [
         Version(location = tool_root / "gtkwave-3.3.113",
                 version  = "3.3.113",
-                paths    = { "PATH": [Tool.TOOL_ROOT / "src"] }),
+                paths    = { "PATH": [Tool.ROOT / "src"] }),
     ]
 
     @Tool.action("GTKWave", default=True)
@@ -181,7 +181,7 @@ class GTKWave(Tool):
         path = Path(wavefile).absolute()
         return Invocation(
             version = version,
-            execute = Tool.TOOL_ROOT / "src" / "gtkwave",
+            execute = Tool.ROOT / "src" / "gtkwave",
             args    = [path, *args],
             display = True,
             binds   = [path.parent]

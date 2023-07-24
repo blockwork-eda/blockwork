@@ -23,7 +23,7 @@ from ..context import Context
 @click.option("--mode",
             type=click.Choice(BwBootstrapMode, case_sensitive=False),
             default="default",
-            help="""Set the bootstrap mode. 
+            help="""Set the bootstrap mode.
                         default: Rebuild out of date steps
                         force: Rebuild all steps
                  """)
@@ -33,6 +33,6 @@ def bootstrap(ctx : Context, mode: str) -> None:
     mode: BwBootstrapMode = getattr(BwBootstrapMode, mode)
     logging.info(f"Importing {len(ctx.config.bootstrap)} bootstrapping paths")
     Bootstrap.setup(ctx.host_root, ctx.config.bootstrap)
-    logging.info(f"Invoking {len(Bootstrap.REGISTERED)} bootstrap methods")
-    Bootstrap.invoke(ctx, mode=mode)
+    logging.info(f"Invoking {len(Bootstrap.get_all())} bootstrap methods")
+    Bootstrap.evaluate_all(ctx, mode=mode)
     logging.info("Bootstrap complete")

@@ -43,12 +43,12 @@ class Foundation(Container):
         """
         Map a path relative to a tool root to the absolute path within the container.
         :param version: Tool version
-        :param path:    Path relative to TOOL_ROOT
+        :param path:    Path relative to Tool.ROOT
         :returns:       Absolute path
         """
-        if Tool.TOOL_ROOT is path or Tool.TOOL_ROOT in path.parents:
+        if Tool.ROOT is path or Tool.ROOT in path.parents:
             full_loc = self.__tool_root / version.path_chunk
-            return full_loc / path.relative_to(Tool.TOOL_ROOT)
+            return full_loc / path.relative_to(Tool.ROOT)
         else:
             return path
 
@@ -68,7 +68,7 @@ class Foundation(Container):
             raise FoundationError(f"Tool already registered for ID '{tool.base_id}'")
         # Load any requirements
         for req in tool_ver.requires:
-            req_ver = req.tool().get(req.version)
+            req_ver = req.tool().get_version(req.version)
             if req_ver is None:
                 raise FoundationError(f"Could not resolve version {req.version} for {req.tool.base_id}")
             elif req.tool.base_id in self.__tools:
@@ -139,7 +139,9 @@ class Foundation(Container):
             else:
                 args.append(arg)
         # Resolve the binary
-        command = self.get_tool_path(invocation.version, invocation.execute).as_posix()
+        command = invocation.execute
+        if isinstance(command, Path):
+            command = self.get_tool_path(invocation.version, command).as_posix()
         # Launch
         return self.launch(command,
                            *args,

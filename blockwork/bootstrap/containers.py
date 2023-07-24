@@ -22,7 +22,7 @@ from rich.console import Console
 import blockwork
 from ..containers.runtime import Runtime
 from ..context import Context
-from .registry import Bootstrap
+from .bootstrap import Bootstrap
 
 root_dir = Path(blockwork.__path__[0]).absolute()
 cntr_dir = root_dir / "containerfiles"

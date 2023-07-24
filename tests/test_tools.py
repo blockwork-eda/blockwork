@@ -40,7 +40,7 @@ class TestTools:
                 Version(location = tool_loc,
                         version  = "1.1",
                         env      = { "KEY_A": "VAL_A" },
-                        paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] })
+                        paths    = { "PATH": [Tool.ROOT / "bin"] })
             ]
         # Create an instance
         inst = Widget()
@@ -53,7 +53,7 @@ class TestTools:
         assert inst.versions[0].version == "1.1"
         assert inst.versions[0].location == tool_loc
         assert inst.versions[0].env == { "KEY_A": "VAL_A" }
-        assert inst.versions[0].paths == { "PATH": [Tool.TOOL_ROOT / "bin"] }
+        assert inst.versions[0].paths == { "PATH": [Tool.ROOT / "bin"] }
         assert inst.versions[0].default
         # Check default version pointer
         assert inst.default is inst.versions[0]
@@ -71,7 +71,7 @@ class TestTools:
                 Version(location = tool_loc,
                         version  = "1.1",
                         env      = { "KEY_A": "VAL_A" },
-                        paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] })
+                        paths    = { "PATH": [Tool.ROOT / "bin"] })
             ]
         # Create an instance
         inst = Widget()
@@ -84,7 +84,7 @@ class TestTools:
         assert inst.versions[0].version == "1.1"
         assert inst.versions[0].location == tool_loc
         assert inst.versions[0].env == { "KEY_A": "VAL_A" }
-        assert inst.versions[0].paths == { "PATH": [Tool.TOOL_ROOT / "bin"] }
+        assert inst.versions[0].paths == { "PATH": [Tool.ROOT / "bin"] }
         assert inst.versions[0].default
         # Check default version pointer
         assert inst.default is inst.versions[0]
@@ -105,12 +105,12 @@ class TestTools:
                 Version(location = loc_1_1,
                         version  = "1.1",
                         env      = { "KEY_A": "VAL_A" },
-                        paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] },
+                        paths    = { "PATH": [Tool.ROOT / "bin"] },
                         default  = True),
                 Version(location = loc_1_2,
                         version  = "1.2",
                         env      = { "KEY_A": "VAL_B" },
-                        paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] })
+                        paths    = { "PATH": [Tool.ROOT / "bin"] })
             ]
         # Checks
         inst = Widget()
@@ -284,7 +284,7 @@ class TestTools:
                 Version(location = tool_loc,
                         version  = "1.1",
                         env      = { "KEY_A": "VAL_A" },
-                        paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] })
+                        paths    = { "PATH": [Tool.ROOT / "bin"] })
             ]
             @Tool.action("Widget")
             def do_something(self,
@@ -293,14 +293,14 @@ class TestTools:
                              *args   : List[str]) -> Invocation:
                 return Invocation(
                     version = version,
-                    execute = Tool.TOOL_ROOT / "bin" / "widget",
+                    execute = Tool.ROOT / "bin" / "widget",
                     args    = [an_arg],
                     display = True,
                     binds   = [Path("/a/b/c")],
                 )
             @Tool.action("Widget", default=True)
             def other_thing(self, version : Version, *args : List[str]) -> Invocation:
-                return Invocation(version, execute=Tool.TOOL_ROOT / "bin" / "thing")
+                return Invocation(version, execute=Tool.ROOT / "bin" / "thing")
         # Invoke the 'do_something' action
         act = Widget().get("1.1").get_action("do_something")
         assert callable(act)
@@ -308,7 +308,7 @@ class TestTools:
         assert isinstance(ivk, Invocation)
         # Check attributes of the invocation
         assert ivk.version is Widget().get("1.1")
-        assert ivk.execute == Tool.TOOL_ROOT / "bin" / "widget"
+        assert ivk.execute == Tool.ROOT / "bin" / "widget"
         assert ivk.args == ["the argument"]
         assert ivk.display
         assert ivk.interactive
@@ -319,7 +319,7 @@ class TestTools:
         ivk_dft = act_dft(Widget().get("1.1"), "abc", "123")
         assert isinstance(ivk_dft, Invocation)
         assert ivk_dft.version is Widget().get("1.1")
-        assert ivk_dft.execute == Tool.TOOL_ROOT / "bin" / "thing"
+        assert ivk_dft.execute == Tool.ROOT / "bin" / "thing"
         assert ivk_dft.args == []
         assert not ivk_dft.display
         assert not ivk_dft.interactive
@@ -336,11 +336,11 @@ class TestTools:
                     Version(location = tool_loc,
                             version  = "1.1",
                             env      = { "KEY_A": "VAL_A" },
-                            paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] })
+                            paths    = { "PATH": [Tool.ROOT / "bin"] })
                 ]
                 @Tool.action("Widget")
                 def default(self, version : Version, *args : List[str]) -> Invocation:
-                    return Invocation(version, Tool.TOOL_ROOT / "bin" / "blah")
+                    return Invocation(version, Tool.ROOT / "bin" / "blah")
         assert str(exc.value) == (
             "The action name 'default' is reserved, use the default=True option "
             "instead"
@@ -356,7 +356,7 @@ class TestTools:
                 Version(location = tool_loc,
                         version  = "1.1",
                         env      = { "KEY_A": "VAL_A" },
-                        paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] })
+                        paths    = { "PATH": [Tool.ROOT / "bin"] })
             ]
         # Via the tool
         assert Widget().get_action("blah") is None
@@ -373,11 +373,11 @@ class TestTools:
                 Version(location = tool_loc,
                         version  = "1.1",
                         env      = { "KEY_A": "VAL_A" },
-                        paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] })
+                        paths    = { "PATH": [Tool.ROOT / "bin"] })
             ]
             @Tool.action("Widget")
             def blah(self, version : Version, *args : List[str]) -> Invocation:
-                return Invocation(version, Tool.TOOL_ROOT / "bin" / "blah")
+                return Invocation(version, Tool.ROOT / "bin" / "blah")
         # Via the tool
         assert Widget().get_action("not_blah") is None
         # Via the version

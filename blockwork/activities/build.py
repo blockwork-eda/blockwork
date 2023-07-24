@@ -13,16 +13,44 @@
 # limitations under the License.
 
 import logging
+from typing import List, Optional
 
 import click
 
+from ..build import Entity, Transform, execute, orchestrate
+from .common import BwExecCommand
 from ..context import Context
 
-@click.command()
+@click.command(cls=BwExecCommand)
+@click.option("--top", "-t", type=str, help="Top-level entity", required=True)
+@click.option("--graph", "-g", "graph_path",
+              type=click.Path(dir_okay=False),
+              help="Path to write Graphviz DOT file")
 @click.argument("transform", type=str)
 @click.pass_obj
-def build(ctx : Context, transform : str) -> None:
+def build(ctx : Context,
+          tool : List[str],
+          no_tools : bool,
+          tool_mode : str,
+          top : str,
+          graph_path : Optional[str],
+          transform : str) -> None:
     """ Run a build step """
+    del no_tools, tool_mode
+    BwExecCommand.set_tool_versions(tool)
+    # Locate the top-level
+    logging.info(f"Locating top-level '{top}'")
+    entity = Entity.get_by_name(top)()
+    # Locate the transform
     logging.info(f"Locating transform '{transform}'")
-    transform = ctx.transforms[transform]
-    breakpoint()
+    transform = Transform.get_by_name(transform)
+    # Calculate the build graph
+    graph = orchestrate(entity, transform)
+    # If requested, write the graph to file
+    if graph_path:
+        logging.info(f"Writing build graph to '{graph_path}'")
+        with open(graph_path, "w") as fh:
+            fh.write(graph.to_dot())
+    # Execute the graph
+    logging.debug(f"Executing the build graph of {len(graph.nodes)} nodes")
+    execute(ctx, entity, graph)

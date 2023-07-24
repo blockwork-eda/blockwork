@@ -9,21 +9,15 @@ module top #(
 
 logic [WIDTH-1:0] count_a, count_b;
 
+%for sfx in ("a", "b"):
 counter #(
       .WIDTH ( WIDTH )
-) u_count_a (
-      .i_clk   ( i_clk   )
-    , .i_rst   ( i_rst   )
-    , .o_count ( count_a )
+) u_count_${sfx} (
+      .i_clk   ( i_clk )
+    , .i_rst   ( i_rst )
+    , .o_count ( count_${sfx} )
 );
-
-counter #(
-      .WIDTH ( WIDTH )
-) u_count_b (
-      .i_clk   ( i_clk   )
-    , .i_rst   ( i_rst   )
-    , .o_count ( count_b )
-);
+%endfor
 
 adder #(
       .WIDTH ( WIDTH )

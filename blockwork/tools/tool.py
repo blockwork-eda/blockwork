@@ -14,10 +14,12 @@
 
 import functools
 import inspect
-from abc import ABC
 from collections import defaultdict
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+
+from ..common.registry import RegisteredClass
+from ..common.singleton import Singleton
 
 
 class ToolError(Exception):
@@ -106,17 +108,14 @@ class Version:
         return _wrap
 
 
-class Tool(ABC):
+class Tool(RegisteredClass, metaclass=Singleton):
     """ Base class for tools """
 
     # Tool root locator
-    TOOL_ROOT : Path = Path("/__tool_root__")
+    ROOT : Path = Path("/__tool_root__")
 
     # Default vendor
     NO_VENDOR = "N/A"
-
-    # Singleton handling
-    INSTANCES = {}
 
     # Action registration
     ACTIONS = defaultdict(dict)
@@ -124,13 +123,6 @@ class Tool(ABC):
     # Placeholders
     vendor   : Optional[str]           = None
     versions : Optional[List[Version]] = None
-
-    def __new__(cls) -> "Tool":
-        # Maintain a singleton instance of each tool definition
-        tool_id = id(cls)
-        if tool_id not in Tool.INSTANCES:
-            Tool.INSTANCES[tool_id] = super().__new__(cls)
-        return Tool.INSTANCES[tool_id]
 
     def __init__(self) -> None:
         self.vendor = self.vendor.strip() if isinstance(self.vendor, str) else Tool.NO_VENDOR
@@ -189,7 +181,7 @@ class Tool(ABC):
             return "_".join((vend, name))
 
     @functools.lru_cache()
-    def get(self, version : str) -> Version:
+    def get_version(self, version : str) -> Version:
         """
         Retrieve a specific version of a tool from the version name.
 
@@ -248,6 +240,69 @@ class Tool(ABC):
             return raw_act(self, *args, **kwargs)
         return _wrap
 
+    # ==========================================================================
+    # Registry Handling
+    # ==========================================================================
+
+    @classmethod
+    def wrap(cls, tool : "Tool") -> "Tool":
+        if tool in RegisteredClass.LOOKUP_BY_OBJ[cls]:
+            return tool
+        else:
+            RegisteredClass.LOOKUP_BY_NAME[cls][tool().base_id_tuple] = tool
+            RegisteredClass.LOOKUP_BY_OBJ[cls][tool] = tool
+            return tool
+
+    @classmethod
+    def get(cls,
+            vend_or_name : str,
+            name         : Optional[str] = None,
+            version      : Optional[str] = None) -> Union["Tool", None]:
+        """
+        Retrieve a tool registered for a given vendor, name, and version. If only a
+        name is given, then NO_VENDOR is assumed for the vendor field. If no version
+        is given, then the default version is returned. If no tool is known for the
+        specification, then None is returned.
+
+        :param vend_or_name:    Vendor or tool name is no associated vendor
+        :param name:            Name if a vendor is specified
+        :param version:         Version of the tool (optional)
+        """
+        vendor = vend_or_name.lower() if name else Tool.NO_VENDOR.lower()
+        name = (name if name else vend_or_name).lower()
+        tool_def : Tool = cls.get_by_name((vendor, name))
+        if not tool_def:
+            return None
+        tool = tool_def()
+        if version:
+            return tool.get_version(version)
+        else:
+            return tool.default
+
+    @classmethod
+    def select_version(cls,
+                       vend_or_name : str,
+                       name         : Optional[str] = None,
+                       version      : Optional[str] = None) -> None:
+        """
+        Select a specific version of a tool as the default, overriding whatever
+        default version the tool itself has nominated.
+
+        :param vend_or_name:    Vendor or tool name is no associated vendor
+        :param name:            Name if a vendor is specified
+        :param version:         Version of the tool (required)
+        """
+        if version is None:
+            raise ToolError("A version must be provided")
+        vendor = vend_or_name.lower() if name else Tool.NO_VENDOR.lower()
+        name = (name if name else vend_or_name).lower()
+        tool_def : Tool = cls.get_by_name((vendor, name))
+        if not tool_def:
+            raise ToolError(f"No tool known for name '{name}' from vendor '{vendor}'")
+        tool = tool_def()
+        tool.default.default = False
+        tool.default = tool.get_version(version)
+        tool.default.default = True
 
 class Invocation:
     """
