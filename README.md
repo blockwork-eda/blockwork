@@ -1,12 +1,42 @@
 ![Blockwork](docs/assets/mascot_b_black_e_white.png)
 
-## Setting Up
+**NOTE** Blockwork is currently in active development and is not yet suitable
+for production environments. It is missing many features and does not yet fulfill
+its stated aims.
+
+# Getting Started
+
+## Recommended Pre-requisites for macOS
+
+On macOS we recommend the following:
+
+ * [XQuartz](https://www.xquartz.org) - to support X11 forwarding from applications
+   running in the contained environment.
+ * [Docker](http://docker.com) or [Orbstack](https://orbstack.dev) as the container
+   runtime. [Podman](https://podman-desktop.io) is supported but it exhibits poor
+   filesystem performance.
+ * Python 3.11 installed through [pyenv](https://github.com/pyenv/pyenv) to
+   protect your OS's default install from contamination.
+ * [Poetry](https://python-poetry.org) installed through Python's package manager
+   i.e. `python -m pip install poetry`.
+
+## Recommended Pre-requisites for Linux
+
+On Linux we recommend the following:
+
+ * [Docker](http://docker.com) as the container runtime. [Podman](https://podman-desktop.io)
+   is supported but it exhibits poor filesystem performance (there are some notes
+   to improve this in the [troubleshooting section](#troubleshooting)).
+ * Python 3.11 installed through [pyenv](https://github.com/pyenv/pyenv) to
+   protect your OS's default install from contamination.
+ * [Poetry](https://python-poetry.org) installed through Python's package manager
+   i.e. `python -m pip install poetry`.
+
+## Setting up a Development Environment
 
 Follow these steps to get a development environment:
 
 ```bash
-# Install Poetry locally if you don't already have it
-$> python3 -m pip install poetry
 # Clone the repository
 $> git clone git@github.com:blockwork-eda/blockwork.git
 $> cd blockwork
@@ -20,28 +50,35 @@ $> bw -C example bootstrap
 $> bw -C example exec -- echo "hi"
 ```
 
-> **NOTE** It's recommended to use [pyenv](https://github.com/pyenv/pyenv) to
-> avoid polluting your system's Python installation, you can find instructions
-> for [installing and using pyenv](https://github.com/pyenv/pyenv#getting-pyenv)
-> on the project's GitHub README.
+# Troubleshooting
 
-## X11 Forwarding under macOS
+## macOS
 
- * Install XQuartz
+### X11 Forwarding
+
+ * Ensure [XQuartz](https://www.xquartz.org) is installed
  * Tick "Allow connections from network clients" in XQuartz preferences
  * Quit and re-open XQuartz
  * Execute `xhost + 127.0.0.1`
- * `DISPLAY` must be set to `host.containers.internal:0`
 
-## Podman Socket on Ubuntu
 
-To start the socket service execute:
+**NOTE** The `DISPLAY` environment variable must be set to `host.internal:0` for
+Docker/Orbstack or `host.containers.internal:0` for Podman, this should be setup
+automatically by the framework.
+
+## Linux
+
+### Podman Socket
+
+To start the user-space socket service execute:
 
 ```bash
 $> systemctl --user status podman.socket
 ```
 
-## Podman Slow on Ubuntu
+**NOTE** Do not use `sudo` as the service needs to run in user-space.
+
+### Slow Podman Performance
 
 Ensure that you are using the overlay filesystem (`fuse-overlayfs`), as the
 default `vfs` is very slow!
