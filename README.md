@@ -32,6 +32,14 @@ On Linux we recommend the following:
  * [Poetry](https://python-poetry.org) installed through Python's package manager
    i.e. `python -m pip install poetry`.
 
+## Installing Blockwork
+
+To install the bleeding edge version of Blockwork, use the following command:
+
+```bash
+$> python3 -m pip install git+https://github.com/blockwork-eda/blockwork
+```
+
 ## Setting up a Development Environment
 
 Follow these steps to get a development environment:
