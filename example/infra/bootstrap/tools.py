@@ -26,6 +26,7 @@ def download_tools(context : Context, last_run : datetime) -> bool:
         for idx, (rel_path, url) in enumerate(data.items()):
             if (tool_base / rel_path).exists():
                 logging.info(f"[{idx:2d} / {len(data.keys()):2d}] Skipping as {rel_path} already exists")
+                continue
             local = Path(tmpdir) / f"tool_{idx}.zip"
             logging.info(f"[{idx:2d} / {len(data.keys()):2d}] Downloading {rel_path} from {url}")
             request.urlretrieve(url, local)

@@ -3,11 +3,11 @@ from typing import List
 
 from blockwork.tools import Invocation, Tool, Version
 
-tool_root = Path(__file__).absolute().parent.parent.parent.parent / "example.tools"
+from .common import TOOL_ROOT
 
 class GTKWave(Tool):
     versions = [
-        Version(location = tool_root / "gtkwave" / "v3.3.113",
+        Version(location = TOOL_ROOT / "gtkwave" / "v3.3.113",
                 version  = "3.3.113",
                 paths    = { "PATH": [Tool.TOOL_ROOT / "src"] },
                 default  = True),

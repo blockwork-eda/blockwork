@@ -2,6 +2,7 @@
 project: example
 bootstrap:
   - infra.bootstrap.tools
+  - infra.bootstrap.pythonsite
 tooldefs:
   - infra.tools.misc
   - infra.tools.compilers
