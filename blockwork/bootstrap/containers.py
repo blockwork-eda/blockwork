@@ -17,12 +17,15 @@ from datetime import datetime
 from docker.errors import ImageNotFound
 from pathlib import Path
 
+from rich.console import Console
+
+import blockwork
 from ..containers.runtime import Runtime
 from ..context import Context
 from .registry import Bootstrap
 
-root_dir = Path(__file__).absolute().parent.parent.parent
-cntr_dir = root_dir / "containers"
+root_dir = Path(blockwork.__path__[0]).absolute()
+cntr_dir = root_dir / "containerfiles"
 
 # === Foundation Container ===
 
@@ -36,18 +39,19 @@ def build_foundation(context : Context, last_run : datetime) -> bool:
             client.images.get('foundation')
         except ImageNotFound:
             last_run = datetime.min
-
+        # Check that the container file can be found
         if not foundation.exists():
             raise FileExistsError(f"Foundation ContainerFile does not exist at '{foundation}'!")
-
+        # Check if the container file is newer than the last run
         if datetime.fromtimestamp(foundation.stat().st_mtime) <= last_run:
             return True
-
+        # Build the container
         logging.info(f"Building the foundation container from {foundation} - "
                      f"this may take a while...")
-        client.images.build(path=foundation.parent.as_posix(),
-                            dockerfile="Containerfile",
-                            tag="foundation",
-                            rm=True)
+        with Console().status("Building container...", spinner="arc"):
+            client.images.build(path=foundation.parent.as_posix(),
+                                dockerfile="Containerfile",
+                                tag="foundation",
+                                rm=True)
         logging.info("Foundation container built")
         return False
