@@ -168,9 +168,9 @@ class TestTools:
         # Bad location
         with pytest.raises(ToolError) as exc:
             class Widget(Tool):
-                versions = [Version(version="1.0", location=tmp_path / "widget")]
+                versions = [Version(version="1.0", location="/a/b/c")]
             Widget()
-        assert str(exc.value) == f"Bad location given for version 1.0: {tmp_path / 'widget'}"
+        assert str(exc.value) == "Bad location given for version 1.0: /a/b/c"
         # Missing version
         (tmp_path / "widget").mkdir()
         with pytest.raises(ToolError) as exc:
