@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from pathlib import Path
 from typing import Optional, Type, Union
 
@@ -51,7 +52,7 @@ class Foundation(Container):
         else:
             return path
 
-    def add_tool(self, tool : Union[Type[Tool], Tool, Version]) -> None:
+    def add_tool(self, tool : Union[Type[Tool], Tool, Version], readonly : bool = True) -> None:
         # If class has been provided, create an instance
         if not isinstance(tool, (Tool, Version)):
             if not issubclass(tool, Tool):
@@ -74,11 +75,12 @@ class Foundation(Container):
                 if (rv := req_ver.version) != (xv := self.__tools[req.base_id].version):
                     raise FoundationError(f"Version clash for tool '{req.tool.base_id}': {rv} != {xv}")
             else:
-                self.add_tool(req_ver)
+                self.add_tool(req_ver, readonly=readonly)
         # Register tool and bind in the base folder
         self.__tools[tool.base_id] = tool_ver
         full_location = self.__tool_root / tool_ver.path_chunk
-        self.bind_readonly(tool_ver.location, full_location)
+        logging.debug(f"Binding '{tool_ver.location}' to '{full_location}' {readonly=}")
+        self.bind(tool_ver.location, full_location, readonly=readonly)
         # Overlay the environment, expanding any paths
         if isinstance(tool_ver.env, dict):
             env = {}

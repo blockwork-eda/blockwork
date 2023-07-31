@@ -15,6 +15,7 @@
 import logging
 from typing import List, Tuple, Union
 
+import click
 from click.core import Command, Option
 
 from ..foundation import Foundation
@@ -42,6 +43,14 @@ class BwExecCommand(Command):
                                   is_flag=True,
                                   default=False,
                                   help="Do not bind any tools by default"))
+        self.params.insert(0,
+                           Option(("--tool-mode", ),
+                                  type=click.Choice(("readonly", "readwrite"), case_sensitive=False),
+                                  default="readonly",
+                                  help="Set the file mode used when binding tools "
+                                       "to enable write access. Legal values are "
+                                       "either 'readonly' or 'readwrite', defaults "
+                                       "to 'readonly'."))
 
     @staticmethod
     def decode_tool(fullname : str) -> Tuple[str, str, Union[str, None]]:
@@ -62,13 +71,15 @@ class BwExecCommand(Command):
     def bind_tools(registry  : Registry,
                    container : Foundation,
                    no_tools  : bool,
-                   tools     : List[str]) -> None:
+                   tools     : List[str],
+                   tool_mode : str) -> None:
+        readonly = (tool_mode.lower() == "readonly")
         # If no tools specified and auto-binding is not disabled, bind all default
         # tool versions
         if not tools and not no_tools:
             logging.info("Binding all tools into shell")
             for tool in registry:
-                container.add_tool(tool)
+                container.add_tool(tool, readonly=readonly)
         # Bind selected tools
         elif tools:
             for selection in tools:
@@ -78,4 +89,4 @@ class BwExecCommand(Command):
                     raise Exception(f"Failed to identify tool '{selection}'")
                 logging.info(f"Binding tool {matched.tool.name} from {matched.tool.vendor} "
                             f"version {matched.version} into shell")
-                container.add_tool(matched)
+                container.add_tool(matched, readonly=readonly)

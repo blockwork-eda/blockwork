@@ -59,7 +59,7 @@ class Version:
         self.requires = self.requires or []
         self.paths    = self.paths or {}
         self.env      = self.env or {}
-        if not isinstance(self.location, Path) or not self.location.exists():
+        if not isinstance(self.location, Path):
             raise ToolError(f"Bad location given for version {self.version}: {self.location}")
         if not isinstance(self.version, str) or len(self.version.strip()) == 0:
             raise ToolError("A version must be specified")
