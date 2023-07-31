@@ -63,15 +63,14 @@ jobs:
       with:
         path: ./site
 
-  # TODO: Enable deployment to GitHub pages once project is public
-  # deploy_docs:
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 15
-  #   needs: build_docs
-  #   steps:
-  #     - name: Deploy to GitHub pages
-  #       id: deployment
-  #       uses: actions/deploy-pages@v2
+  deploy_docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build_docs
+    steps:
+      - name: Deploy to GitHub pages
+        id: deployment
+        uses: actions/deploy-pages@v2
 
   unit_tests:
     runs-on: ubuntu-latest
