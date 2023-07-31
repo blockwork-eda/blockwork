@@ -59,7 +59,6 @@ class Transform(RegisteredMethod):
                  entity : Entity,
                  inputs : Dict[FileType, Path]) -> Union[Invocation, Path]:
         # Determine working directory for this transform
-        host_dirx = ctx.host_scratch / entity.name / self.name
         cntr_dirx = ctx.container_scratch / entity.name / self.name
         # Create namespace for tools
         tool_map = {}
@@ -68,9 +67,10 @@ class Transform(RegisteredMethod):
             tool_map[tool.name] = tool.default
         n_tools = SimpleNamespace(**tool_map)
         # Create namespace for inputs
-        n_inputs = SimpleNamespace(**{ x.strip(".").replace(".", "_"): y for x, y in inputs.items() })
+        m_inputs = { x.strip(".").replace(".", "_"): y for x, y in inputs.items() }
+        n_inputs = SimpleNamespace(**m_inputs)
         # Invoke the transform
-        yield from self.method(n_tools, n_inputs, host_dirx, cntr_dirx)
+        yield from self.method(n_tools, n_inputs, cntr_dirx)
 
     @classmethod
     def tool(cls, tool : Tool) -> Callable:

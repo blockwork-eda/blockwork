@@ -10,8 +10,11 @@ from infra.tools.simulators import Verilator
 @Transform.register()
 @Transform.tool(Verilator)
 @Transform.input(".sv")
-@Transform.output(".lint.rpt")
 def verilator_lint(tools    : SimpleNamespace,
                    inputs   : SimpleNamespace,
                    out_dirx : Path) -> Iterable[Union[Invocation, Path]]:
-    pass
+    yield tools.verilator.get_action("run")(
+        "--lint-only",
+        "-Wall",
+        *inputs.sv
+    )

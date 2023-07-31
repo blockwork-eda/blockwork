@@ -87,7 +87,8 @@ class Container:
     def bind(self,
              host      : Path,
              container : Optional[Path] = None,
-             readonly  : bool           = False) -> Path:
+             readonly  : bool           = False,
+             mkdir     : bool           = False) -> Path:
         """
         Bind a folder with read-write access from the host into the container at
         a given path, if the container path is not given then it uses the final
@@ -96,6 +97,7 @@ class Container:
         :param host:        Path on the host
         :param container:   Optional path within the container
         :param readonly:    Whether to bind as readonly (default: False)
+        :param mkdir:       Whether to create the directory first
         :returns:           Mapped path within the container
         """
         if not container:
@@ -113,6 +115,8 @@ class Container:
             elif c_match or container in bind.container_path.parents:
                 raise ContainerError(f"Cannot bind {host} to {container} due to"
                                      f"collision with existing bind from {bind.host_path}")
+        if mkdir and not host.exists():
+            host.mkdir(parents=True)
         self.__binds.append(ContainerBind(host, container, readonly))
         return container
 
@@ -244,7 +248,7 @@ class Container:
                 logging.debug(f"Setting DISPLAY to {env['DISPLAY']}")
         # Expose terminal dimensions
         tsize = os.get_terminal_size()
-        logging.info(f"Setting terminal to {tsize.columns}x{tsize.lines}")
+        logging.debug(f"Setting terminal to {tsize.columns}x{tsize.lines}")
         env["LINES"]   = str(tsize.lines)
         env["COLUMNS"] = str(tsize.columns)
         env["TERM"]    = "xterm-256color"

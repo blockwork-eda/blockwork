@@ -29,6 +29,7 @@ from .tools import Tool
 
 
 VERBOSE = False
+VERBOSE_LOCALS = False
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,6 +50,10 @@ logging.basicConfig(
               is_flag=True,
               default=False,
               help="Raise the verbosity of messages to debug")
+@click.option("--verbose-locals",
+              is_flag=True,
+              default=False,
+              help="Print local variables in an exception traceback")
 @click.option("--quiet", "-q",
               is_flag=True,
               default=False,
@@ -57,13 +62,19 @@ logging.basicConfig(
               type=str,
               default=None,
               help="Set a specific container runtime to use")
-def blockwork(ctx, cwd : str, verbose : bool, quiet : bool, runtime : str) -> None:
-    global VERBOSE
+def blockwork(ctx,
+              cwd : str,
+              verbose : bool,
+              verbose_locals : bool,
+              quiet : bool,
+              runtime : str) -> None:
+    global VERBOSE, VERBOSE_LOCALS
     # Setup the verbosity
     if verbose:
         logging.info("Setting logging verbosity to DEBUG")
         logging.getLogger().setLevel(logging.DEBUG)
         VERBOSE = True
+        VERBOSE_LOCALS = verbose_locals
     elif quiet:
         logging.getLogger().setLevel(logging.WARNING)
     # Set a preferred runtime, if provided
@@ -82,7 +93,7 @@ for activity in activities:
     blockwork.add_command(activity)
 
 def main():
-    global VERBOSE
+    global VERBOSE, VERBOSE_LOCALS
     try:
         blockwork()
         sys.exit(0)
@@ -92,7 +103,7 @@ def main():
         else:
             logging.error(str(e))
         if VERBOSE:
-            Console().print_exception(show_locals=True)
+            Console().print_exception(show_locals=VERBOSE_LOCALS)
         sys.exit(1)
 
 if __name__ == "__main__":

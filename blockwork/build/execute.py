@@ -40,30 +40,52 @@ def execute(ctx : Context, entity : Entity, graph : Graph) -> None:
     # NOTE: Index is tracked to maintain order even when files are transformed
     files = defaultdict(list)
     for idx, edge in enumerate(graph.origin.outputs):
-        files[edge.filetype].append((idx, edge))
+        files[edge.filetype].append((idx, edge.file))
     # Pipeline nodes
-    logging.debug(f"Pipelining {len(graph.nodes)} nodes:")
+    logging.info(f"Pipelining {len(graph.nodes)} nodes:")
     for idx, nodes in enumerate(graph.pipeline()):
-        logging.debug(f"|-> Step {idx}: {', '.join(x.fullname for x in nodes)}")
+        logging.info(f"|-> Step {idx}: {', '.join(x.fullname for x in nodes)}")
         for node in nodes:
-            inputs      = { x.extension: [x[1].file for x in files[x]] for x in node.transform.inputs }
-            invocations = []
-            outputs     = []
-            for obj in node.transform(ctx, entity, inputs):
-                if isinstance(obj, Invocation):
-                    invocations.append(obj)
-                elif isinstance(obj, Path):
-                    # TODO: This should be re-using the index from the input but
-                    #       that means finding a way to link the two together
-                    cat = files[FileType.from_path(obj)]
-                    cat.append((len(cat), obj))
-                    outputs.append(obj)
-                else:
-                    raise ExecutionError(f"Unexpected yield from '{node.tranform.name}': {obj}")
+            # Create a container instance
             container = Foundation(
                 ctx,
                 hostname=f"{ctx.config.project}_{entity.name}_{node.transform.name}"
             )
+            # Iterate through request extensions
+            inputs = defaultdict(list)
+            for in_type in node.transform.inputs:
+                # Map to container and create binds
+                for _, h_path in files[in_type]:
+                    c_path = ctx.map_to_container(h_path)
+                    inputs[in_type.extension].append(c_path)
+                    container.bind_readonly(h_path, c_path)
+            # Evaluate the transform and collect invocations and outputs
+            invocations = []
+            for obj in node.transform(ctx, entity, inputs):
+                if isinstance(obj, Invocation):
+                    invocations.append(obj)
+                elif isinstance(obj, Path):
+                    # Map container path back to the host
+                    c_path = obj
+                    h_path = ctx.map_to_host(c_path)
+                    # Bind this path so the container may write it
+                    container.bind(h_path.parent, c_path.parent, readonly=False, mkdir=True)
+                    # Figure out the file type
+                    f_type = FileType.from_path(c_path)
+                    # Add this output to the right file category
+                    # TODO: This should be re-using the index from the input but
+                    #       that means finding a way to link the two together
+                    files[f_type].append((len(files[f_type]), h_path))
+                else:
+                    raise ExecutionError(
+                        f"Unexpected yield from '{node.tranform.name}': {obj}"
+                    )
+            # Execute each invocation within the container
             for invocation in invocations:
-                container.invoke(ctx, invocation)
-            breakpoint()
+                exit_code = container.invoke(ctx, invocation)
+                if exit_code != 0:
+                    raise ExecutionError(
+                        f"Transformation '{node.transform.name}' failed with "
+                        f"exit code {exit_code} following invocation: "
+                        f"{invocation.execute} {' '.join(map(str, invocation.args))}"
+                    )

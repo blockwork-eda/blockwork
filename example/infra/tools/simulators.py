@@ -1,6 +1,7 @@
 from pathlib import Path
+from typing import List
 
-from blockwork.tools import Tool, Version
+from blockwork.tools import Invocation, Tool, Version
 
 from .common import TOOL_ROOT
 
@@ -22,3 +23,13 @@ class Verilator(Tool):
                 paths    = { "PATH": [Tool.ROOT / "bin"] },
                 default  = True),
     ]
+
+    @Tool.action("Verilator")
+    def run(self,
+            version : Version,
+            *args   : List[str]) -> Invocation:
+        return Invocation(
+            version = version,
+            execute = "verilator",
+            args    = args
+        )

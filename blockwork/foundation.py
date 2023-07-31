@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional, Type, Union
 
 from .containers import Container
-from .context import Context
+from .context import Context, ContextHostPathError
 from .tools import Invocation, Tool, Version
 
 class FoundationError(Exception):
@@ -95,6 +95,8 @@ class Foundation(Container):
             for path in paths:
                 self.prepend_env_path(key, self.get_tool_path(tool_ver, path).as_posix())
 
+
+
     def invoke(self, context : Context, invocation : Invocation) -> int:
         """
         Evaluate a tool invocation by binding the required tools and setting up
@@ -106,22 +108,16 @@ class Foundation(Container):
         """
         # Add the tool into the container (also adds dependencies)
         self.add_tool(invocation.version)
-        # Define closure to identify a mapping pair in root or scratch
-        def _map_to_container(h_path : Path) -> Path:
-            for rel_host, rel_cont in ((context.host_root, context.container_root),
-                                       (context.host_scratch, context.container_scratch)):
-                if h_path.is_relative_to(rel_host):
-                    c_path = rel_cont / h_path.relative_to(rel_host)
-                    break
-            else:
-                raise FoundationError(f"Path {h_path} is not within the project "
-                                      f"working directory {context.host_root} or "
-                                      f"scratch area {context.host_scratch}")
-            return h_path, c_path
         # Bind requested files/folders to relative paths
-        for h_path in invocation.binds:
-            h_path : Path = h_path.absolute()
-            self.bind(*_map_to_container(h_path), False)
+        for entry in invocation.binds:
+            if isinstance(entry, Path):
+                h_path = entry
+                h_path = h_path.absolute()
+                c_path = context.map_to_container(h_path)
+            else:
+                h_path, c_path = entry
+                h_path = h_path.absolute()
+            self.bind(h_path, c_path, False)
         # Process path arguments to make them relative
         args = []
         for arg in invocation.args:
@@ -130,11 +126,14 @@ class Foundation(Container):
                 arg = as_path
             # For path arguments, check they will be accessible in the container
             if isinstance(arg, Path):
-                arg = arg.absolute()
-                _, c_path = _map_to_container(arg)
-                args.append(c_path.as_posix())
-                # If the path is not bound, bind it in
-                self.bind(arg, c_path, False)
+                try:
+                    c_path = context.map_to_container(arg.absolute())
+                    args.append(c_path.as_posix())
+                    # If the path is not bound, bind it in
+                    self.bind(arg.absolute(), c_path, False)
+                except ContextHostPathError:
+                    logging.debug(f"Assuming '{arg}' is a container-relative path")
+                    args.append(arg.as_posix())
             # Otherwise, just pass through the argument
             else:
                 args.append(arg)
@@ -143,6 +142,7 @@ class Foundation(Container):
         if isinstance(command, Path):
             command = self.get_tool_path(invocation.version, command).as_posix()
         # Launch
+        logging.debug(f"Launching in container: {command} {' '.join(args)}")
         return self.launch(command,
                            *args,
                            workdir=invocation.workdir or context.container_root,

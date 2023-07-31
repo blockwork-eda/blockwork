@@ -318,8 +318,10 @@ class Invocation:
     :param workdir:     Working directory within the container
     :param display:     Whether to forward X11 display (forces interactive mode)
     :param interactive: Whether to attach an interactive shell
-    :param binds:       List of tuples of path outside the container and path
-                        inside the container
+    :param binds:       Paths to bind into the container from the host. Can be
+                        provided as a single path in which case the container
+                        path will be inferred, or as a tuple of a host path and
+                        a container path.
     """
 
     def __init__(self,
@@ -329,7 +331,7 @@ class Invocation:
                  workdir     : Optional[Path] = None,
                  display     : bool = False,
                  interactive : bool = False,
-                 binds       : Optional[List[Tuple[Path, Path]]] = None) -> None:
+                 binds       : Optional[List[Union[Path, Tuple[Path, Path]]]] = None) -> None:
         self.version     = version
         self.execute     = execute
         self.args        = args or []

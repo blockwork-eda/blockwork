@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import inspect
 from pathlib import Path
 from typing import List, Optional
 
@@ -38,7 +39,7 @@ class Entity(RegisteredClass, metaclass=Singleton):
     @property
     @functools.lru_cache()
     def root_path(self) -> Path:
-        return Path(__file__).parent
+        return Path(inspect.getfile(self.__class__)).parent
 
     def get_host_files(self) -> List[Path]:
         return [(self.root_path / x.relative_to(Entity.ROOT)) for x in self.files]
