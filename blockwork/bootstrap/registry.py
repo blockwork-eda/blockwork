@@ -19,6 +19,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
+from enum import Enum, unique
 
 from ..context import Context
 
@@ -32,6 +33,12 @@ class BootstrapStep:
     def id(self) -> str:
         return self.full_path.replace(".", "__")
 
+@unique
+class BwBootstrapMode(Enum):
+    default = 1
+    'Default behaviour'
+    force = 2
+    'Rerun steps even when they are in-date'
 
 class Bootstrap:
     """ Collects bootstrapping routines together """
@@ -82,7 +89,7 @@ class Bootstrap:
         return _inner
 
     @classmethod
-    def invoke(cls, context : Context) -> None:
+    def invoke(cls, context : Context, mode : BwBootstrapMode = BwBootstrapMode.default) -> None:
         """
         Evaluate all of the registered bootstrap methods, checking to see whether
         they are out-of-date based on their 'check_point' before executing them.
@@ -92,7 +99,10 @@ class Bootstrap:
         tracking = context.state.bootstrap
         for step in cls.REGISTERED.values():
             raw      = tracking.get(step.id, 0)
-            last_run = datetime.fromisoformat(raw) if raw else datetime.min
+            if mode == BwBootstrapMode.force:
+                last_run = datetime.min
+            else:
+                last_run = datetime.fromisoformat(raw) if raw else datetime.min
             if step.check_point:
                 chk_point = context.host_root / step.check_point
                 if (chk_point.exists() and

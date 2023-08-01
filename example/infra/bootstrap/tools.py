@@ -25,12 +25,12 @@ def download_tools(context : Context, last_run : datetime) -> bool:
     with tempfile.TemporaryDirectory() as tmpdir:
         for idx, (rel_path, url) in enumerate(data.items()):
             if (tool_base / rel_path).exists():
-                logging.info(f"[{idx:2d} / {len(data.keys()):2d}] Skipping as {rel_path} already exists")
+                logging.info(f"[{idx+1:2d} / {len(data.keys()):2d}] Skipping as {rel_path} already exists")
                 continue
             local = Path(tmpdir) / f"tool_{idx}.zip"
-            logging.info(f"[{idx:2d} / {len(data.keys()):2d}] Downloading {rel_path} from {url}")
+            logging.info(f"[{idx+1:2d} / {len(data.keys()):2d}] Downloading {rel_path} from {url}")
             request.urlretrieve(url, local)
-            logging.info(f"[{idx:2d} / {len(data.keys()):2d}] Unzipping {rel_path} into {tool_base}")
+            logging.info(f"[{idx+1:2d} / {len(data.keys()):2d}] Unzipping {rel_path} into {tool_base}")
             with zipfile.ZipFile(local, "r") as zh:
                 for info in zh.infolist():
                     _extract(zh, info, tool_base)
