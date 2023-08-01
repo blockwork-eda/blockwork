@@ -1,4 +1,4 @@
-FROM docker.io/library/rockylinux:9.1
+FROM --platform=linux/amd64 docker.io/library/rockylinux:9.1
 ADD forwarder/blockwork /usr/bin/blockwork
 RUN \
     ln -s /usr/bin/blockwork /usr/bin/bw && \
