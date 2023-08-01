@@ -16,6 +16,7 @@ import contextlib
 import functools
 import json
 import logging
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -37,6 +38,11 @@ class Runtime:
     @classmethod
     def set_preferred_runtime(cls, preference : str) -> None:
         cls.PREFERENCE = preference
+
+    @classmethod
+    @functools.lru_cache()
+    def is_macos(cls) -> bool:
+        return "darwin" in platform.system().lower()
 
     @classmethod
     @functools.lru_cache()
@@ -104,8 +110,10 @@ class Runtime:
         """
         if cls.is_podman_available():
             return "host.containers.internal"
-        else:
+        elif cls.is_orbstack_available():
             return "host.internal"
+        else:
+            return "host.docker.internal"
 
     @classmethod
     @functools.lru_cache()

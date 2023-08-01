@@ -229,18 +229,19 @@ class Container:
         # Environment
         env = {**self.__environment}
         if display:
-            bind_xauth = ContainerBind(
-                Path(os.environ.get("XAUTHORITY", "~/.Xauthority")).expanduser(),
-                Path("/root/.Xauthority"),
-                False
-            )
+            xauth_h_path = Path(os.environ.get("XAUTHORITY", "~/.Xauthority")).expanduser()
+            xauth_c_path = Path("/root/.Xauthority")
+            logging.debug(f"Binding XAuthority from {xauth_h_path} to {xauth_c_path}")
+            bind_xauth = ContainerBind(xauth_h_path, xauth_c_path, False)
             mounts.append(bind_xauth.as_configuration())
-            if (x11_path := Path("/tmp/.X11-unix")).exists():
+            if not Runtime.is_macos() and (x11_path := Path("/tmp/.X11-unix")).exists():
+                logging.debug("Binding /tmp/.X11-unix into container and setting DISPLAY to :0")
                 env["DISPLAY"] = ":0"
                 bind_x11_unix = ContainerBind(x11_path, x11_path, False)
                 mounts.append(bind_x11_unix.as_configuration())
             else:
                 env["DISPLAY"] = f"{Runtime.get_host_address()}:0"
+                logging.debug(f"Setting DISPLAY to {env['DISPLAY']}")
         # Expose terminal dimensions
         tsize = os.get_terminal_size()
         logging.info(f"Setting terminal to {tsize.columns}x{tsize.lines}")

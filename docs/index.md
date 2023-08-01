@@ -65,7 +65,7 @@ $> bw -C example exec -- echo "hi"
  * Ensure [XQuartz](https://www.xquartz.org) is installed
  * Tick "Allow connections from network clients" in XQuartz preferences
  * Quit and re-open XQuartz
- * Execute `xhost + 127.0.0.1`
+ * Execute `xhost +`
 
 
 **NOTE** The `DISPLAY` environment variable must be set to `host.internal:0` for
