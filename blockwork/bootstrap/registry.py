@@ -97,10 +97,10 @@ class Bootstrap:
         """
         tracking = context.state.bootstrap
         for step in cls.REGISTERED.values():
-            raw      = tracking.get(step.id, 0)
             if mode == BwBootstrapMode.force:
                 last_run = datetime.min
             else:
+                raw      = tracking.get(step.id, 0)
                 last_run = datetime.fromisoformat(raw) if raw else datetime.min
             if step.check_point:
                 chk_point = context.host_root / step.check_point

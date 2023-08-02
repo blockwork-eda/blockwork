@@ -15,6 +15,7 @@
 import logging
 
 import click
+
 from ..bootstrap import Bootstrap, BwBootstrapMode
 from ..context import Context
 
