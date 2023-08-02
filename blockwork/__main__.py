@@ -20,11 +20,16 @@ import click
 from rich.console import Console
 from rich.logging import RichHandler
 
+from .bootstrap import Bootstrap
+from .build import Entity, Transform
 from .activities import activities
 from .context import Context
 from .containers.runtime import Runtime
+from .tools import Tool
+
 
 VERBOSE = False
+VERBOSE_LOCALS = False
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,6 +50,10 @@ logging.basicConfig(
               is_flag=True,
               default=False,
               help="Raise the verbosity of messages to debug")
+@click.option("--verbose-locals",
+              is_flag=True,
+              default=False,
+              help="Print local variables in an exception traceback")
 @click.option("--quiet", "-q",
               is_flag=True,
               default=False,
@@ -53,13 +62,19 @@ logging.basicConfig(
               type=str,
               default=None,
               help="Set a specific container runtime to use")
-def blockwork(ctx, cwd : str, verbose : bool, quiet : bool, runtime : str) -> None:
-    global VERBOSE
+def blockwork(ctx,
+              cwd : str,
+              verbose : bool,
+              verbose_locals : bool,
+              quiet : bool,
+              runtime : str) -> None:
+    global VERBOSE, VERBOSE_LOCALS
     # Setup the verbosity
     if verbose:
         logging.info("Setting logging verbosity to DEBUG")
         logging.getLogger().setLevel(logging.DEBUG)
         VERBOSE = True
+        VERBOSE_LOCALS = verbose_locals
     elif quiet:
         logging.getLogger().setLevel(logging.WARNING)
     # Set a preferred runtime, if provided
@@ -67,12 +82,18 @@ def blockwork(ctx, cwd : str, verbose : bool, quiet : bool, runtime : str) -> No
         Runtime.set_preferred_runtime(runtime)
     # Create the context object and attach to click
     ctx.obj = Context(root=Path(cwd).absolute() if cwd else None)
+    # Trigger registration procedures
+    Tool.setup(ctx.obj.host_root, ctx.obj.config.tooldefs)
+    Bootstrap.setup(ctx.obj.host_root, ctx.obj.config.bootstrap)
+    Transform.setup(ctx.obj.host_root, ctx.obj.config.transforms)
+    Entity.setup(ctx.obj.host_root, ctx.obj.config.entities)
+
 
 for activity in activities:
     blockwork.add_command(activity)
 
 def main():
-    global VERBOSE
+    global VERBOSE, VERBOSE_LOCALS
     try:
         blockwork()
         sys.exit(0)
@@ -82,7 +103,7 @@ def main():
         else:
             logging.error(str(e))
         if VERBOSE:
-            Console().print_exception(show_locals=True)
+            Console().print_exception(show_locals=VERBOSE_LOCALS)
         sys.exit(1)
 
 if __name__ == "__main__":

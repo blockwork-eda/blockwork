@@ -5,11 +5,12 @@ from blockwork.tools import Invocation, Tool, Version
 
 from .common import TOOL_ROOT
 
+@Tool.register()
 class GTKWave(Tool):
     versions = [
         Version(location = TOOL_ROOT / "gtkwave" / "v3.3.113",
                 version  = "3.3.113",
-                paths    = { "PATH": [Tool.TOOL_ROOT / "src"] },
+                paths    = { "PATH": [Tool.ROOT / "src"] },
                 default  = True),
     ]
 
@@ -21,7 +22,7 @@ class GTKWave(Tool):
         path = Path(wavefile).absolute()
         return Invocation(
             version = version,
-            execute = Tool.TOOL_ROOT / "src" / "gtkwave",
+            execute = Tool.ROOT / "src" / "gtkwave",
             args    = [path, *args],
             display = True,
             binds   = [path.parent]
@@ -33,7 +34,7 @@ class GTKWave(Tool):
                 *args   : List[str]) -> Invocation:
         return Invocation(
             version = version,
-            execute = Tool.TOOL_ROOT / "src" / "gtkwave",
+            execute = Tool.ROOT / "src" / "gtkwave",
             args    = ["--version", *args],
             display = True,
         )

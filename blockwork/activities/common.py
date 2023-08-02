@@ -19,7 +19,7 @@ import click
 from click.core import Command, Option
 
 from ..foundation import Foundation
-from ..tools import Registry, Tool, Version
+from ..tools import Tool, Version
 
 class BwExecCommand(Command):
     """ Standard argument handling for commands that launch a container """
@@ -51,6 +51,11 @@ class BwExecCommand(Command):
                                        "to enable write access. Legal values are "
                                        "either 'readonly' or 'readwrite', defaults "
                                        "to 'readonly'."))
+        self.params.insert(0,
+                           Option(("--no-tools", ),
+                                  is_flag=True,
+                                  default=False,
+                                  help="Do not bind any tools by default"))
 
     @staticmethod
     def decode_tool(fullname : str) -> Tuple[str, str, Union[str, None]]:
@@ -68,25 +73,30 @@ class BwExecCommand(Command):
         return vendor, name, (version or None)
 
     @staticmethod
-    def bind_tools(registry  : Registry,
-                   container : Foundation,
+    def set_tool_versions(tools : List[str]) -> None:
+        for vendor, name, version in map(BwExecCommand.decode_tool, tools):
+            if version is not None:
+                Tool.select_version(vendor, name, version)
+
+    @staticmethod
+    def bind_tools(container : Foundation,
                    no_tools  : bool,
                    tools     : List[str],
                    tool_mode : str) -> None:
         readonly = (tool_mode.lower() == "readonly")
-        # If no tools specified and auto-binding is not disabled, bind all default
-        # tool versions
-        if not tools and not no_tools:
-            logging.info("Binding all tools into shell")
-            for tool in registry:
-                container.add_tool(tool, readonly=readonly)
-        # Bind selected tools
-        elif tools:
-            for selection in tools:
-                vendor, name, version = BwExecCommand.decode_tool(selection)
-                matched : Version = registry.get(vendor, name, version or None)
+        # If tools are provided, process them for default version overrides
+        BwExecCommand.set_tool_versions(tools)
+        # If auto-binding is disabled, only bind specified tools
+        if no_tools:
+            for vendor, name, version in map(BwExecCommand.decode_tool, tools):
+                matched : Version = Tool.get(vendor, name, version or None)
                 if not matched:
-                    raise Exception(f"Failed to identify tool '{selection}'")
+                    raise Exception(f"Failed to identify tool '{vendor}:{name}={version}'")
                 logging.info(f"Binding tool {matched.tool.name} from {matched.tool.vendor} "
                             f"version {matched.version} into shell")
                 container.add_tool(matched, readonly=readonly)
+        # Otherwise, bind all default tool versions
+        else:
+            logging.info("Binding all tools into shell")
+            for tool in Tool.get_all().values():
+                container.add_tool(tool, readonly=readonly)

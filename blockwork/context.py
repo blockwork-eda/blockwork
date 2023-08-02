@@ -18,7 +18,19 @@ from typing import Optional
 
 from .config import Blockwork, Config
 from .state import State
-from .tools.registry import Registry
+
+
+class ContextError(Exception):
+    pass
+
+
+class ContextHostPathError(ContextError):
+    pass
+
+
+class ContextContainerPathError(ContextError):
+    pass
+
 
 class Context:
     """ Tracks the working directory and project configuration """
@@ -104,7 +116,38 @@ class Context:
     def state(self) -> State:
         return State(self.host_state)
 
-    @property
-    @functools.lru_cache()
-    def registry(self) -> Registry:
-        return Registry(self.host_root, self.config.tooldefs)
+    def map_to_container(self, h_path : Path) -> Path:
+        """
+        Map a path from the host into its equivalent location in the container.
+
+        :param h_path:  Host-side path
+        :returns:       Container-side path
+        """
+        for rel_host, rel_cont in ((self.host_root, self.container_root),
+                                   (self.host_scratch, self.container_scratch)):
+            if h_path.is_relative_to(rel_host):
+                c_path = rel_cont / h_path.relative_to(rel_host)
+                break
+        else:
+            raise ContextHostPathError(f"Path {h_path} is not within the project "
+                                       f"working directory {self.host_root} or "
+                                       f"scratch area {self.host_scratch}")
+        return c_path
+
+    def map_to_host(self, c_path : Path) -> Path:
+        """
+        Map a path from the container into its equivalent location on the host.
+
+        :param c_path:  Container-side path
+        :returns:       Host-side path
+        """
+        for rel_host, rel_cont in ((self.host_root, self.container_root),
+                                   (self.host_scratch, self.container_scratch)):
+            if c_path.is_relative_to(rel_cont):
+                h_path = rel_host / c_path.relative_to(rel_cont)
+                break
+        else:
+            raise ContextContainerPathError(f"Path {c_path} is not within the project "
+                                            f"working directory {self.container_root} "
+                                            f"or scratch area {self.container_scratch}")
+        return h_path

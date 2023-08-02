@@ -12,8 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Expose various definitions
-from .tool import Invocation, Require, Tool, ToolError, Version
+from pathlib import Path
 
-# Unused import lint guards
-assert all((Invocation, Require, Tool, ToolError, Version))
+from ..common.singleton import ParameterisedSingleton
+
+class FileType(metaclass=ParameterisedSingleton):
+
+    def __init__(self, extension : str) -> None:
+        self.extension = extension
+
+    def __repr__(self) -> str:
+        return f"<FileType extension='{self.extension}'>"
+
+    @classmethod
+    def from_path(cls, path : Path) -> "FileType":
+        return FileType("".join(path.suffixes))

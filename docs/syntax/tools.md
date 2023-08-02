@@ -21,16 +21,20 @@ from blockwork.tools import Tool, Version
 
 install_root = Path("/some/path/to/tool/installs")
 
+@Tool.register()
 class Verilator(Tool):
     versions = [
         Version(location = install_root / "verilator-4.106"
                 version  = "4.106"
-                env      = { "VERILATOR_ROOT": Tool.TOOL_ROOT }
-                paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] }),
+                env      = { "VERILATOR_ROOT": Tool.ROOT }
+                paths    = { "PATH": [Tool.ROOT / "bin"] }),
     ]
 ```
 
 Working through this example:
+
+ * `@Tool.register()` - associates the tool description with Blockwork's internal
+   registry, allowing it to be used in a flow;
 
  * `class Verilator(Tool):` - extends from the `Tool` base class and defines the
    name associated with this definition (e.g. `Verilator`);
@@ -53,7 +57,7 @@ Working through this example:
 
 !!!note
 
-    The `Tool.TOOL_ROOT` variable points to the equivalent of the `location` when
+    The `Tool.ROOT` variable points to the equivalent of the `location` when
     mapped into the container (i.e. the root directory of the bound tool)
 
 Tools are mapped into the container using a standard path structure:
@@ -73,12 +77,13 @@ If a suite of tools from a single supplier, the syntax also allows for the `vend
 keyword to be provided which adds an extra section into the path. For example:
 
 ```python
+@Tool.register()
 class Make(Tool):
     vendor   = "GNU"
     versions = [
         Version(location = install_root / "make-4.4",
                 version  = "4.4",
-                paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] }),
+                paths    = { "PATH": [Tool.ROOT / "bin"] }),
     ]
 ```
 
@@ -97,16 +102,17 @@ When multiple tool versions are defined, there must be one marked as default whi
 be bound when a version is not explicitly given:
 
 ```python
+@Tool.register()
 class Make(Tool):
     vendor   = "GNU"
     versions = [
         Version(location = install_root / "make-4.4",
                 version  = "4.4",
-                paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] },
+                paths    = { "PATH": [Tool.ROOT / "bin"] },
                 default  = True),
         Version(location = install_root / "make-4.3",
                 version  = "4.3",
-                paths    = { "PATH": [Tool.TOOL_ROOT / "bin"] }),
+                paths    = { "PATH": [Tool.ROOT / "bin"] }),
     ]
 ```
 
@@ -123,23 +129,25 @@ execution, these relationships are described through `Require` objects:
 ```python
 from blockwork.tools import Require, Tool, Version
 
+@Tool.register()
 class Python(Tool):
     """ Base Python installation """
     versions = [
         Version(location = install_root / "python-3.11",
                 version  = "3.11",
-                paths    = { "PATH"           : [Tool.TOOL_ROOT / "bin"],
-                             "LD_LIBRARY_PATH": [Tool.TOOL_ROOT / "lib"] })
+                paths    = { "PATH"           : [Tool.ROOT / "bin"],
+                             "LD_LIBRARY_PATH": [Tool.ROOT / "lib"] })
     ]
 
+@Tool.register()
 class PythonSite(Tool):
     """ Versioned package installation """
     versions = [
         Version(location = install_root / "python-site-3.11",
                 version  = "3.11",
-                env      = { "PYTHONUSERBASE": Tool.TOOL_ROOT },
-                paths    = { "PATH"      : [Tool.TOOL_ROOT / "bin"],
-                             "PYTHONPATH": [Tool.TOOL_ROOT / "lib" / "python3.11" / "site-packages"] },
+                env      = { "PYTHONUSERBASE": Tool.ROOT },
+                paths    = { "PATH"      : [Tool.ROOT / "bin"],
+                             "PYTHONPATH": [Tool.ROOT / "lib" / "python3.11" / "site-packages"] },
                 requires = [Require(Python, "3.11")]),
     ]
 ```
@@ -166,11 +174,12 @@ from typing import List
 
 from blockwork.tools import Invocation, Tool, Version
 
+@Tool.register()
 class GTKWave(Tool):
     versions = [
         Version(location = tool_root / "gtkwave-3.3.113",
                 version  = "3.3.113",
-                paths    = { "PATH": [Tool.TOOL_ROOT / "src"] }),
+                paths    = { "PATH": [Tool.ROOT / "src"] }),
     ]
 
     @Tool.action("GTKWave", default=True)
@@ -181,7 +190,7 @@ class GTKWave(Tool):
         path = Path(wavefile).absolute()
         return Invocation(
             version = version,
-            execute = Tool.TOOL_ROOT / "src" / "gtkwave",
+            execute = Tool.ROOT / "src" / "gtkwave",
             args    = [path, *args],
             display = True,
             binds   = [path.parent]

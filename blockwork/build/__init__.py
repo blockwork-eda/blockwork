@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Expose various definitions
-from .tool import Invocation, Require, Tool, ToolError, Version
+from .entity import Entity
+from .execute import execute
+from .file import FileType
+from .orchestrate import orchestrate
+from .transform import Transform
 
-# Unused import lint guards
-assert all((Invocation, Require, Tool, ToolError, Version))
+assert all((Entity, FileType, Transform))
+assert all((execute, orchestrate))

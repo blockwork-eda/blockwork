@@ -121,7 +121,8 @@ from pathlib import Path
 from blockwork.bootstrap import Bootstrap
 from blockwork.context import Context
 
-@Bootstrap.register(check_point=Path("tools/tool_urls.json"))
+@Bootstrap.register()
+@Bootstrap.checkpoint(Path("tools/tool_urls.json"))
 def setup_tool_a(context : Context, last_run : datetime) -> bool:
     # ...setup the tool...
 ```

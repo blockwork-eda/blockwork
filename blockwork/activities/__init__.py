@@ -14,13 +14,14 @@
 
 # Expose activities
 from .bootstrap import bootstrap
+from .build import build
 from .info import info
 from .exec import exec
 from .shell import shell
 from .tools import tool, tools
 
 # List all activities
-activities = (bootstrap, info, exec, shell, tool, tools)
+activities = (bootstrap, build, info, exec, shell, tool, tools)
 
 # Lint guard
 assert activities

@@ -27,7 +27,9 @@ class Blockwork(ConfigBase):
                  host_scratch : Optional[str]       = "../{project}.scratch",
                  host_state   : Optional[str]       = "../{project}.state",
                  bootstrap    : Optional[List[str]] = None,
-                 tooldefs     : Optional[List[str]] = None) -> None:
+                 tooldefs     : Optional[List[str]] = None,
+                 transforms   : Optional[List[str]] = None,
+                 entities     : Optional[List[str]] = None) -> None:
         self.project      = project
         self.root         = root
         self.scratch      = scratch
@@ -35,6 +37,8 @@ class Blockwork(ConfigBase):
         self.host_state   = host_state
         self.bootstrap    = bootstrap or []
         self.tooldefs     = tooldefs or []
+        self.transforms   = transforms or []
+        self.entities     = entities or []
 
     def check(self) -> None:
         if not self.project or not isinstance(self.project, str):
@@ -47,7 +51,10 @@ class Blockwork(ConfigBase):
             raise ConfigError(self, "host_scratch", "Host scratch directory must be a relative or absolute path")
         if not isinstance(self.host_state, str) or not self.host_state:
             raise ConfigError(self, "host_state", "Host state directory must be a relative or absolute path")
-        for key, name in (("bootstrap", "Bootstrap"), ("tooldefs", "Tool")):
+        for key, name in (("bootstrap", "Bootstrap"),
+                          ("tooldefs", "Tool"),
+                          ("transforms", "Transform"),
+                          ("entities", "Entity")):
             obj = getattr(self, key)
             if not isinstance(obj, list):
                 raise ConfigError(self, key, f"{name} definitions must be a list")
