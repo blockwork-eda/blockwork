@@ -22,10 +22,10 @@ from ..context import Context
 @click.option("--mode",
             type=click.Choice(BwBootstrapMode, case_sensitive=False),
             default="default",
-            help=f"""Set the bootstrap mode. 
+            help="""Set the bootstrap mode. 
                         default: Rebuild out of date steps
                         force: Rebuild all steps
-                    """)
+                 """)
 @click.pass_obj
 def bootstrap(ctx : Context, mode: str) -> None:
     """ Run all bootstrapping actions """
