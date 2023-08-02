@@ -13,11 +13,11 @@
 # limitations under the License.
 
 # Bootstrap infrastructure
-from .registry import Bootstrap, BootstrapStep
+from .registry import Bootstrap, BootstrapStep, BwBootstrapMode
 
 # Built-in bootstrapping rules
 from .containers import build_foundation
 
 # Lint guards
-assert all((Bootstrap, BootstrapStep))
+assert all((Bootstrap, BootstrapStep, BwBootstrapMode))
 assert all((build_foundation, ))
