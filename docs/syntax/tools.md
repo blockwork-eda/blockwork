@@ -21,6 +21,7 @@ from blockwork.tools import Tool, Version
 
 install_root = Path("/some/path/to/tool/installs")
 
+@Tool.register()
 class Verilator(Tool):
     versions = [
         Version(location = install_root / "verilator-4.106"
@@ -31,6 +32,9 @@ class Verilator(Tool):
 ```
 
 Working through this example:
+
+ * `@Tool.register()` - associates the tool description with Blockwork's internal
+   registry, allowing it to be used in a flow;
 
  * `class Verilator(Tool):` - extends from the `Tool` base class and defines the
    name associated with this definition (e.g. `Verilator`);
@@ -73,6 +77,7 @@ If a suite of tools from a single supplier, the syntax also allows for the `vend
 keyword to be provided which adds an extra section into the path. For example:
 
 ```python
+@Tool.register()
 class Make(Tool):
     vendor   = "GNU"
     versions = [
@@ -97,6 +102,7 @@ When multiple tool versions are defined, there must be one marked as default whi
 be bound when a version is not explicitly given:
 
 ```python
+@Tool.register()
 class Make(Tool):
     vendor   = "GNU"
     versions = [
@@ -123,6 +129,7 @@ execution, these relationships are described through `Require` objects:
 ```python
 from blockwork.tools import Require, Tool, Version
 
+@Tool.register()
 class Python(Tool):
     """ Base Python installation """
     versions = [
@@ -132,6 +139,7 @@ class Python(Tool):
                              "LD_LIBRARY_PATH": [Tool.ROOT / "lib"] })
     ]
 
+@Tool.register()
 class PythonSite(Tool):
     """ Versioned package installation """
     versions = [
@@ -166,6 +174,7 @@ from typing import List
 
 from blockwork.tools import Invocation, Tool, Version
 
+@Tool.register()
 class GTKWave(Tool):
     versions = [
         Version(location = tool_root / "gtkwave-3.3.113",
