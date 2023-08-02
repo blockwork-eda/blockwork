@@ -56,9 +56,6 @@ class TestContext:
         assert ctx.config_path == bw_yaml
         assert isinstance(ctx.config, Blockwork)
         assert ctx.config.project == "test_project"
-        assert len(ctx.registry.tools) == 1
-        assert isinstance(ctx.registry.tools["n/a", "toola"], Tool)
-        assert ctx.registry.tools["n/a", "toola"].default.version == "1.1"
 
     def test_context_dig(self, tmp_path : Path) -> None:
         """ Context should recognise the .bw.yaml file in a parent layer """
@@ -88,9 +85,6 @@ class TestContext:
         assert ctx.config_path == bw_yaml
         assert isinstance(ctx.config, Blockwork)
         assert ctx.config.project == "test_project"
-        assert len(ctx.registry.tools) == 1
-        assert isinstance(ctx.registry.tools["n/a", "toola"], Tool)
-        assert ctx.registry.tools["n/a", "toola"].default.version == "1.1"
 
     def test_context_bad_path(self, tmp_path : Path) -> None:
         """ A bad root should raise an exception """

@@ -65,6 +65,12 @@ class Registry:
             raise RegistryError(f"Unknown {cls.__name__.lower()} for '{name}'")
         return base[name]
 
+    @classmethod
+    def clear_registry(cls) -> None:
+        """ Clear all existing registrations for this registry """
+        RegisteredMethod.LOOKUP_BY_NAME[cls] = {}
+        RegisteredMethod.LOOKUP_BY_OBJ[cls] = {}
+
 
 class RegisteredMethod(Registry):
     """
