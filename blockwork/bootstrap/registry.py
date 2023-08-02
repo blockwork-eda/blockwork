@@ -19,7 +19,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
-from enum import Enum, unique
+from enum import StrEnum, auto
 
 from ..context import Context
 
@@ -33,11 +33,10 @@ class BootstrapStep:
     def id(self) -> str:
         return self.full_path.replace(".", "__")
 
-@unique
-class BwBootstrapMode(Enum):
-    default = 1
+class BwBootstrapMode(StrEnum):
+    default = auto()
     'Default behaviour'
-    force = 2
+    force = auto()
     'Rerun steps even when they are in-date'
 
 class Bootstrap:

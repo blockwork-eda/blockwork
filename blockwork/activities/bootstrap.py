@@ -15,25 +15,17 @@
 import logging
 
 import click
-from click.core import Command, Option
-
 from ..bootstrap import Bootstrap, BwBootstrapMode
 from ..context import Context
 
-class BwBootstrapCommand(Command):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.params.insert(0,
-                            Option(("--mode", ),
-                            type=click.Choice(BwBootstrapMode._member_names_, case_sensitive=False),
-                            default="default",
-                            help=f"""Set the bootstrap mode. 
-                                     default: Rebuild out of date steps
-                                     force: Rebuild all steps
-                                  """))
-
-
-@click.command(cls=BwBootstrapCommand)
+@click.command()
+@click.option("--mode",
+            type=click.Choice(BwBootstrapMode, case_sensitive=False),
+            default="default",
+            help=f"""Set the bootstrap mode. 
+                        default: Rebuild out of date steps
+                        force: Rebuild all steps
+                    """)
 @click.pass_obj
 def bootstrap(ctx : Context, mode: str) -> None:
     """ Run all bootstrapping actions """
