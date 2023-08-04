@@ -16,7 +16,7 @@ export IVERILOG_DUMPER := lxt
 
 SIM                 ?= icarus
 TOPLEVEL_LANG       ?= verilog
-VERILOG_SOURCES     += $(wildcard $(PARENT_DIRX)/../design/*.sv)
+VERILOG_SOURCES     += $(wildcard $(PARENT_DIRX)/../design/*.sv) /scratch/top.sv
 SIM_BUILD           ?= /scratch/sim_build
 COCOTB_RESULTS_FILE ?= /scratch/results.xml
 SIM_WAVES           ?= /scratch/waves.lxt
@@ -28,6 +28,13 @@ PLUSARGS            += +WAVE_FILE=$(SIM_WAVES)
 export PYTHONPATH := $(PYTHONPATH):$(PARENT_DIRX)
 
 include $(shell cocotb-config --makefiles)/Makefile.sim
+
+/scratch/top.sv: /project/design/top.sv.mako
+	@python3 -c "from mako.template import Template; \
+	             fh = open('$@', 'w'); \
+	             fh.write(Template(filename='$<').render()); \
+	             fh.flush(); \
+	             fh.close() "
 
 .PHONY: run_cocotb $(COCOTB_RESULTS_FILE)
 run_cocotb: $(COCOTB_RESULTS_FILE)

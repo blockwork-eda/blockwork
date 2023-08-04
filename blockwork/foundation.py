@@ -118,30 +118,21 @@ class Foundation(Container):
                 h_path, c_path = entry
                 h_path = h_path.absolute()
             self.bind(h_path, c_path, False)
-        # Process path arguments to make them relative
-        args = []
+        # Identify all host paths that need to be bound in
         for arg in invocation.args:
             # If this is a string, but appears to be a relative path, convert it
             if isinstance(arg, str) and (as_path := (Path.cwd() / arg)).exists():
                 arg = as_path
-            # For path arguments, check they will be accessible in the container
-            if isinstance(arg, Path):
-                try:
-                    c_path = context.map_to_container(arg.absolute())
-                    args.append(c_path.as_posix())
-                    # If the path is not bound, bind it in
-                    self.bind(arg.absolute(), c_path, False)
-                except ContextHostPathError:
-                    logging.debug(f"Assuming '{arg}' is a container-relative path")
-                    args.append(arg.as_posix())
-            # Otherwise, just pass through the argument
-            else:
-                args.append(arg)
+            # If this is a path, make it accessible
+            if isinstance(arg, Path) and arg.exists():
+                arg = arg.absolute()
+                self.bind(arg, context.map_to_container(arg), False)
         # Resolve the binary
         command = invocation.execute
         if isinstance(command, Path):
             command = self.get_tool_path(invocation.version, command).as_posix()
         # Launch
+        args = invocation.map_args_to_container(context)
         logging.debug(f"Launching in container: {command} {' '.join(args)}")
         return self.launch(command,
                            *args,
