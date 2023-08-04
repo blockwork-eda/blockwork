@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional, Type, Union
 
 from .containers import Container
-from .context import Context, ContextHostPathError
+from .context import Context
 from .tools import Invocation, Tool, Version
 
 class FoundationError(Exception):
