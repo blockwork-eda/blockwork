@@ -14,7 +14,7 @@ export IVERILOG_DUMPER := lxt
 # cocotb
 # ==============================================================================
 
-SIM                 ?= icarus
+SIM                 ?= verilator
 TOPLEVEL_LANG       ?= verilog
 VERILOG_SOURCES     += $(wildcard $(PARENT_DIRX)/../design/*.sv) /scratch/top.sv
 SIM_BUILD           ?= /scratch/sim_build
@@ -22,7 +22,7 @@ COCOTB_RESULTS_FILE ?= /scratch/results.xml
 SIM_WAVES           ?= /scratch/waves.lxt
 TOPLEVEL            ?= top
 MODULE              ?= bench
-COMPILE_ARGS        += -D sim_icarus
+# COMPILE_ARGS        += -D sim_icarus
 PLUSARGS            += +WAVE_FILE=$(SIM_WAVES)
 
 export PYTHONPATH := $(PYTHONPATH):$(PARENT_DIRX)

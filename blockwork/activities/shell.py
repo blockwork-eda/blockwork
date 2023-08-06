@@ -20,6 +20,7 @@ import click
 from .common import BwExecCommand
 from ..context import Context
 from ..foundation import Foundation
+from ..tools import ToolMode
 
 @click.command(cls=BwExecCommand)
 @click.pass_obj
@@ -27,6 +28,6 @@ def shell(ctx : Context, tool : List[str], no_tools : bool, tool_mode : str):
     """ Launch a shell within the container environment """
     container = Foundation(ctx, hostname=f"{ctx.config.project}_shell")
     container.bind(ctx.host_root, ctx.container_root, False)
-    BwExecCommand.bind_tools(container, no_tools, tool, tool_mode)
+    BwExecCommand.bind_tools(container, no_tools, tool, ToolMode(tool_mode))
     # Launch the shell and forward the exit code
     sys.exit(container.shell(workdir=ctx.container_root, show_detach=False))

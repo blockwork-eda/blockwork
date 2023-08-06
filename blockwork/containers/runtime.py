@@ -37,6 +37,7 @@ class Runtime:
 
     @classmethod
     def set_preferred_runtime(cls, preference : str) -> None:
+        logging.debug(f"Preferred container runtime set to '{preference}'")
         cls.PREFERENCE = preference
 
     @classmethod

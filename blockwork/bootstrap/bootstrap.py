@@ -82,6 +82,7 @@ class Bootstrap(RegisteredMethod):
                                 f"to date (based on checkpoints)")
                 return
         # Run the bootstrapping function
+        logging.debug(f"Evaluating bootstrap step '{self.full_path}'")
         if self.method(context=context, last_run=last_run) is True:
             logging.info(f"Bootstrap step '{self.full_path}' is already up "
                          f"to date (based on method)")

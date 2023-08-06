@@ -27,7 +27,7 @@ class Foundation(Container):
     """ Standard baseline container for Blockwork """
 
     def __init__(self, context : Context, **kwargs) -> None:
-        super().__init__(image="foundation",
+        super().__init__(image=f"foundation_{context.host_architecture}",
                          workdir=context.container_root,
                          **kwargs)
         self.__context   = context
@@ -97,17 +97,21 @@ class Foundation(Container):
 
 
 
-    def invoke(self, context : Context, invocation : Invocation) -> int:
+    def invoke(self,
+               context : Context,
+               invocation : Invocation,
+               readonly : bool = True) -> int:
         """
         Evaluate a tool invocation by binding the required tools and setting up
         the environment as per the request.
 
         :param context:     Context in which invocation is launched
         :param invocation:  An Invocation object
+        :param readonly:    Whether to bind tools read only (defaults to True)
         :returns:           Exit code from the executed process
         """
         # Add the tool into the container (also adds dependencies)
-        self.add_tool(invocation.version)
+        self.add_tool(invocation.version, readonly=readonly)
         # Bind requested files/folders to relative paths
         for entry in invocation.binds:
             if isinstance(entry, Path):
@@ -139,4 +143,6 @@ class Foundation(Container):
                            workdir=invocation.workdir or context.container_root,
                            interactive=invocation.interactive,
                            display=invocation.display,
-                           show_detach=False)
+                           show_detach=False,
+                           env=invocation.env,
+                           path=invocation.path)
