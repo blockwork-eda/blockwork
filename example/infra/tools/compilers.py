@@ -29,6 +29,7 @@ class GCC(Tool):
             "--enable-languages=c,c++ --build=$(uname -m)-linux-gnu",
             "make -j4",
             "make install",
+            "cd ..",
             "rm -rf objdir gcc-13.1.0"
         ]
         return Invocation(
