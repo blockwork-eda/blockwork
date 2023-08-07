@@ -19,7 +19,7 @@ import click
 from click.core import Command, Option
 
 from ..foundation import Foundation
-from ..tools import Tool, Version
+from ..tools import Tool, ToolMode, Version
 
 class BwExecCommand(Command):
     """ Standard argument handling for commands that launch a container """
@@ -45,7 +45,7 @@ class BwExecCommand(Command):
                                   help="Do not bind any tools by default"))
         self.params.insert(0,
                            Option(("--tool-mode", ),
-                                  type=click.Choice(("readonly", "readwrite"), case_sensitive=False),
+                                  type=click.Choice(ToolMode, case_sensitive=False),
                                   default="readonly",
                                   help="Set the file mode used when binding tools "
                                        "to enable write access. Legal values are "
@@ -82,8 +82,8 @@ class BwExecCommand(Command):
     def bind_tools(container : Foundation,
                    no_tools  : bool,
                    tools     : List[str],
-                   tool_mode : str) -> None:
-        readonly = (tool_mode.lower() == "readonly")
+                   tool_mode : ToolMode) -> None:
+        readonly = (tool_mode == ToolMode.READONLY)
         # If tools are provided, process them for default version overrides
         BwExecCommand.set_tool_versions(tools)
         # If auto-binding is disabled, only bind specified tools

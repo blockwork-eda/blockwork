@@ -16,6 +16,7 @@ import dataclasses
 import logging
 import sys
 from pathlib import Path
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -24,7 +25,7 @@ from rich.logging import RichHandler
 from .bootstrap import Bootstrap
 from .build import Entity, Transform
 from .activities import activities
-from .context import Context
+from .context import Context, HostArchitecture
 from .containers.runtime import Runtime
 from .tools import Tool
 from .common import scopes
@@ -67,12 +68,17 @@ logging.basicConfig(
               type=str,
               default=None,
               help="Set a specific container runtime to use")
+@click.option("--arch",
+              type=str,
+              default=None,
+              help="Override the host architecture")
 def blockwork(ctx,
               cwd : str,
               verbose : bool,
               verbose_locals : bool,
               quiet : bool,
-              runtime : str) -> None:
+              runtime : Optional[str] = None,
+              arch : Optional[str] = None) -> None:
     # Setup the verbosity
     if verbose:
         logging.info("Setting logging verbosity to DEBUG")
@@ -88,6 +94,9 @@ def blockwork(ctx,
         Runtime.set_preferred_runtime(runtime)
     # Create the context object and attach to click
     ctx.obj = Context(root=Path(cwd).absolute() if cwd else None)
+    # Set the host architecture
+    if arch:
+        ctx.obj.host_architecture = HostArchitecture(arch)
     # Trigger registration procedures
     Tool.setup(ctx.obj.host_root, ctx.obj.config.tooldefs)
     Bootstrap.setup(ctx.obj.host_root, ctx.obj.config.bootstrap)

@@ -51,6 +51,9 @@ def execute(ctx : Context, entity : Entity, graph : Graph) -> None:
                 ctx,
                 hostname=f"{ctx.config.project}_{entity.name}_{node.transform.name}"
             )
+            # Bind all requested tools
+            for tool in node.transform.tools:
+                container.add_tool(tool().default)
             # Iterate through request extensions
             inputs = defaultdict(list)
             for in_type in node.transform.inputs:
@@ -84,8 +87,9 @@ def execute(ctx : Context, entity : Entity, graph : Graph) -> None:
             for invocation in invocations:
                 exit_code = container.invoke(ctx, invocation)
                 if exit_code != 0:
+                    args = invocation.map_args_to_container(ctx)
                     raise ExecutionError(
                         f"Transformation '{node.transform.name}' failed with "
                         f"exit code {exit_code} following invocation: "
-                        f"{invocation.execute} {' '.join(map(str, invocation.args))}"
+                        f"{invocation.execute} {' '.join(map(str, args))}"
                     )

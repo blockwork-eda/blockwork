@@ -13,11 +13,27 @@
 # limitations under the License.
 
 import functools
+import logging
+import platform
+from enum import StrEnum, auto
 from pathlib import Path
 from typing import Optional
 
 from .config import Blockwork, Config
 from .state import State
+
+
+class HostArchitecture(StrEnum):
+    X86 = auto()
+    ARM = auto()
+
+    @classmethod
+    @functools.lru_cache()
+    def identify(cls) -> "HostArchitecture":
+        if "arm" in platform.processor().lower():
+            return HostArchitecture.ARM
+        else:
+            return HostArchitecture.X86
 
 
 class ContextError(Exception):
@@ -40,6 +56,18 @@ class Context:
                  cfg_file : str            = ".bw.yaml") -> None:
         self.__file      = cfg_file
         self.__host_root = self.locate_root(root or Path.cwd())
+        self.__host_arch = HostArchitecture.identify()
+
+    @property
+    def host_architecture(self) -> HostArchitecture:
+        return self.__host_arch
+
+    @host_architecture.setter
+    def host_architecture(self, value : HostArchitecture) -> None:
+        if not isinstance(value, HostArchitecture):
+            raise ContextError("Must use HostArchitecture enumerated values")
+        logging.debug(f"Host architecture set to '{value}'")
+        self.__host_arch = value
 
     @property
     def host_root(self) -> Path:

@@ -137,6 +137,6 @@ class Transform(RegisteredMethod):
                                   f"output type '{to_type.extension}'")
             # If we search without success, raise error
             else:
-                raise TransformError(f"Cannot identify transform chain between "
-                                     f"'{from_type.extension}' and '{to_type.extension}'")
+                raise TransformImpossible(f"Cannot identify transform chain between "
+                                          f"'{from_type.extension}' and '{to_type.extension}'")
         return list(_inner(from_type, to_type))

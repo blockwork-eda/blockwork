@@ -1,12 +1,12 @@
 module counter #(
-      parameter COUNT_W = 32
+      parameter WIDTH = 32
 ) (
-      input  logic               i_clk
-    , input  logic               i_rst
-    , output logic [COUNT_W-1:0] o_count
+      input  logic             i_clk
+    , input  logic             i_rst
+    , output logic [WIDTH-1:0] o_count
 );
 
-logic [COUNT_W-1:0] count, count_q;
+logic [WIDTH-1:0] count, count_q;
 
 always_comb begin : comb_count
     count = count_q + 'd1;

@@ -29,29 +29,32 @@ cntr_dir = root_dir / "containerfiles"
 
 # === Foundation Container ===
 
-foundation = cntr_dir / "foundation" / "Containerfile"
-
 @Bootstrap.register()
 def build_foundation(context : Context, last_run : datetime) -> bool:
+    host_arch = str(context.host_architecture)
+    defn_file = cntr_dir / "foundation" / f"Containerfile_{host_arch}"
     with Runtime.get_client() as client:
+        img_tag = f"foundation_{host_arch}"
         # Check if the image exists (in case it was removed manually)
         try:
-            client.images.get('foundation')
+            client.images.get(img_tag)
         except ImageNotFound:
             last_run = datetime.min
         # Check that the container file can be found
-        if not foundation.exists():
-            raise FileExistsError(f"Foundation ContainerFile does not exist at '{foundation}'!")
+        if not defn_file.exists():
+            raise FileExistsError(
+                f"Foundation {defn_file.name} does not exist at '{defn_file}'!"
+            )
         # Check if the container file is newer than the last run
-        if datetime.fromtimestamp(foundation.stat().st_mtime) <= last_run:
+        if datetime.fromtimestamp(defn_file.stat().st_mtime) <= last_run:
             return True
         # Build the container
-        logging.info(f"Building the foundation container from {foundation} - "
-                     f"this may take a while...")
+        logging.info(f"Building the foundation container from {defn_file} for "
+                     f"{host_arch} architecture - this may take a while...")
         with Console().status("Building container...", spinner="arc"):
-            client.images.build(path=foundation.parent.as_posix(),
-                                dockerfile="Containerfile",
-                                tag="foundation",
+            client.images.build(path=defn_file.parent.as_posix(),
+                                dockerfile=defn_file.name,
+                                tag=img_tag,
                                 rm=True)
         logging.info("Foundation container built")
         return False

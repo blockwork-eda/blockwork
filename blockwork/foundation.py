@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional, Type, Union
 
 from .containers import Container
-from .context import Context, ContextHostPathError
+from .context import Context
 from .tools import Invocation, Tool, Version
 
 class FoundationError(Exception):
@@ -27,7 +27,7 @@ class Foundation(Container):
     """ Standard baseline container for Blockwork """
 
     def __init__(self, context : Context, **kwargs) -> None:
-        super().__init__(image="foundation",
+        super().__init__(image=f"foundation_{context.host_architecture}",
                          workdir=context.container_root,
                          **kwargs)
         self.__context   = context
@@ -97,17 +97,21 @@ class Foundation(Container):
 
 
 
-    def invoke(self, context : Context, invocation : Invocation) -> int:
+    def invoke(self,
+               context : Context,
+               invocation : Invocation,
+               readonly : bool = True) -> int:
         """
         Evaluate a tool invocation by binding the required tools and setting up
         the environment as per the request.
 
         :param context:     Context in which invocation is launched
         :param invocation:  An Invocation object
+        :param readonly:    Whether to bind tools read only (defaults to True)
         :returns:           Exit code from the executed process
         """
         # Add the tool into the container (also adds dependencies)
-        self.add_tool(invocation.version)
+        self.add_tool(invocation.version, readonly=readonly)
         # Bind requested files/folders to relative paths
         for entry in invocation.binds:
             if isinstance(entry, Path):
@@ -118,34 +122,27 @@ class Foundation(Container):
                 h_path, c_path = entry
                 h_path = h_path.absolute()
             self.bind(h_path, c_path, False)
-        # Process path arguments to make them relative
-        args = []
+        # Identify all host paths that need to be bound in
         for arg in invocation.args:
             # If this is a string, but appears to be a relative path, convert it
             if isinstance(arg, str) and (as_path := (Path.cwd() / arg)).exists():
                 arg = as_path
-            # For path arguments, check they will be accessible in the container
-            if isinstance(arg, Path):
-                try:
-                    c_path = context.map_to_container(arg.absolute())
-                    args.append(c_path.as_posix())
-                    # If the path is not bound, bind it in
-                    self.bind(arg.absolute(), c_path, False)
-                except ContextHostPathError:
-                    logging.debug(f"Assuming '{arg}' is a container-relative path")
-                    args.append(arg.as_posix())
-            # Otherwise, just pass through the argument
-            else:
-                args.append(arg)
+            # If this is a path, make it accessible
+            if isinstance(arg, Path) and arg.exists():
+                arg = arg.absolute()
+                self.bind(arg, context.map_to_container(arg), False)
         # Resolve the binary
         command = invocation.execute
         if isinstance(command, Path):
             command = self.get_tool_path(invocation.version, command).as_posix()
         # Launch
+        args = invocation.map_args_to_container(context)
         logging.debug(f"Launching in container: {command} {' '.join(args)}")
         return self.launch(command,
                            *args,
                            workdir=invocation.workdir or context.container_root,
                            interactive=invocation.interactive,
                            display=invocation.display,
-                           show_detach=False)
+                           show_detach=False,
+                           env=invocation.env,
+                           path=invocation.path)

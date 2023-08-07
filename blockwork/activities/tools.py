@@ -19,7 +19,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from .common import BwExecCommand
+from .common import BwExecCommand, ToolMode
 from ..context import Context
 from ..foundation import Foundation
 from ..tools import Tool
@@ -55,11 +55,19 @@ def tools(ctx : Context):
     Console().print(table)
 
 @click.command()
+@click.option("--tool-mode",
+              type=click.Choice(ToolMode, case_sensitive=False),
+              default="readonly",
+              help="Set the file mode used when binding tools "
+                   "to enable write access. Legal values are "
+                   "either 'readonly' or 'readwrite', defaults "
+                   "to 'readonly'.")
 @click.argument("tool_action", type=str)
 @click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
 def tool(ctx         : Context,
          tool_action : str,
+         tool_mode   : str,
          runargs     : List[str]) -> None:
     """
     Run an action defined by a specific tool. The tool and action is selected by
@@ -77,4 +85,6 @@ def tool(ctx         : Context,
         raise Exception(f"No action known for '{action}' on tool {tool}")
     # Run the action and forward the exit code
     container = Foundation(ctx, hostname=f"{ctx.config.project}_{tool}_{action}")
-    sys.exit(container.invoke(ctx, act_def(*runargs)))
+    sys.exit(container.invoke(ctx,
+                              act_def(*runargs),
+                              readonly=(ToolMode(tool_mode) == ToolMode.READONLY)))

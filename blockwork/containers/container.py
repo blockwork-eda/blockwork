@@ -201,11 +201,13 @@ class Container:
 
     def launch(self,
                *command    : List[str],
-               workdir     : Optional[Path] = None,
-               interactive : bool           = False,
-               display     : bool           = False,
-               show_detach : bool           = True,
-               clear       : bool           = False) -> int:
+               workdir     : Optional[Path]                 = None,
+               interactive : bool                           = False,
+               display     : bool                           = False,
+               show_detach : bool                           = True,
+               clear       : bool                           = False,
+               env         : Optional[Dict[str, str]]       = None,
+               path        : Optional[Dict[str, List[str]]] = None) -> int:
         """
         Launch a task within the container either interactively (STDIN and STDOUT
         streamed from/to the console) or non-interactively (STDOUT is captured).
@@ -217,6 +219,8 @@ class Container:
         :param display:     Expose the host's DISPLAY variable to the container
         :param show_detach: Whether to show the detach key message
         :param clear:       Whether to clear the screen after the command completes
+        :param env:         Additional environment variables
+        :param path:        Additional path variables to extend
         :returns:           Exit code of the executed process
         """
         # Check for a command
@@ -230,8 +234,15 @@ class Container:
             if not bind.host_path.exists():
                 bind.host_path.mkdir(parents=True)
             mounts.append(bind.as_configuration())
-        # Environment
-        env = {**self.__environment}
+        # Merge baseline environment with provided environment
+        env = {**self.__environment, **(env or {})}
+        # Merge path variables into the environment
+        for key, extension in (path or {}).items():
+            existing = env.get(key, "")
+            if len(existing) > 0:
+                existing += ":"
+            env[key] = existing + ":".join(map(str, extension))
+        # Setup $DISPLAY
         if display:
             xauth_h_path = Path(os.environ.get("XAUTHORITY", "~/.Xauthority")).expanduser()
             xauth_c_path = Path("/root/.Xauthority")
@@ -264,6 +275,7 @@ class Container:
             t_host, host_port = forwarding_host(e_done)
             env["BLOCKWORK_FWD"] = f"{Runtime.get_host_address()}:{host_port}"
             # Create the container
+            logging.debug(f"Creating container '{self.__id}' with image '{self.image}'")
             container = client.containers.create(
                 # Give the container an identifiable name
                 name       =self.__id,

@@ -1,0 +1,10 @@
+FROM --platform=linux/arm64 docker.io/library/rockylinux:9.1
+ADD forwarder/blockwork /usr/bin/blockwork
+RUN \
+    ln -s /usr/bin/blockwork /usr/bin/bw && \
+    dnf update -y && \
+    dnf install -y epel-release && \
+    dnf install -y which htop nano gtk2 gtk3 gtk3-devel wget xz cpio iputils xterm \
+                   gcc perl bzip2 bzip2-devel tcl tcl-devel tk-devel libnsl \
+                   openssl-devel diffutils && \
+    ln -s /usr/lib64/libbz2.so.1 /usr/lib64/libbz2.so.1.0

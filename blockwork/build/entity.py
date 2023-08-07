@@ -42,4 +42,10 @@ class Entity(RegisteredClass, metaclass=Singleton):
         return Path(inspect.getfile(self.__class__)).parent
 
     def get_host_files(self) -> List[Path]:
-        return [(self.root_path / x.relative_to(Entity.ROOT)) for x in self.files]
+        resolved = []
+        for file in self.files:
+            if file.is_relative_to(Entity.ROOT):
+                resolved.append(self.root_path / file.relative_to(Entity.ROOT))
+            else:
+                resolved.append(file)
+        return resolved

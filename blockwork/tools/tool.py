@@ -14,12 +14,20 @@
 
 import functools
 import inspect
+import logging
 from collections import defaultdict
+from enum import StrEnum, auto
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 from ..common.registry import RegisteredClass
 from ..common.singleton import Singleton
+from ..context import Context, ContextHostPathError
+
+
+class ToolMode(StrEnum):
+    READONLY  = auto()
+    READWRITE = auto()
 
 
 class ToolError(Exception):
@@ -322,6 +330,8 @@ class Invocation:
                         provided as a single path in which case the container
                         path will be inferred, or as a tuple of a host path and
                         a container path.
+    :param env:         Environment variables to add to the container
+    :param path:        Path variables to extend within the container
     """
 
     def __init__(self,
@@ -331,7 +341,9 @@ class Invocation:
                  workdir     : Optional[Path] = None,
                  display     : bool = False,
                  interactive : bool = False,
-                 binds       : Optional[List[Union[Path, Tuple[Path, Path]]]] = None) -> None:
+                 binds       : Optional[List[Union[Path, Tuple[Path, Path]]]] = None,
+                 env         : Optional[Dict[str, str]] = None,
+                 path        : Optional[Dict[str, List[str]]] = None) -> None:
         self.version     = version
         self.execute     = execute
         self.args        = args or []
@@ -339,3 +351,30 @@ class Invocation:
         self.display     = display
         self.interactive = interactive or display
         self.binds       = binds or []
+        self.env         = env or {}
+        self.path        = path or {}
+
+    def map_args_to_container(self, context : Context) -> List[Union[str, Path]]:
+        """
+        Map all of the arguments of the invocation to be relative to the container.
+
+        :param context: Context object
+        :returns:       List of mapped arguments
+        """
+        args = []
+        for arg in self.args:
+            # If this is a string, but appears to be a relative path, convert it
+            if isinstance(arg, str) and (as_path := (Path.cwd() / arg)).exists():
+                arg = as_path
+            # For path arguments, check they will be accessible in the container
+            if isinstance(arg, Path):
+                try:
+                    c_path = context.map_to_container(arg.absolute())
+                    args.append(c_path.as_posix())
+                except ContextHostPathError:
+                    logging.debug(f"Assuming '{arg}' is a container-relative path")
+                    args.append(arg.as_posix())
+            # Otherwise, just pass through the argument
+            else:
+                args.append(arg)
+        return args
