@@ -19,8 +19,12 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Optional
 
-from .config import Blockwork, Config
+from .config import Blockwork
 from .state import State
+import blockwork.common.yamldataclasses as yamldataclasses
+
+
+BlockworkConfig = yamldataclasses.SimpleParser(Blockwork)
 
 
 class HostArchitecture(StrEnum):
@@ -134,10 +138,7 @@ class Context:
     @property
     @functools.lru_cache()
     def config(self) -> Blockwork:
-        obj = Config.parse(self.config_path)
-        if not isinstance(obj, Blockwork):
-            raise Exception(f"Expected Blockwork object got {type(obj).__name__}: {self.config_path}")
-        return obj
+        return BlockworkConfig.parse(self.config_path)
 
     @property
     @functools.lru_cache()
