@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dataclasses
 import logging
 import sys
 from pathlib import Path
@@ -26,10 +27,14 @@ from .activities import activities
 from .context import Context
 from .containers.runtime import Runtime
 from .tools import Tool
+from .common import scopes
 
 
-VERBOSE = False
-VERBOSE_LOCALS = False
+@scopes.scope
+@dataclasses.dataclass
+class Verbosity:
+    VERBOSE: bool = False
+    VERBOSE_LOCALS: bool = False
 
 logging.basicConfig(
     level=logging.INFO,
@@ -68,15 +73,16 @@ def blockwork(ctx,
               verbose_locals : bool,
               quiet : bool,
               runtime : str) -> None:
-    global VERBOSE, VERBOSE_LOCALS
     # Setup the verbosity
     if verbose:
         logging.info("Setting logging verbosity to DEBUG")
         logging.getLogger().setLevel(logging.DEBUG)
-        VERBOSE = True
-        VERBOSE_LOCALS = verbose_locals
+        Verbosity.current.VERBOSE = True
+        Verbosity.current.VERBOSE_LOCALS = verbose_locals
     elif quiet:
         logging.getLogger().setLevel(logging.WARNING)
+        Verbosity.current.VERBOSE = False
+        Verbosity.current.VERBOSE_LOCALS = False
     # Set a preferred runtime, if provided
     if runtime:
         Runtime.set_preferred_runtime(runtime)
@@ -93,18 +99,18 @@ for activity in activities:
     blockwork.add_command(activity)
 
 def main():
-    global VERBOSE, VERBOSE_LOCALS
-    try:
-        blockwork()
-        sys.exit(0)
-    except Exception as e:
-        if type(e) is not Exception:
-            logging.error(f"{type(e).__name__}: {e}")
-        else:
-            logging.error(str(e))
-        if VERBOSE:
-            Console().print_exception(show_locals=VERBOSE_LOCALS)
-        sys.exit(1)
+    with Verbosity(VERBOSE=True, VERBOSE_LOCALS=True) as v:
+        try:
+            blockwork()
+            sys.exit(0)
+        except Exception as e:
+            if type(e) is not Exception:
+                logging.error(f"{type(e).__name__}: {e}")
+            else:
+                logging.error(str(e))
+            if v.VERBOSE:
+                Console().print_exception(show_locals=v.VERBOSE_LOCALS)
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
