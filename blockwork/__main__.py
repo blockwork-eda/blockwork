@@ -80,15 +80,13 @@ def blockwork(ctx,
               runtime : Optional[str] = None,
               arch : Optional[str] = None) -> None:
     # Setup the verbosity
+    Verbosity.current.VERBOSE = verbose
+    Verbosity.current.VERBOSE_LOCALS = verbose and verbose_locals
     if verbose:
         logging.info("Setting logging verbosity to DEBUG")
         logging.getLogger().setLevel(logging.DEBUG)
-        Verbosity.current.VERBOSE = True
-        Verbosity.current.VERBOSE_LOCALS = verbose_locals
     elif quiet:
         logging.getLogger().setLevel(logging.WARNING)
-        Verbosity.current.VERBOSE = False
-        Verbosity.current.VERBOSE_LOCALS = False
     # Set a preferred runtime, if provided
     if runtime:
         Runtime.set_preferred_runtime(runtime)
@@ -108,7 +106,7 @@ for activity in activities:
     blockwork.add_command(activity)
 
 def main():
-    with Verbosity() as v:
+    with Verbosity(VERBOSE=True, VERBOSE_LOCALS=True) as v:
         try:
             blockwork()
             sys.exit(0)
