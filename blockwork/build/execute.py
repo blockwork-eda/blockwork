@@ -51,6 +51,9 @@ def execute(ctx : Context, entity : Entity, graph : Graph) -> None:
                 ctx,
                 hostname=f"{ctx.config.project}_{entity.name}_{node.transform.name}"
             )
+            # Bind all requested tools
+            for tool in node.transform.tools:
+                container.add_tool(tool().default)
             # Iterate through request extensions
             inputs = defaultdict(list)
             for in_type in node.transform.inputs:

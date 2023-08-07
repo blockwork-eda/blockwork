@@ -81,7 +81,8 @@ class Verilator(Tool):
             f"./configure --prefix={tool_dir.as_posix()}",
             "make -j4",
             "make install",
-            f"rm -rf verilator-{vernum} ./*.tar.*"
+            f"rm -rf verilator-{vernum} ./*.tar.*",
+            "cp -r share/verilator/include include"
         ]
         return Invocation(
             version = version,
