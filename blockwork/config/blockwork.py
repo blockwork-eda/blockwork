@@ -29,7 +29,6 @@ class Blockwork:
 
     @root.check
     @scratch.check
-    def absPath(_field, value):
+    def abs_path(_field, value):
         if not value.startswith("/"):
             raise TypeError(f"Expected absolute path, but got {value}")
-

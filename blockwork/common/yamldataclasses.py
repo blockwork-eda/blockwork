@@ -55,7 +55,7 @@ class YamlExtraFieldsError(YamlDataclassError):
         super().__init__(location, f"Got extra field(s) `{', '.join(self.fields)}`")
 
 
-def constructorFactory(dc: type):
+def constructor_factory(dc: type):
     "Creates and returns a yaml constructor for a dataclass"
     def constructor(loader: Loader, node: yaml.Node):
         # path:line:column
@@ -73,8 +73,7 @@ def constructorFactory(dc: type):
                     required_keys.add(field.name)
                     
             # Check there are no extra fields provided
-            extra = set(node_dict.keys()) - set(keys)
-            if extra:
+            if (extra := set(node_dict.keys()) - set(keys)):
                 raise YamlExtraFieldsError(loc, extra)
 
             # Check there are no missing fields
@@ -97,7 +96,7 @@ def constructorFactory(dc: type):
     return constructor
 
 
-def representerFactory(tag):
+def representer_factory(tag):
     "Creates and returns a yaml representer from a dataclass"
     def representer(dumper: Dumper, node):
         return dumper.represent_mapping(tag, node.__dict__)
@@ -174,8 +173,8 @@ class ParserFactory:
         Wrap_DC = TypeVar("Wrap_DC")
         def wrap(dc: Wrap_DC) -> Wrap_DC:
             inner_tag = f"!{dc.__name__}" if tag is None else tag
-            self.loader.add_constructor(inner_tag, constructorFactory(dc))
-            self.dumper.add_representer(dc, representerFactory(inner_tag))
+            self.loader.add_constructor(inner_tag, constructor_factory(dc))
+            self.dumper.add_representer(dc, representer_factory(inner_tag))
             return dc
         return wrap
     
