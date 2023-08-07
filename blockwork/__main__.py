@@ -108,7 +108,7 @@ for activity in activities:
     blockwork.add_command(activity)
 
 def main():
-    with Verbosity(VERBOSE=True, VERBOSE_LOCALS=True) as v:
+    with Verbosity() as v:
         try:
             blockwork()
             sys.exit(0)
