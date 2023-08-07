@@ -4,7 +4,7 @@ from typing import List
 from blockwork.tools import Invocation, Require, Tool, Version
 
 from .common import TOOL_ROOT
-from .compilers import Automake, Bison, CCache, GCC, GPerf, Help2Man, Flex, PkgConfig
+from .compilers import Automake, GCC, GPerf
 
 @Tool.register()
 class GTKWave(Tool):

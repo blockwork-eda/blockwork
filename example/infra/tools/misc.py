@@ -72,6 +72,10 @@ class Make(Tool):
                 default  = True),
     ]
 
+    @Tool.action("Make", default=True)
+    def run(self, version: Version, *args: list[str]) -> Invocation:
+        return Invocation(version=version, execute="make", args=args)
+
     @Tool.action("Make")
     def install(self, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
