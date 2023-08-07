@@ -11,7 +11,8 @@ class GCC(Tool):
     versions = [
         Version(location = TOOL_ROOT / "gcc" / "13.1.0",
                 version  = "13.1.0",
-                paths    = { "PATH": [Tool.ROOT / "bin"] },
+                paths    = { "PATH"           : [Tool.ROOT / "bin"],
+                             "LD_LIBRARY_PATH": [Tool.ROOT / "lib64"] },
                 default  = True),
     ]
 
@@ -286,4 +287,109 @@ class Help2Man(Tool):
             execute = "bash",
             args    = ["-c", " && ".join(script)],
             workdir = tool_dir
+        )
+
+
+@Tool.register()
+class GPerf(Tool):
+    versions = [
+        Version(
+            location=TOOL_ROOT / "gperf" / "3.1",
+            version="3.1",
+            requires=[Require(GCC, "13.1.0")],
+            paths={"PATH": [Tool.ROOT / "bin"]},
+            default=True,
+        ),
+    ]
+
+    @Tool.action("GPerf")
+    def install(self, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
+        tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
+        script = [
+            f"wget --quiet http://ftp.gnu.org/pub/gnu/gperf/gperf-{vernum}.tar.gz",
+            f"tar -xf gperf-{vernum}.tar.gz",
+            f"cd gperf-{vernum}",
+            f"./configure --prefix={tool_dir.as_posix()}",
+            "make -j4",
+            "make install",
+            "cd ..",
+            f"rm -rf gperf-{vernum} ./*.tar.*"
+        ]
+        return Invocation(
+            version = version,
+            execute = "bash",
+            args    = ["-c", " && ".join(script)],
+            workdir = tool_dir
+        )
+
+
+@Tool.register()
+class Automake(Tool):
+    versions = [
+        Version(
+            location=TOOL_ROOT / "automake" / "1.16.5",
+            version="1.16.5",
+            requires=[Require(Autoconf, "2.71"),
+                      Require(GCC,      "13.1.0")],
+            paths={"PATH": [Tool.ROOT / "bin"]},
+            default=True,
+        ),
+    ]
+
+    @Tool.action("Automake")
+    def install(self, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
+        tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
+        script = [
+            f"wget --quiet https://ftp.gnu.org/gnu/automake/automake-{vernum}.tar.gz",
+            f"tar -xf automake-{vernum}.tar.gz",
+            f"cd automake-{vernum}",
+            f"./configure --prefix={tool_dir.as_posix()}",
+            "make -j4",
+            "make install",
+            "cd ..",
+            f"rm -rf automake-{vernum} ./*.tar.*"
+        ]
+        return Invocation(
+            version = version,
+            execute = "bash",
+            args    = ["-c", " && ".join(script)],
+            workdir = tool_dir
+        )
+
+
+@Tool.register()
+class PkgConfig(Tool):
+    versions = [
+        Version(
+            location=TOOL_ROOT / "pkgconfig" / "0.29.2",
+            version="0.29.2",
+            requires=[Require(Autoconf, "2.71"),
+                      Require(GCC,      "13.1.0")],
+            paths={"PATH": [Tool.ROOT / "bin"]},
+            default=True,
+        ),
+    ]
+
+    @Tool.action("PkgConfig")
+    def install(self, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
+        tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
+        script = [
+            f"wget https://pkgconfig.freedesktop.org/releases/pkg-config-{vernum}.tar.gz",
+            f"tar -xf pkg-config-{vernum}.tar.gz",
+            f"cd pkg-config-{vernum}",
+            f"./configure --prefix={tool_dir.as_posix()}",
+            "make -j4",
+            "make install",
+            "cd ..",
+            f"rm -rf pkg-config-{vernum} ./*.tar.*"
+        ]
+        return Invocation(
+            version = version,
+            execute = "bash",
+            args    = ["-c", " && ".join(script)],
+            workdir = tool_dir,
+            interactive=True
         )
