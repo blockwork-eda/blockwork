@@ -14,7 +14,7 @@ class GTKWave(Tool):
                 requires = [Require(Automake, "1.16.5"),
                             Require(GCC,      "13.1.0"),
                             Require(GPerf,    "3.1")],
-                paths    = { "PATH": [Tool.ROOT / "src"] },
+                paths    = { "PATH": [Tool.ROOT / "bin"] },
                 default  = True),
     ]
 
@@ -26,7 +26,7 @@ class GTKWave(Tool):
         path = Path(wavefile).absolute()
         return Invocation(
             version = version,
-            execute = Tool.ROOT / "src" / "gtkwave",
+            execute = "gtkwave",
             args    = [path, *args],
             display = True,
             binds   = [path.parent]
@@ -38,7 +38,7 @@ class GTKWave(Tool):
                 *args   : List[str]) -> Invocation:
         return Invocation(
             version = version,
-            execute = Tool.ROOT / "src" / "gtkwave",
+            execute = "gtkwave",
             args    = ["--version", *args],
             display = True,
         )
