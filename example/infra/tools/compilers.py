@@ -205,14 +205,13 @@ class CMake(Tool):
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
             f"wget --quiet https://github.com/Kitware/CMake/releases/download/v{vernum}/cmake-{vernum}-linux-{arch_str}.sh",
-            f"bash ./cmake-{vernum}-linux-aarch64.sh --prefix=/tools/cmake/{vernum} --skip-license"
+            f"bash ./cmake-{vernum}-linux-aarch64.sh --prefix={tool_dir.as_posix()} --skip-license"
         ]
         return Invocation(
             version = version,
             execute = "bash",
             args    = ["-c", " && ".join(script)],
-            workdir = tool_dir,
-            interactive=True
+            workdir = tool_dir
         )
 
 
