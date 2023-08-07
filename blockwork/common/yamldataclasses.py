@@ -133,7 +133,7 @@ class _Parser(Generic[_Parser_DC]):
         """
         parsed : _Parser_DC = yaml.load(data, Loader=self.loader)
         if not isinstance(parsed, self.dc):
-            raise YamlDataclassError(f"<unicode string>", f"Expected {self.dc} object got {type(parsed).__name__}")
+            raise YamlDataclassError("<unicode string>", f"Expected {self.dc} object got {type(parsed).__name__}")
         return parsed
 
 
