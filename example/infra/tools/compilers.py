@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import List
 
+from blockwork.context import HostArchitecture
 from blockwork.tools import Invocation, Require, Tool, Version
 
 from .common import TOOL_ROOT
@@ -16,21 +17,22 @@ class GCC(Tool):
 
     @Tool.action("GCC")
     def install(self, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
-            "wget --quiet https://mirrorservice.org/sites/sourceware.org/pub/gcc/releases/gcc-13.1.0/gcc-13.1.0.tar.gz",
-            "tar -xf gcc-13.1.0.tar.gz",
-            "cd gcc-13.1.0"
+            f"wget --quiet https://mirrorservice.org/sites/sourceware.org/pub/gcc/releases/gcc-{vernum}/gcc-{vernum}.tar.gz",
+            f"tar -xf gcc-{vernum}.tar.gz",
+            f"cd gcc-{vernum}"
             "bash ./contrib/download_prerequisites",
             "cd ..",
             "mkdir -p objdir",
             "cd objdir",
-            f"bash ../gcc-13.1.0/configure --prefix={tool_dir.as_posix()} "
+            f"bash ../gcc-{vernum}/configure --prefix={tool_dir.as_posix()} "
             "--enable-languages=c,c++ --build=$(uname -m)-linux-gnu",
             "make -j4",
             "make install",
             "cd ..",
-            "rm -rf objdir gcc-13.1.0 ./*.tar.*"
+            f"rm -rf objdir gcc-{vernum} ./*.tar.*"
         ]
         return Invocation(
             version = version,
@@ -54,16 +56,17 @@ class M4(Tool):
 
     @Tool.action("M4")
     def install(self, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
-            "wget --quiet https://ftp.gnu.org/gnu/m4/m4-1.4.19.tar.gz",
-            "tar -xf m4-1.4.19.tar.gz",
-            "cd m4-1.4.19",
+            f"wget --quiet https://ftp.gnu.org/gnu/m4/m4-{vernum}.tar.gz",
+            f"tar -xf m4-{vernum}.tar.gz",
+            f"cd m4-{vernum}",
             f"./configure --prefix={tool_dir.as_posix()}",
             "make -j4",
             "make install",
             "cd ..",
-            "rm -rf m4-1.4.19 ./*.tar.*"
+            f"rm -rf m4-{vernum} ./*.tar.*"
         ]
         return Invocation(
             version = version,
@@ -93,16 +96,17 @@ class Flex(Tool):
 
     @Tool.action("Flex")
     def install(self, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
-            "wget --quiet https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz",
-            "tar -xf flex-2.6.4.tar.gz",
-            "cd flex-2.6.4",
+            f"wget --quiet https://github.com/westes/flex/releases/download/v{vernum}/flex-{vernum}.tar.gz",
+            f"tar -xf flex-{vernum}.tar.gz",
+            f"cd flex-{vernum}",
             f"./configure --prefix={tool_dir.as_posix()}",
             "make -j4",
             "make install",
             "cd ..",
-            "rm -rf flex-2.6.4 ./*.tar.*"
+            f"rm -rf flex-{vernum} ./*.tar.*"
         ]
         return Invocation(
             version = version,
@@ -127,16 +131,17 @@ class Bison(Tool):
 
     @Tool.action("Bison")
     def install(self, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
-            "wget --quiet https://ftp.gnu.org/gnu/bison/bison-3.8.tar.gz",
-            "tar -xf bison-3.8.tar.gz",
-            "cd bison-3.8",
+            f"wget --quiet https://ftp.gnu.org/gnu/bison/bison-{vernum}.tar.gz",
+            f"tar -xf bison-{vernum}.tar.gz",
+            f"cd bison-{vernum}",
             f"./configure --prefix={tool_dir.as_posix()}",
             "make -j4",
             "make install",
             "cd ..",
-            "rm -rf bison-3.8 ./*.tar.*"
+            f"rm -rf bison-{vernum} ./*.tar.*"
         ]
         return Invocation(
             version = version,
@@ -161,16 +166,17 @@ class Autoconf(Tool):
 
     @Tool.action("Autoconf")
     def install(self, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
-            "wget --quiet https://ftp.gnu.org/gnu/autoconf/autoconf-2.71.tar.gz",
-            "tar -xf autoconf-2.71.tar.gz",
-            "cd autoconf-2.71",
+            f"wget --quiet https://ftp.gnu.org/gnu/autoconf/autoconf-{vernum}.tar.gz",
+            f"tar -xf autoconf-{vernum}.tar.gz",
+            f"cd autoconf-{vernum}",
             f"./configure --prefix={tool_dir.as_posix()}",
             "make -j4",
             "make install",
             "cd ..",
-            "rm -rf autoconf-2.71 ./*.tar.*"
+            f"rm -rf autoconf-{vernum} ./*.tar.*"
         ]
         return Invocation(
             version = version,
@@ -187,29 +193,26 @@ class CMake(Tool):
             location=TOOL_ROOT / "cmake" / "3.27.1",
             version="3.27.1",
             requires=[Require(GCC, "13.1.0")],
-            paths={"PATH": [Tool.ROOT]},
+            paths={"PATH": [Tool.ROOT / "bin"]},
             default=True,
         ),
     ]
 
     @Tool.action("CMake")
     def install(self, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
+        arch_str = ["x86_64", "aarch64"][HostArchitecture.identify() is HostArchitecture.ARM]
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
-            "wget --quiet https://github.com/Kitware/CMake/releases/download/v3.27.1/cmake-3.27.1.tar.gz",
-            "tar -xf cmake-3.27.1.tar.gz",
-            "cd cmake-3.27.1",
-            "./bootstrap",
-            "make -j4",
-            "make install",
-            "cd ..",
-            "rm -rf cmake-3.27.1 ./*.tar.*"
+            f"wget --quiet https://github.com/Kitware/CMake/releases/download/v{vernum}/cmake-{vernum}-linux-{arch_str}.sh",
+            f"bash ./cmake-{vernum}-linux-aarch64.sh --prefix=/tools/cmake/{vernum} --skip-license"
         ]
         return Invocation(
             version = version,
             execute = "bash",
             args    = ["-c", " && ".join(script)],
-            workdir = tool_dir
+            workdir = tool_dir,
+            interactive=True
         )
 
 
@@ -231,17 +234,19 @@ class CCache(Tool):
 
     @Tool.action("CCache")
     def install(self, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
-            "wget --quiet https://github.com/ccache/ccache/releases/download/v4.8.2/ccache-4.8.2.tar.gz",
-            "tar -xf ccache-4.8.2.tar.gz",
-            "cd ccache-4.8.2",
-            "autoconf",
-            f"./configure --prefix={tool_dir.as_posix()}",
+            f"wget --quiet https://github.com/ccache/ccache/releases/download/v{vernum}/ccache-{vernum}.tar.gz",
+            f"tar -xf ccache-{vernum}.tar.gz",
+            f"cd ccache-{vernum}",
+            "mkdir -p build",
+            "cd build",
+            f"cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX={tool_dir.as_posix()} ..",
             "make -j4",
             "make install",
-            "cd ..",
-            "rm -rf ccache-4.8.2 ./*.tar.*"
+            "cd ../..",
+            f"rm -rf ccache-{vernum} ./*.tar.*"
         ]
         return Invocation(
             version = version,
@@ -265,16 +270,17 @@ class Help2Man(Tool):
 
     @Tool.action("Help2Man")
     def install(self, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
-            "wget --quiet http://mirror.koddos.net/gnu/help2man/help2man-1.49.3.tar.xz",
-            "tar -xf help2man-1.49.3.tar.gz",
-            "cd help2man-1.49.3",
+            f"wget --quiet http://mirror.koddos.net/gnu/help2man/help2man-{vernum}.tar.xz",
+            f"tar -xf help2man-{vernum}.tar.xz",
+            f"cd help2man-{vernum}",
             f"./configure --prefix={tool_dir.as_posix()}",
             "make -j4",
             "make install",
             "cd ..",
-            "rm -rf help2man-1.49.3 ./*.tar.*"
+            f"rm -rf help2man-{vernum} ./*.tar.*"
         ]
         return Invocation(
             version = version,
