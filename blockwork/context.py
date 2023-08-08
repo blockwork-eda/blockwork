@@ -81,7 +81,8 @@ class Context:
     @functools.lru_cache()
     def host_scratch(self) -> Path:
         # Substitute for {project} if required
-        subbed = self.config.host_scratch.format(project=self.config.project)
+        subbed = self.config.host_scratch.format(project=self.config.project,
+                                                 root_dir=self.host_root.name)
         # Resolve to an absolute path
         if subbed.startswith("/"):
             path = Path(subbed)
@@ -97,7 +98,8 @@ class Context:
     @functools.lru_cache()
     def host_state(self) -> Path:
         # Substitute for {project} if required
-        subbed = self.config.host_state.format(project=self.config.project)
+        subbed = self.config.host_state.format(project=self.config.project,
+                                               root_dir=self.host_root.name)
         # Resolve to an absolute path
         if subbed.startswith("/"):
             path = Path(subbed)

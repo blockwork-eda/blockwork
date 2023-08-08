@@ -110,3 +110,22 @@ class TestContext:
         ctx = Context(tmp_path)
         assert isinstance(ctx.state, State)
         assert ctx.state._State__location == tmp_path / ".my_test_state"
+
+    def test_context_root_dir(self, tmp_path : Path) -> None:
+        """ Test that {root_dir} substitution works for scratch and state directories """
+        root = tmp_path / "other_dir"
+        root.mkdir(exist_ok=True)
+        bw_yaml = root / ".bw.yaml"
+        # Create a configuration file
+        with bw_yaml.open("w", encoding="utf-8") as fh:
+            fh.write("!Blockwork\n"
+                     "project: test_project\n"
+                     "host_scratch: ../{root_dir}.scratch\n"
+                     "host_state: ../{root_dir}.state\n")
+        # Create a context
+        ctx = Context(root)
+        assert ctx.host_root == root
+        assert ctx.host_scratch.samefile(tmp_path / "other_dir.scratch")
+        assert ctx.host_state.samefile(tmp_path / "other_dir.state")
+        assert ctx.host_scratch.exists()
+        assert ctx.host_state.exists()
