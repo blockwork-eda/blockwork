@@ -35,3 +35,13 @@ The fields of the `!Blockwork` tag are:
     The `host_scratch` and `host_state` directories are resolved relative to the
     project's root directory on the host, and the `{project}` keyword will be
     substituted for the projects name (taken from the `project` field).
+
+## Variable Substitutions
+
+Some configuration fields support variable substitution into values, these are
+summarised in the table below:
+
+| Variable     | Supported By      | Description                                                    |
+|--------------|-------------------|----------------------------------------------------------------|
+| `{project}`  | `root`, `scratch` | Name of the project (from the `project` field)                 |
+| `{root_dir}` | `root`, `scratch` | Name of the directory that's an immediate parent to `.bw.yaml` |
