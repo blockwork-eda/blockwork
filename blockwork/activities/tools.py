@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import sys
-from typing import List
+from typing import List, Optional
 
 import click
 from rich.console import Console
@@ -55,6 +55,10 @@ def tools(ctx : Context):
     Console().print(table)
 
 @click.command()
+@click.option("--version", "-v",
+              type=str,
+              default=None,
+              help="Set the tool version to use.")
 @click.option("--tool-mode",
               type=click.Choice(ToolMode, case_sensitive=False),
               default="readonly",
@@ -66,6 +70,7 @@ def tools(ctx : Context):
 @click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
 def tool(ctx         : Context,
+         version     : Optional[str],
          tool_action : str,
          tool_mode   : str,
          runargs     : List[str]) -> None:
@@ -75,8 +80,9 @@ def tool(ctx         : Context,
     where the default action is acceptable.
     """
     # Split <TOOL>.<ACTION> or <TOOL> into parts
-    tool, action, *_ = (tool_action + ".default").split(".")
+    base_tool, action, *_ = (tool_action + ".default").split(".")
     # Find the tool
+    tool = f"{base_tool}={version}" if version else base_tool 
     vendor, name, version = BwExecCommand.decode_tool(tool)
     if (tool_ver := Tool.get(vendor, name, version)) is None:
         raise Exception(f"Cannot locate tool for {tool}")

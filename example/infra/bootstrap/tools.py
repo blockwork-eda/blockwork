@@ -24,10 +24,13 @@ def download_tools(context : Context, last_run : datetime) -> bool:
     tool_base = context.host_root.parent / f"{context.config.project}.tools"
     tool_base.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmpdir:
-        for idx, (rel_path, url) in enumerate(data.items()):
+        for idx, (rel_path, arch_urls) in enumerate(data.items()):
             if (tool_base / rel_path).exists():
                 logging.info(f"[{idx+1:2d} / {len(data.keys()):2d}] Skipping as {rel_path} already exists")
                 continue
+            url = arch_urls.get(context.host_architecture, None)
+            if not url:
+                raise RuntimeError(f"URL does not exist for architecture `{context.host_architecture}` for `{rel_path}`")
             local = Path(tmpdir) / f"tool_{idx}.zip"
             logging.info(f"[{idx+1:2d} / {len(data.keys()):2d}] Downloading {rel_path} from {url}")
             request.urlretrieve(url, local)
