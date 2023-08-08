@@ -57,6 +57,11 @@ class Verilator(Tool):
                             Require(Flex,     "2.6.4"),
                             Require(Help2Man, "1.49.3")],
                 default  = True),
+        Version(location = TOOL_ROOT / "verilator" / "v4.106",
+                version  = "4.106",
+                env      = { "VERILATOR_ROOT": Tool.ROOT },
+                paths    = { "PATH": [Tool.ROOT / "bin"] },
+                default  = False),
     ]
 
     @Tool.action("Verilator")
