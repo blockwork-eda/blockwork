@@ -340,10 +340,8 @@ class Container:
                     line = socket.readline()
                     if not line:
                         break
-                    try:
-                        print(line.decode("utf-8"), end="")
-                    except UnicodeDecodeError:
-                        pass
+                    # Output the line, replace bad characters with escape sequences
+                    print(line.decode("utf-8", errors="backslashreplace"), end="")
             # Get the result (carries the status code)
             # NOTE: Podman sometimes drops the connection during 'wait()' leading
             #       to a connection aborted error, so retry the operation until

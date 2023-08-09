@@ -75,12 +75,12 @@ def read_stream(socket : SocketIO, e_done : Event) -> Thread:
                 rlist, _, _ = select.select([socket], [], [], 0.1)
                 if rlist:
                     buff = socket.read(1024)
+                    # @edwardk: Not entirely sure why this replace is necessary
+                    # but otherwise we don't get carriage returns
+                    buff = buff.replace(b'\n',b'\r\n')
                     if len(buff) > 0:
-                        try:
-                            sys.stdout.write(buff.decode("utf-8"))
-                            sys.stdout.flush()
-                        except UnicodeDecodeError:
-                            pass
+                        sys.stdout.write(buff.decode("utf-8", errors='backslashreplace'))
+                        sys.stdout.flush()
                     else:
                         break
         except BrokenPipeError:
