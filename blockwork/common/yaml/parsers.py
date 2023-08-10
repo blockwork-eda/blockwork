@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, Callable, Generic, Optional
+from typing import Any, Callable, Generic, Optional, Self
 from .converters import Converter, _Convertable, YamlConversionError
 import yaml
 try:
@@ -84,7 +84,7 @@ class ParserFactory:
         self.loader = loader
         self.dumper = dumper
 
-    def register(self, Converter: type[Converter[_Convertable]], *, tag: Optional[str]=None) -> Callable[[type[_Convertable]], type[_Convertable]]:
+    def register(self, Converter: type[Converter[_Convertable, Self]], *, tag: Optional[str]=None) -> Callable[[type[_Convertable]], type[_Convertable]]:
         """
         Register a object for parsing with this parser object.
 
@@ -92,7 +92,7 @@ class ParserFactory:
         """
         def wrap(typ: type[_Convertable]) -> type[_Convertable]:
             inner_tag = f"!{typ.__name__}" if tag is None else tag
-            converter = Converter(inner_tag, typ)
+            converter = Converter(tag=inner_tag, typ=typ, parser=self)
             
             self.loader.add_constructor(inner_tag, converter.construct)
             self.dumper.add_representer(typ, converter.represent)
@@ -127,7 +127,7 @@ class ParserFactory:
         return self(object).parse_str(data)
 
 
-def SimpleParser(typ: type[_Convertable], Converter: type[Converter[_Convertable]]) -> Parser[type[_Convertable]]:
+def SimpleParser(typ: type[_Convertable], Converter: type[Converter[_Convertable, ParserFactory]]) -> Parser[type[_Convertable]]:
     """
     Create a parser for a specific dataclass
     """
