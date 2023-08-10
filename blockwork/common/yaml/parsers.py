@@ -13,8 +13,8 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, Callable, Generic, Optional, Self
-from .converters import Converter, _Convertable, YamlConversionError
+from typing import Any, Callable, Generic, Optional,  Self
+from .converters import Converter, Registry, _Convertable, YamlConversionError
 import yaml
 try:
     from yaml import CDumper as Dumper
@@ -23,7 +23,7 @@ except ImportError:
     from yaml import Dumper, Loader
 
 
-class Parser(Generic[_Convertable]):
+class ObjectParser(Generic[_Convertable]):
     """Yaml parser for a specific type, created by ParserFactory"""
     def __init__(self, typ: type[_Convertable], loader: type[Loader], dumper: type[Dumper]):
         self.typ = typ
@@ -56,33 +56,39 @@ class Parser(Generic[_Convertable]):
         return parsed
 
 
-class ParserFactory:
+class Parser:
     """
-    Creates a parser which can be used to register objects as
-    Yaml tags, for example::
+    Creates a parser from a registry of conversions from tag to object and back, for example::
 
-        YamlParser = ParserFactory()
+        spacial_registry = Registry()
         
-        @YamlParser.register("!coord")
+        @spacial_registry.register(DataclassConverter, tag="!coord")
         @dataclass
         class Coordinate:
             x: int
             y: int
         
         # Parse as specific type (validates the result is a coordinate)
-        YamlParser(Coordinate).parse_str(...)
+        spacial_parser = Parser(spacial_registry)
+        spacial_parser(Coordinate).parse_str(...)
 
         # Parse as any registered type
-        YamlParser.parse_str(...)
+        spacial_parser.parse_str(...)
 
     """
-    def __init__(self):
+    def __init__(self, registry: Optional[Registry]=None):
         class loader(Loader):
             ...
         class dumper(Dumper):
             ...
+
         self.loader = loader
         self.dumper = dumper
+
+        if registry is not None:
+            for tag, typ, Converter in registry:
+                self.register(Converter, tag=tag)(typ)
+
 
     def register(self, Converter: type[Converter[_Convertable, Self]], *, tag: Optional[str]=None) -> Callable[[type[_Convertable]], type[_Convertable]]:
         """
@@ -93,20 +99,19 @@ class ParserFactory:
         def wrap(typ: type[_Convertable]) -> type[_Convertable]:
             inner_tag = f"!{typ.__name__}" if tag is None else tag
             converter = Converter(tag=inner_tag, typ=typ, parser=self)
-            
             self.loader.add_constructor(inner_tag, converter.construct)
             self.dumper.add_representer(typ, converter.represent)
             return typ
         return wrap
-    
-    def __call__(self, typ: type[_Convertable]) -> Parser[type[_Convertable]]:
+
+    def __call__(self, typ: type[_Convertable]) -> ObjectParser[_Convertable]:
         """
         Create a parser for a specific object
 
         :param dc:   object to parse as
         :returns:    object Parser
         """
-        return Parser(typ, loader=self.loader, dumper=self.dumper)
+        return ObjectParser(typ, loader=self.loader, dumper=self.dumper)
     
     def parse(self, path : Path) -> Any:
         """
@@ -127,10 +132,10 @@ class ParserFactory:
         return self(object).parse_str(data)
 
 
-def SimpleParser(typ: type[_Convertable], Converter: type[Converter[_Convertable, ParserFactory]]) -> Parser[type[_Convertable]]:
+def SimpleParser(typ: type[_Convertable], Converter: type[Converter[_Convertable, Parser]]) -> ObjectParser[_Convertable]:
     """
     Create a parser for a specific dataclass
     """
-    parser = ParserFactory()
+    parser = Parser()
     parser.register(Converter)(typ)
     return parser(typ)
