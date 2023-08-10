@@ -21,10 +21,10 @@ from typing import Optional
 
 from .config import Blockwork
 from .state import State
-import blockwork.common.yamldataclasses as yamldataclasses
+from blockwork.common.yaml import SimpleParser, DataclassConverter
 
 
-BlockworkConfig = yamldataclasses.SimpleParser(Blockwork)
+BlockworkConfig = SimpleParser(Blockwork, DataclassConverter)
 
 
 class HostArchitecture(StrEnum):
