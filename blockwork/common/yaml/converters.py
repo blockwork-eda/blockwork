@@ -13,13 +13,13 @@
 # limitations under the License.
 
 import sys
-from typing import Any, Generic, Iterable, Optional, TypeVar, cast, TYPE_CHECKING
+from typing import Any, Callable, Generic, Iterable, Optional, TypeVar, cast, TYPE_CHECKING
 from pathlib import Path
 from dataclasses import _MISSING_TYPE, fields
 import abc
 import yaml
 if TYPE_CHECKING:
-    from blockwork.common.yaml.parsers import ParserFactory
+    from blockwork.common.yaml.parsers import Parser
 try:
     from yaml import CDumper as Dumper
     from yaml import CLoader as Loader
@@ -60,7 +60,7 @@ class YamlExtraFieldsError(YamlConversionError):
 
 
 _Convertable = TypeVar('_Convertable')
-_Parser = TypeVar('_Parser', bound="ParserFactory",)
+_Parser = TypeVar('_Parser', bound="Parser",)
 class Converter(abc.ABC, Generic[_Convertable, _Parser]):
 
     def __init__(self, *, tag: str, typ: type[_Convertable], parser: _Parser):
@@ -100,6 +100,40 @@ class Converter(abc.ABC, Generic[_Convertable, _Parser]):
 
     def represent_node(self, dumper: Dumper, value: _Convertable) -> yaml.Node:
         raise NotImplementedError
+
+
+class Registry:
+    """
+    Creates an object with which to register converters which
+    can be used to initialise a Parser object.
+    """
+    def __init__(self):
+        self._registered_tags: set[str] = set()
+        self._registered_typs: set[Any] = set()
+        self._registry: list[tuple[str, Any, type[Converter]]] = []
+
+    def __iter__(self):
+        for (tag, typ, Converter) in self._registry:
+            yield (tag, typ, Converter)
+
+    def register(self, Converter: type[Converter], *, tag: Optional[str]=None) -> Callable[[type[_Convertable]], type[_Convertable]]:
+        """
+        Register a object for parsing with this parser object.
+
+        :param tag: The yaml tag to register as (!ClassName otherwise)
+        """
+        def wrap(typ: type[_Convertable]) -> type[_Convertable]:
+            inner_tag = f"!{typ.__name__}" if tag is None else tag
+
+            if inner_tag in self._registered_tags:
+                raise RuntimeError()
+            
+            if typ in self._registered_typs:
+                raise RuntimeError()
+            
+            self._registry.append((inner_tag, typ, Converter))
+            return typ
+        return wrap
 
 
 class DataclassConverter(Converter[_Convertable, _Parser]):
