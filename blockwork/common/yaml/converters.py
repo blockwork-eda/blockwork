@@ -126,10 +126,10 @@ class Registry:
             inner_tag = f"!{typ.__name__}" if tag is None else tag
 
             if inner_tag in self._registered_tags:
-                raise RuntimeError()
+                raise RuntimeError(f'Converter already exists for tag `{inner_tag}`')
             
             if typ in self._registered_typs:
-                raise RuntimeError()
+                raise RuntimeError(f'Converter already exists for type `{typ}`')
             
             self._registry.append((inner_tag, typ, Converter))
             return typ
