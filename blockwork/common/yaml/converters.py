@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import sys
-from typing import Any, Generic, Iterable, Optional, TypeVar, cast
+from typing import Any, Generic, Iterable, Optional, TypeVar, cast, TYPE_CHECKING
 from pathlib import Path
 from dataclasses import _MISSING_TYPE, fields
 import abc
 import yaml
+if TYPE_CHECKING:
+    from blockwork.common.yaml.parsers import ParserFactory
 try:
     from yaml import CDumper as Dumper
     from yaml import CLoader as Loader
@@ -58,11 +60,13 @@ class YamlExtraFieldsError(YamlConversionError):
 
 
 _Convertable = TypeVar('_Convertable')
-class Converter(abc.ABC, Generic[_Convertable]):
+_Parser = TypeVar('_Parser', bound="ParserFactory",)
+class Converter(abc.ABC, Generic[_Convertable, _Parser]):
 
-    def __init__(self, tag: str, typ: type[_Convertable]):
+    def __init__(self, *, tag: str, typ: type[_Convertable], parser: _Parser):
         self.tag = tag
         self.typ = typ
+        self.parser = parser
 
     def construct(self, loader: Loader, node: yaml.Node):
         if isinstance(node, yaml.nodes.MappingNode):
@@ -98,7 +102,7 @@ class Converter(abc.ABC, Generic[_Convertable]):
         raise NotImplementedError
 
 
-class DataclassConverter(Converter[_Convertable]):
+class DataclassConverter(Converter[_Convertable, _Parser]):
     def construct_mapping(self, loader: Loader, node: yaml.MappingNode) -> _Convertable:
         loc = f"{Path(node.start_mark.name).absolute()}:{node.start_mark.line}:{node.start_mark.column}"
         node_dict = cast(dict[str, Any], loader.construct_mapping(node, deep=True))
