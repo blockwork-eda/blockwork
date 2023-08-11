@@ -110,6 +110,21 @@ class Context:
         # Ensure it exists
         path.mkdir(exist_ok=True, parents=True)
         return path
+    
+    @property
+    @functools.lru_cache()
+    def site(self) -> Path:
+        # Substitute for {project} if required
+        subbed = self.config.site.format(project=self.config.project,
+                                                 root_dir=self.host_root.name)
+        # Resolve to an absolute path
+        if subbed.startswith("/"):
+            path = Path(subbed)
+        else:
+            path = self.__host_root / subbed
+        # Fully resolve
+        path = path.resolve().absolute()
+        return path
 
     @property
     def container_root(self) -> Path:

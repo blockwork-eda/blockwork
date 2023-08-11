@@ -18,13 +18,16 @@ from blockwork.common.checkeddataclasses import dataclass, field
 @dataclass
 class Blockwork:
     project      : str
+    site         : str                 = "./site.yml"
     root         : str                 = field(default="/project")
     scratch      : str                 = field(default="/scratch")
     host_scratch : str                 = "../{project}.scratch"
     host_state   : str                 = "../{project}.state"
+    config       : Optional[List[str]] = field(default_factory=list)
     bootstrap    : Optional[List[str]] = field(default_factory=list)
     tooldefs     : Optional[List[str]] = field(default_factory=list)
     transforms   : Optional[List[str]] = field(default_factory=list)
+    workflows    : Optional[List[str]] = field(default_factory=list)
     entities     : Optional[List[str]] = field(default_factory=list)
 
     @root.check

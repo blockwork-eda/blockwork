@@ -1,0 +1,3 @@
+!Project
+targets:
+  tb: targets/testbench.yaml

@@ -21,10 +21,12 @@ from typing import Optional
 import click
 from rich.console import Console
 from rich.logging import RichHandler
+from blockwork.config.base import Config
 
 from .bootstrap import Bootstrap
 from .build import Entity, Transform
 from .activities import activities
+from .activities.workflow import Workflow
 from .context import Context, HostArchitecture
 from .containers.runtime import Runtime
 from .tools import Tool
@@ -99,6 +101,8 @@ def blockwork(ctx,
     Tool.setup(ctx.obj.host_root, ctx.obj.config.tooldefs)
     Bootstrap.setup(ctx.obj.host_root, ctx.obj.config.bootstrap)
     Transform.setup(ctx.obj.host_root, ctx.obj.config.transforms)
+    Workflow.setup(ctx.obj.host_root, ctx.obj.config.workflows)
+    Config.setup(ctx.obj.host_root, ctx.obj.config.config)
     Entity.setup(ctx.obj.host_root, ctx.obj.config.entities)
 
 
