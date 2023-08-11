@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List
 
 from blockwork.tools import Invocation, Require, Tool, Version
+from blockwork.context import Context
 
 from .common import TOOL_ROOT
 from .compilers import GCC
@@ -18,7 +19,7 @@ class Python(Tool):
     ]
 
     @Tool.action("Python")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
@@ -54,6 +55,7 @@ class PythonSite(Tool):
 
     @Tool.action("PythonSite")
     def run(self,
+            ctx: Context, 
             version : Version,
             *args   : List[str]) -> Invocation:
         return Invocation(
@@ -73,11 +75,11 @@ class Make(Tool):
     ]
 
     @Tool.action("Make", default=True)
-    def run(self, version: Version, *args: list[str]) -> Invocation:
+    def run(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         return Invocation(version=version, execute="make", args=args)
 
     @Tool.action("Make")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [

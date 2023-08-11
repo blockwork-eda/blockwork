@@ -17,6 +17,7 @@ from typing import List
 
 import pytest
 
+from blockwork.context import Context
 from blockwork.common.registry import RegistryError
 from blockwork.tools import Invocation, Require, Tool, ToolError, Version
 
@@ -297,6 +298,7 @@ class TestTools:
             ]
             @Tool.action("Widget")
             def do_something(self,
+                             ctx     : Context, 
                              version : Version,
                              an_arg  : str,
                              *args   : List[str]) -> Invocation:
@@ -308,12 +310,12 @@ class TestTools:
                     binds   = [Path("/a/b/c")],
                 )
             @Tool.action("Widget", default=True)
-            def other_thing(self, version : Version, *args : List[str]) -> Invocation:
+            def other_thing(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
                 return Invocation(version, execute=Tool.ROOT / "bin" / "thing")
         # Invoke the 'do_something' action
         act = Widget().get_version("1.1").get_action("do_something")
         assert callable(act)
-        ivk = act("the argument", "ignored")
+        ivk = act("ignored_context", "the argument", "ignored")
         assert isinstance(ivk, Invocation)
         # Check attributes of the invocation
         assert ivk.version is Widget().get_version("1.1")
@@ -325,7 +327,7 @@ class TestTools:
         # Get the default action
         act_dft = Widget().get_action("default")
         assert callable(act_dft)
-        ivk_dft = act_dft(Widget().get_version("1.1"), "abc", "123")
+        ivk_dft = act_dft("ignored_context", Widget().get_version("1.1"), "abc", "123")
         assert isinstance(ivk_dft, Invocation)
         assert ivk_dft.version is Widget().get_version("1.1")
         assert ivk_dft.execute == Tool.ROOT / "bin" / "thing"
@@ -348,7 +350,7 @@ class TestTools:
                             paths    = { "PATH": [Tool.ROOT / "bin"] })
                 ]
                 @Tool.action("Widget")
-                def default(self, version : Version, *args : List[str]) -> Invocation:
+                def default(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
                     return Invocation(version, Tool.ROOT / "bin" / "blah")
         assert str(exc.value) == (
             "The action name 'default' is reserved, use the default=True option "
@@ -386,7 +388,7 @@ class TestTools:
                         paths    = { "PATH": [Tool.ROOT / "bin"] })
             ]
             @Tool.action("Widget")
-            def blah(self, version : Version, *args : List[str]) -> Invocation:
+            def blah(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
                 return Invocation(version, Tool.ROOT / "bin" / "blah")
         # Via the tool
         assert Widget().get_action("not_blah") is None

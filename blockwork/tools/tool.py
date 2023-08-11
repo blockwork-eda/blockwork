@@ -111,8 +111,8 @@ class Version:
         if (action := self.tool.get_action(name)) is None:
             return None
         # Return a wrapper that inserts the active version
-        def _wrap(*args, **kwargs):
-            return action(self, *args, **kwargs)
+        def _wrap(context, *args, **kwargs):
+            return action(context, self, *args, **kwargs)
         return _wrap
 
 
