@@ -263,10 +263,9 @@ class Container:
         env["LINES"]   = str(tsize.lines)
         env["COLUMNS"] = str(tsize.columns)
         env["TERM"]    = "xterm-256color"
-        # Map /tmp to a tmpfs and set TMPDIR and TMP environment variables
-        mounts.append({ "type": "tmpfs", "target": "/tmp" })
-        env["TMPDIR"] = "/tmp"
+        # Set TMP and TMPDIR environment variables
         env["TMP"]    = "/tmp"
+        env["TMPDIR"] = "/tmp"
         # Get access to container within a context manager
         with Runtime.get_client() as client:
             # Create a thread-safe event to mark when container finishes
@@ -297,6 +296,9 @@ class Container:
                 environment=env,
                 # Setup folders to bind in
                 mounts     =mounts,
+                # Provide an anonymous volume for '/tmp' (using a tmpfs mount
+                # implicitly adds 'noexec' preventing binaries executing)
+                volumes    =["/tmp"],
                 # Shared network with host
                 network    ="host",
                 # Set the UID to 0
