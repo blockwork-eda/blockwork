@@ -298,7 +298,7 @@ class Container:
                 mounts     =mounts,
                 # Provide an anonymous volume for '/tmp' (using a tmpfs mount
                 # implicitly adds 'noexec' preventing binaries executing)
-                volumes    =["/tmp"],
+                volumes    =["/tmp:/tmp"],
                 # Shared network with host
                 network    ="host",
                 # Set the UID to 0
