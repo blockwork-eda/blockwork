@@ -70,7 +70,7 @@ class Transform(RegisteredMethod):
         m_inputs = { x.strip(".").replace(".", "_"): y for x, y in inputs.items() }
         n_inputs = SimpleNamespace(**m_inputs)
         # Invoke the transform
-        yield from self.method(n_tools, n_inputs, cntr_dirx)
+        yield from self.method(ctx, n_tools, n_inputs, cntr_dirx)
 
     @classmethod
     def tool(cls, tool : Tool) -> Callable:
