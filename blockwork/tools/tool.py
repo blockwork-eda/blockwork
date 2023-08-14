@@ -107,12 +107,12 @@ class Version:
         else:
             return Path(self.tool.name) / self.version
 
-    def get_action(self, name : str) -> Union[Callable, None]:
-        if (action := self.tool.get_action(name)) is None:
+    def get_action(self, context: Context, name : str) -> Union[Callable, None]:
+        if (action := self.tool.get_action(context, name)) is None:
             return None
         # Return a wrapper that inserts the active version
-        def _wrap(context, *args, **kwargs):
-            return action(context, self, *args, **kwargs)
+        def _wrap(*args, **kwargs):
+            return action(self, *args, **kwargs)
         return _wrap
 
 
@@ -229,7 +229,7 @@ class Tool(RegisteredClass, metaclass=Singleton):
             return method
         return _inner
 
-    def get_action(self, name : str) -> Union[Callable, None]:
+    def get_action(self, context: Context, name : str) -> Union[Callable, None]:
         """
         Return an action registered for this tool if known.
 
@@ -379,4 +379,6 @@ class Invocation:
             # Otherwise, just pass through the argument
             else:
                 args.append(arg)
+
+        breakpoint()
         return args
