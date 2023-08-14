@@ -296,9 +296,10 @@ class Container:
                 environment=env,
                 # Setup folders to bind in
                 mounts     =mounts,
-                # Provide an anonymous volume for '/tmp' (using a tmpfs mount
-                # implicitly adds 'noexec' preventing binaries executing)
-                volumes    =["/tmp:/tmp"],
+                # Provide an anonymous volume for /tmp, /root, /var/log, /var/cache
+                # (using a tmpfs mount implicitly adds 'noexec' that prevents
+                # binaries from executing)
+                volumes    =[f"{x}:{x}" for x in ["/tmp", "/root", "/var/log", "/var/cache"]],
                 # Shared network with host
                 network    ="host",
                 # Set the UID to 0
