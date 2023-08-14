@@ -377,6 +377,4 @@ class Invocation:
             # Otherwise, just pass through the argument
             else:
                 args.append(arg)
-
-        breakpoint()
         return args
