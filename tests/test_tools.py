@@ -319,7 +319,7 @@ class TestTools:
             def other_thing(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
                 return Invocation(version, execute=Tool.ROOT / "bin" / "thing")
         # Invoke the 'do_something' action
-        act = Widget().get_version("1.1").get_action("do_something")
+        act = Widget().get_version("1.1").get_action("ignored_context", "do_something")
         assert callable(act)
         ivk = act(DummyContext(), "the argument", "ignored")
         assert isinstance(ivk, Invocation)
@@ -331,7 +331,7 @@ class TestTools:
         assert ivk.interactive
         assert ivk.binds == [Path("/a/b/c")]
         # Get the default action
-        act_dft = Widget().get_action("default")
+        act_dft = Widget().get_action("ignored_context", "default")
         assert callable(act_dft)
         ivk_dft = act_dft(DummyContext(), Widget().get_version("1.1"), "abc", "123")
         assert isinstance(ivk_dft, Invocation)
@@ -376,9 +376,9 @@ class TestTools:
                         paths    = { "PATH": [Tool.ROOT / "bin"] })
             ]
         # Via the tool
-        assert Widget().get_action("blah") is None
+        assert Widget().get_action("ignored_context", "blah") is None
         # Via the version
-        assert Widget().get_version("1.1").get_action("blah") is None
+        assert Widget().get_version("1.1").get_action("ignored_context", "blah") is None
 
     def test_tool_action_bad_name(self, tmp_path : Path) -> None:
         """ Check that a non-existent action returns 'None' """
@@ -397,9 +397,9 @@ class TestTools:
             def blah(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
                 return Invocation(version, Tool.ROOT / "bin" / "blah")
         # Via the tool
-        assert Widget().get_action("not_blah") is None
+        assert Widget().get_action("ignored_context", "not_blah") is None
         # Via the version
-        assert Widget().get_version("1.1").get_action("not_blah") is None
+        assert Widget().get_version("1.1").get_action("ignored_context", "not_blah") is None
 
     def test_registry(self, tmp_path : Path) -> None:
         """ Exercise search functionality of the registry """
