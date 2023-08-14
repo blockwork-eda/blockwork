@@ -92,5 +92,5 @@ def tool(ctx         : Context,
     # Run the action and forward the exit code
     container = Foundation(ctx, hostname=f"{ctx.config.project}_{tool}_{action}")
     sys.exit(container.invoke(ctx,
-                              act_def(*runargs),
+                              act_def(ctx, *runargs),
                               readonly=(ToolMode(tool_mode) == ToolMode.READONLY)))

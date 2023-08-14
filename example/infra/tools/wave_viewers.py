@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import List
 
+
+from blockwork.context import Context
 from blockwork.tools import Invocation, Require, Tool, Version
 
 from .common import TOOL_ROOT
@@ -20,6 +22,7 @@ class GTKWave(Tool):
 
     @Tool.action("GTKWave", default=True)
     def view(self,
+             ctx: Context, 
              version  : Version,
              wavefile : str,
              *args    : List[str]) -> Invocation:
@@ -34,6 +37,7 @@ class GTKWave(Tool):
 
     @Tool.action("GTKWave")
     def version(self,
+                ctx: Context, 
                 version : Version,
                 *args   : List[str]) -> Invocation:
         return Invocation(
@@ -44,7 +48,7 @@ class GTKWave(Tool):
         )
 
     @Tool.action("GTKWave")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [

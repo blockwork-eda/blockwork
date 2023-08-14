@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List
 
 from blockwork.tools import Invocation, Require, Tool, Version
+from blockwork.context import Context
 
 from .common import TOOL_ROOT
 from .compilers import Autoconf, Bison, CCache, GCC, GPerf, Help2Man, Flex
@@ -21,7 +22,7 @@ class IVerilog(Tool):
     ]
 
     @Tool.action("IVerilog")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version.replace(".", "_")
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
@@ -66,6 +67,7 @@ class Verilator(Tool):
 
     @Tool.action("Verilator")
     def run(self,
+            ctx: Context, 
             version : Version,
             *args   : List[str]) -> Invocation:
         return Invocation(
@@ -75,7 +77,7 @@ class Verilator(Tool):
         )
 
     @Tool.action("Verilator")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [

@@ -173,6 +173,7 @@ from pathlib import Path
 from typing import List
 
 from blockwork.tools import Invocation, Tool, Version
+from blockwork.context import Context
 
 @Tool.register()
 class GTKWave(Tool):
@@ -184,6 +185,7 @@ class GTKWave(Tool):
 
     @Tool.action("GTKWave", default=True)
     def view(self,
+             ctx      : Context
              version  : Version,
              wavefile : str,
              *args    : List[str]) -> Invocation:

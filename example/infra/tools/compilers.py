@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 
-from blockwork.context import HostArchitecture
+from blockwork.context import Context, HostArchitecture
 from blockwork.tools import Invocation, Require, Tool, Version
 
 from .common import TOOL_ROOT
@@ -17,7 +17,7 @@ class GCC(Tool):
     ]
 
     @Tool.action("GCC")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
@@ -56,7 +56,7 @@ class M4(Tool):
     ]
 
     @Tool.action("M4")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
@@ -96,7 +96,7 @@ class Flex(Tool):
     ]
 
     @Tool.action("Flex")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
@@ -131,7 +131,7 @@ class Bison(Tool):
     ]
 
     @Tool.action("Bison")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
@@ -166,7 +166,7 @@ class Autoconf(Tool):
     ]
 
     @Tool.action("Autoconf")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
@@ -200,9 +200,9 @@ class CMake(Tool):
     ]
 
     @Tool.action("CMake")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
-        arch_str = ["x86_64", "aarch64"][HostArchitecture.identify() is HostArchitecture.ARM]
+        arch_str = ["x86_64", "aarch64"][ctx.host_architecture is HostArchitecture.ARM]
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
             f"wget --quiet https://github.com/Kitware/CMake/releases/download/v{vernum}/cmake-{vernum}-linux-{arch_str}.sh",
@@ -233,7 +233,7 @@ class CCache(Tool):
     ]
 
     @Tool.action("CCache")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
@@ -269,7 +269,7 @@ class Help2Man(Tool):
     ]
 
     @Tool.action("Help2Man")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
@@ -303,7 +303,7 @@ class GPerf(Tool):
     ]
 
     @Tool.action("GPerf")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
@@ -338,7 +338,7 @@ class Automake(Tool):
     ]
 
     @Tool.action("Automake")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
@@ -373,7 +373,7 @@ class PkgConfig(Tool):
     ]
 
     @Tool.action("PkgConfig")
-    def install(self, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
         script = [
