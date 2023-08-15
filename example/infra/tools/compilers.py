@@ -23,7 +23,7 @@ class GCC(Tool):
         script = [
             f"wget --quiet https://mirrorservice.org/sites/sourceware.org/pub/gcc/releases/gcc-{vernum}/gcc-{vernum}.tar.gz",
             f"tar -xf gcc-{vernum}.tar.gz",
-            f"cd gcc-{vernum}"
+            f"cd gcc-{vernum}",
             "bash ./contrib/download_prerequisites",
             "cd ..",
             "mkdir -p objdir",

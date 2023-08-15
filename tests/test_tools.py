@@ -21,6 +21,12 @@ from blockwork.context import Context
 from blockwork.common.registry import RegistryError
 from blockwork.tools import Invocation, Require, Tool, ToolError, Version
 
+
+class DummyContext(Context):
+    "Dummy context object used to pass type checking when we know it won't be used."
+    def __init__(self):
+        pass
+
 class TestTools:
     """ Exercise tool and version definitions """
 
@@ -315,7 +321,7 @@ class TestTools:
         # Invoke the 'do_something' action
         act = Widget().get_version("1.1").get_action("do_something")
         assert callable(act)
-        ivk = act("ignored_context", "the argument", "ignored")
+        ivk = act(DummyContext(), "the argument", "ignored")
         assert isinstance(ivk, Invocation)
         # Check attributes of the invocation
         assert ivk.version is Widget().get_version("1.1")
@@ -327,7 +333,7 @@ class TestTools:
         # Get the default action
         act_dft = Widget().get_action("default")
         assert callable(act_dft)
-        ivk_dft = act_dft("ignored_context", Widget().get_version("1.1"), "abc", "123")
+        ivk_dft = act_dft(DummyContext(), Widget().get_version("1.1"), "abc", "123")
         assert isinstance(ivk_dft, Invocation)
         assert ivk_dft.version is Widget().get_version("1.1")
         assert ivk_dft.execute == Tool.ROOT / "bin" / "thing"

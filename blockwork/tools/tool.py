@@ -244,8 +244,10 @@ class Tool(RegisteredClass, metaclass=Singleton):
             return None
         # The method held in the actions dictionary is unbound, so this wrapper
         # provides the instance as the first argument
-        def _wrap(*args, **kwargs):
-            return raw_act(self, *args, **kwargs)
+        def _wrap(context, *args, **kwargs):
+            if not isinstance(context, Context):
+                raise RuntimeError(f"Expected Context object as first argument to action but got {context}")
+            return raw_act(self, context, *args, **kwargs)
         return _wrap
 
     # ==========================================================================
