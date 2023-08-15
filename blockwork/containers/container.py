@@ -266,6 +266,12 @@ class Container:
         # Set TMP and TMPDIR environment variables
         env["TMP"]    = "/tmp"
         env["TMPDIR"] = "/tmp"
+        # Provide anonymous volume mounts for '/tmp' and other paths (using a
+        # tmpfs mount implicitly adds 'noexec' preventing binaries executing)
+        mounts += [{"type": "volume", "target": "/tmp"},
+                   {"type": "volume", "target": "/root"},
+                   {"type": "volume", "target": "/var/log"},
+                   {"type": "volume", "target": "/var/cache"}]
         # Get access to container within a context manager
         with Runtime.get_client() as client:
             # Create a thread-safe event to mark when container finishes
@@ -296,10 +302,6 @@ class Container:
                 environment=env,
                 # Setup folders to bind in
                 mounts     =mounts,
-                # Provide an anonymous volume for /tmp, /root, /var/log, /var/cache
-                # (using a tmpfs mount implicitly adds 'noexec' that prevents
-                # binaries from executing)
-                volumes    =[f"{x}:{x}" for x in ["/tmp", "/root", "/var/log", "/var/cache"]],
                 # Shared network with host
                 network    ="host",
                 # Set the UID to 0
