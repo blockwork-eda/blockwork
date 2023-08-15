@@ -24,5 +24,5 @@ def mako(ctx      : Context,
     cmd += f"fh.write(Template(filename='{tmpl}').render());"
     cmd += f"fh.flush();"
     cmd += f"fh.close()"
-    yield tools.pythonsite.get_action(ctx, "run")("-c", cmd)
+    yield tools.pythonsite.get_action("run")(ctx, "-c", cmd)
     yield out_dirx / fname

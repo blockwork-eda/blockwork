@@ -15,7 +15,8 @@ def verilator_lint(ctx      : Context,
                    tools    : SimpleNamespace,
                    inputs   : SimpleNamespace,
                    out_dirx : Path) -> Iterable[Union[Invocation, Path]]:
-    yield tools.verilator.get_action(ctx, "run")(
+    yield tools.verilator.get_action("run")(
+        ctx,
         "--lint-only",
         "-Wall",
         *inputs.sv
