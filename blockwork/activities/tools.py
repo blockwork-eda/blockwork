@@ -87,10 +87,10 @@ def tool(ctx         : Context,
     if (tool_ver := Tool.get(vendor, name, version)) is None:
         raise Exception(f"Cannot locate tool for {tool}")
     # See if there is an action registered
-    if (act_def := tool_ver.get_action(ctx, action)) is None:
+    if (act_def := tool_ver.get_action(action)) is None:
         raise Exception(f"No action known for '{action}' on tool {tool}")
     # Run the action and forward the exit code
     container = Foundation(ctx, hostname=f"{ctx.config.project}_{tool}_{action}")
     sys.exit(container.invoke(ctx,
-                              act_def(*runargs),
+                              act_def(ctx, *runargs),
                               readonly=(ToolMode(tool_mode) == ToolMode.READONLY)))
