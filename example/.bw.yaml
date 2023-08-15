@@ -17,4 +17,4 @@ workflows:
 config:
   - infra.config.config
 entities:
-  - design.top
+  - design.top.top

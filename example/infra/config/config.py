@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from blockwork.common.checkeddataclasses import dataclass
+from blockwork.common.checkeddataclasses import dataclass, field
 from blockwork.config import base
 from blockwork.config import registry
 from blockwork.common.yaml import DataclassConverter
@@ -35,6 +35,7 @@ class Project(base.Project):
 @dataclass
 class Design(base.Element):
     top: str
+    sources: list[str] = field(default_factory=list)
 
 
 @registry.element.register(ElementConverter)

@@ -1,0 +1,6 @@
+!Design
+top: top
+sources:
+  - adder.sv
+  - counter.sv
+  - top.sv
