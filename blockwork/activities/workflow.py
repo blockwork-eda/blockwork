@@ -21,10 +21,6 @@ from blockwork.workflows.workflow import Workflow
 
 from ..context import Context
 
-@Workflow.register()
-class ex(Workflow):
-    pass
-
 @click.command(name='wf')
 @click.option('--project', '-p', type=str, required=True)
 @click.option('--target', '-t', type=str, required=True)
@@ -32,18 +28,23 @@ class ex(Workflow):
 @click.pass_obj
 def workflow(ctx : Context, project: str, target: str, workflow_name: str) -> None:
     """ Run a workflow """
-    workflow = cast(Workflow, Workflow.get_by_name(workflow_name))
+    wf = cast(type[Workflow], Workflow.get_by_name(workflow_name))
+    wf_types = wf.__call__.__annotations__
+
+    if not ('site' in wf_types, 'project' in wf_types, 'target' in wf_types):
+        raise RuntimeError("Workflow __call__ must specify types for configuration")
 
     site_parser = parser.Site()
     site_path = ctx.site
-    Site = site_parser(base.Site).parse(site_path)
+    Site = site_parser(wf_types["site"]).parse(site_path)
 
     project_parser = parser.Project(Site)
     project_path = Path(Site.projects[project])
-    Project = project_parser(base.Project).parse(project_path)
+    Project = project_parser(wf_types["project"]).parse(project_path)
 
     target_parser = parser.Element(Site, Project)
     target_path = Path(Project.targets[target])
-    Target = target_parser(base.Element).parse(target_path)
-    # Config.site
-    breakpoint()
+    Target = target_parser(wf_types["target"]).parse(target_path)
+
+    # Call the workflow with the config
+    wf()(site=Site, project=Project, target=Target)

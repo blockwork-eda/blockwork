@@ -12,6 +12,8 @@ tooldefs:
 transforms:
   - infra.transforms.lint
   - infra.transforms.templating
+workflows:
+  - infra.workflows.lint
 config:
   - infra.config.config
 entities:
