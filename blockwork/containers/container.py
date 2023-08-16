@@ -27,6 +27,7 @@ import requests
 
 from .runtime import Runtime
 from .common import read_stream, write_stream, forwarding_host
+from docker.types import Mount
 
 
 class ContainerError(Exception):
@@ -229,9 +230,16 @@ class Container:
             raise ContainerError("No command provided to execute")
         # Pickup default working directory if not set
         workdir = workdir or self.workdir
+        # Provide mounts for '/tmp' and other paths (using a
+        # tmpfs mount implicitly adds 'noexec' preventing binaries executing)
+        implicit_binds: List[ContainerBind] = []
+        for implicit_path in ["/tmp", "/root", "/var/log", "/var/cache"]:
+            container_path = Path(implicit_path)
+            host_path = Path('/tmp', self.id + implicit_path)
+            implicit_binds.append(ContainerBind(host_path=host_path, container_path=container_path, readonly=False))
         # Make sure the local bind paths exist
         mounts = []
-        for bind in self.__binds:
+        for bind in self.__binds + implicit_binds:
             if not bind.host_path.exists():
                 bind.host_path.mkdir(parents=True)
             mounts.append(bind.as_configuration())
@@ -267,12 +275,6 @@ class Container:
         # Set TMP and TMPDIR environment variables
         env["TMP"]    = "/tmp"
         env["TMPDIR"] = "/tmp"
-        # Provide anonymous volume mounts for '/tmp' and other paths (using a
-        # tmpfs mount implicitly adds 'noexec' preventing binaries executing)
-        mounts += [{"type": "volume", "target": "/tmp"},
-                   {"type": "volume", "target": "/root"},
-                   {"type": "volume", "target": "/var/log"},
-                   {"type": "volume", "target": "/var/cache"}]
         # Get access to container within a context manager
         with Runtime.get_client() as client:
             # Create a thread-safe event to mark when container finishes
