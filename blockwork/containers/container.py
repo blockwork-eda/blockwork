@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import atexit
-from contextlib import ExitStack
 import dataclasses
 import itertools
 import logging
