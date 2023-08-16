@@ -18,6 +18,7 @@ import itertools
 import logging
 import os
 import shutil
+import tempfile
 import time
 from pathlib import Path
 from threading import Event
@@ -267,14 +268,18 @@ class Container:
         # Set TMP and TMPDIR environment variables
         env["TMP"]    = "/tmp"
         env["TMPDIR"] = "/tmp"
-        # Provide anonymous volume mounts for '/tmp' and other paths (using a
-        # tmpfs mount implicitly adds 'noexec' preventing binaries executing)
-        mounts += [{"type": "volume", "target": "/tmp"},
-                   {"type": "volume", "target": "/root"},
-                   {"type": "volume", "target": "/var/log"},
-                   {"type": "volume", "target": "/var/cache"}]
         # Get access to container within a context manager
-        with Runtime.get_client() as client:
+        with Runtime.get_client() as client,tempfile.TemporaryDirectory(prefix=self.id) as tmpdir:
+            # Provide mounts for '/tmp' and other paths (using a
+            # tmpfs mount implicitly adds 'noexec' preventing binaries executing)
+            for implicit_path in ["/tmp", "/root", "/var/log", "/var/cache"]:
+                bind = ContainerBind(
+                    host_path=Path(tmpdir + implicit_path), 
+                    container_path=Path(implicit_path), 
+                    readonly=False
+                )
+                bind.host_path.mkdir(parents=True)
+                mounts.append(bind.as_configuration())
             # Create a thread-safe event to mark when container finishes
             e_done = Event()
             # Start a forwarding host
