@@ -17,6 +17,7 @@ import dataclasses
 import itertools
 import logging
 import os
+import shutil
 import time
 from pathlib import Path
 from threading import Event
@@ -258,7 +259,7 @@ class Container:
                 env["DISPLAY"] = f"{Runtime.get_host_address()}:0"
                 logging.debug(f"Setting DISPLAY to {env['DISPLAY']}")
         # Expose terminal dimensions
-        tsize = os.get_terminal_size()
+        tsize = shutil.get_terminal_size()
         logging.debug(f"Setting terminal to {tsize.columns}x{tsize.lines}")
         env["LINES"]   = str(tsize.lines)
         env["COLUMNS"] = str(tsize.columns)
