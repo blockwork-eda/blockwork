@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import atexit
+from contextlib import ExitStack
 import dataclasses
 import itertools
 import logging
 import os
 import shutil
+import tempfile
 import time
 from pathlib import Path
 from threading import Event
@@ -230,16 +232,9 @@ class Container:
             raise ContainerError("No command provided to execute")
         # Pickup default working directory if not set
         workdir = workdir or self.workdir
-        # Provide mounts for '/tmp' and other paths (using a
-        # tmpfs mount implicitly adds 'noexec' preventing binaries executing)
-        implicit_binds: List[ContainerBind] = []
-        for implicit_path in ["/tmp", "/root", "/var/log", "/var/cache"]:
-            container_path = Path(implicit_path)
-            host_path = Path('/tmp', self.id + implicit_path)
-            implicit_binds.append(ContainerBind(host_path=host_path, container_path=container_path, readonly=False))
         # Make sure the local bind paths exist
         mounts = []
-        for bind in self.__binds + implicit_binds:
+        for bind in self.__binds:
             if not bind.host_path.exists():
                 bind.host_path.mkdir(parents=True)
             mounts.append(bind.as_configuration())
@@ -276,7 +271,18 @@ class Container:
         env["TMP"]    = "/tmp"
         env["TMPDIR"] = "/tmp"
         # Get access to container within a context manager
-        with Runtime.get_client() as client:
+        with Runtime.get_client() as client,tempfile.TemporaryDirectory(prefix=self.id) as tmpdir:
+            # Provide mounts for '/tmp' and other paths (using a
+            # tmpfs mount implicitly adds 'noexec' preventing binaries executing)
+            for implicit_path in ["/tmp", "/root", "/var/log", "/var/cache"]:
+                bind = ContainerBind(
+                    host_path=Path(tmpdir + implicit_path), 
+                    container_path=Path(implicit_path), 
+                    readonly=False
+                )
+                bind.host_path.mkdir(parents=True)
+                mounts.append(bind.as_configuration())
+                breakpoint()
             # Create a thread-safe event to mark when container finishes
             e_done = Event()
             # Start a forwarding host
