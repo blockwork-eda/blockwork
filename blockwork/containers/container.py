@@ -28,7 +28,6 @@ import requests
 
 from .runtime import Runtime
 from .common import read_stream, write_stream, forwarding_host
-from docker.types import Mount
 
 
 class ContainerError(Exception):
@@ -281,7 +280,6 @@ class Container:
                 )
                 bind.host_path.mkdir(parents=True)
                 mounts.append(bind.as_configuration())
-                breakpoint()
             # Create a thread-safe event to mark when container finishes
             e_done = Event()
             # Start a forwarding host
