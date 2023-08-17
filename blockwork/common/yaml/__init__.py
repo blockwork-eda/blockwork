@@ -12,17 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Expose activities
-from .bootstrap import bootstrap
-from .build import build
-from .info import info
-from .exec import exec
-from .shell import shell
-from .tools import tool, tools
-from .workflow import workflow
+from .converters import (ConverterRegistry,
+                         DataclassConverter,
+                         YamlConversionError,
+                         YamlFieldError,
+                         YamlMissingFieldsError,
+                         YamlExtraFieldsError)
+from .parsers import Parser, SimpleParser
 
-# List all activities
-activities = (bootstrap, build, info, exec, shell, tool, tools, workflow)
+assert all((ConverterRegistry,
+            DataclassConverter,
+            YamlConversionError,
+            YamlFieldError,
+            YamlMissingFieldsError,
+            YamlExtraFieldsError,
+            Parser,
+            SimpleParser))
 
-# Lint guard
-assert activities

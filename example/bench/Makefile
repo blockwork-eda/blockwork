@@ -16,7 +16,7 @@ export IVERILOG_DUMPER := lxt
 
 SIM                 ?= verilator
 TOPLEVEL_LANG       ?= verilog
-VERILOG_SOURCES     += $(wildcard $(PARENT_DIRX)/../design/*.sv) /scratch/top.sv
+VERILOG_SOURCES     += $(wildcard $(PARENT_DIRX)/../design/top/*.sv) /scratch/top.sv
 SIM_BUILD           ?= /scratch/sim_build
 COCOTB_RESULTS_FILE ?= /scratch/results.xml
 SIM_WAVES           ?= /scratch/waves.lxt

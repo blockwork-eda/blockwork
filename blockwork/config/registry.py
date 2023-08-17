@@ -12,17 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Expose activities
-from .bootstrap import bootstrap
-from .build import build
-from .info import info
-from .exec import exec
-from .shell import shell
-from .tools import tool, tools
-from .workflow import workflow
+from blockwork.common.yaml import ConverterRegistry
 
-# List all activities
-activities = (bootstrap, build, info, exec, shell, tool, tools, workflow)
-
-# Lint guard
-assert activities
+site = ConverterRegistry()
+project = ConverterRegistry()
+element = ConverterRegistry()

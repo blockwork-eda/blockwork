@@ -12,17 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Expose activities
-from .bootstrap import bootstrap
-from .build import build
-from .info import info
-from .exec import exec
-from .shell import shell
-from .tools import tool, tools
-from .workflow import workflow
+from blockwork.common.checkeddataclasses import dataclass
+from blockwork.common.registry import RegisteredClass
+from blockwork.common.singleton import Singleton
 
-# List all activities
-activities = (bootstrap, build, info, exec, shell, tool, tools, workflow)
 
-# Lint guard
-assert activities
+@dataclass
+class Site:
+    'Base class for site configuration'
+    projects: dict[str, str]
+
+@dataclass
+class Project:
+    'Base class for project configuration'
+    targets: dict[str, str]
+
+@dataclass
+class Element:
+    'Base class for element configuration'
+    pass
+
+class Config(RegisteredClass, metaclass=Singleton):
+    'This is just used point to the modules which register configuration'
+    pass

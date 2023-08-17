@@ -15,7 +15,7 @@
 from pathlib import Path
 
 import pytest
-from blockwork.common.yamldataclasses import YamlDataclassError
+from blockwork.common.yaml import YamlConversionError
 
 from blockwork.config import Blockwork
 from blockwork.context import Context
@@ -98,7 +98,7 @@ class TestContext:
         bw_yaml = tmp_path / ".bw.yaml"
         with bw_yaml.open("w", encoding="utf-8") as fh:
             fh.write("blargh\n")
-        with pytest.raises(YamlDataclassError) as exc:
+        with pytest.raises(YamlConversionError) as exc:
             Context(tmp_path).config
 
 

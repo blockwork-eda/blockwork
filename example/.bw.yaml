@@ -1,5 +1,6 @@
 !Blockwork
 project: example
+site: ./site.yaml
 bootstrap:
   - infra.bootstrap.tools
   - infra.bootstrap.pythonsite
@@ -11,5 +12,9 @@ tooldefs:
 transforms:
   - infra.transforms.lint
   - infra.transforms.templating
+workflows:
+  - infra.workflows.lint
+config:
+  - infra.config.config
 entities:
-  - design.top
+  - design.top.top
