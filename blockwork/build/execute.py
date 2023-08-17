@@ -15,6 +15,7 @@
 import logging
 from collections import defaultdict
 from pathlib import Path
+from typing import Optional
 
 from ..context import Context
 from .entity import Entity
@@ -28,13 +29,22 @@ class ExecutionError(Exception):
     pass
 
 
-def execute(ctx : Context, entity : Entity, graph : Graph) -> None:
+def execute(ctx : Context,
+            entity : Entity,
+            graph : Graph,
+            interactive : bool,
+            pre_shell : Optional[str] = None,
+            post_shell : Optional[str] = None) -> None:
     """
     Execute a pre-computed build graph using transforms to produce either final
     or intermediary files.
 
-    :param ctx:     Workspace context
-    :param graph:   The build graph to execute
+    :param ctx:         Workspace context
+    :param entity:      Entity build graph focusses on
+    :param graph:       The build graph to execute
+    :param interactive: Force all build steps to run interactively
+    :param pre_shell:   Open a terminal prior to a stage starting
+    :param post_shell:  Open a terminal after a stage completes
     """
     # Keep track of available files
     # NOTE: Index is tracked to maintain order even when files are transformed
@@ -84,8 +94,20 @@ def execute(ctx : Context, entity : Entity, graph : Graph) -> None:
                         f"Unexpected yield from '{node.tranform.name}': {obj}"
                     )
             # Execute each invocation within the container
-            for invocation in invocations:
+            for idx, invocation in enumerate(invocations):
+                stage_id = f"{node.fullname}:{idx}"
+                logging.info(f"Invocation {stage_id} starting")
+                invocation.interactive |= interactive
+                if pre_shell == stage_id:
+                    logging.warning(f"Opening shell prior to starting {stage_id} - "
+                                    f"type 'exit' to continue build")
+                    container.shell(workdir=invocation.workdir)
                 exit_code = container.invoke(ctx, invocation)
+                logging.info(f"Invocation {stage_id} completed with exit code {exit_code}")
+                if post_shell == stage_id:
+                    logging.warning(f"Opening shell after to completing {stage_id} - "
+                                    f"type 'exit' to continue build")
+                    container.shell(workdir=invocation.workdir)
                 if exit_code != 0:
                     args = invocation.map_args_to_container(ctx)
                     raise ExecutionError(

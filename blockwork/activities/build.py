@@ -22,6 +22,12 @@ from .common import BwExecCommand
 from ..context import Context
 
 @click.command(cls=BwExecCommand)
+@click.option("--interactive", "-i", is_flag=True, default=False,
+              help="Force all build steps to run interactively")
+@click.option("--pre-shell", type=str,
+              help="Open an interactive shell before a specific stage")
+@click.option("--post-shell", type=str,
+              help="Open an interactive shell after a specific stage")
 @click.option("--top", "-t", type=str, help="Top-level entity", required=True)
 @click.option("--graph", "-g", "graph_path",
               type=click.Path(dir_okay=False),
@@ -32,6 +38,9 @@ def build(ctx : Context,
           tool : List[str],
           no_tools : bool,
           tool_mode : str,
+          interactive : bool,
+          pre_shell : str,
+          post_shell : str,
           top : str,
           graph_path : Optional[str],
           transform : str) -> None:
@@ -53,4 +62,9 @@ def build(ctx : Context,
             fh.write(graph.to_dot())
     # Execute the graph
     logging.debug(f"Executing the build graph of {len(graph.nodes)} nodes")
-    execute(ctx, entity, graph)
+    execute(ctx,
+            entity,
+            graph,
+            interactive=interactive,
+            pre_shell=pre_shell,
+            post_shell=post_shell)
