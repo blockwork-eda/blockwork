@@ -15,6 +15,7 @@
 import logging
 from collections import defaultdict
 from pathlib import Path
+import sys
 from typing import Optional
 
 from ..context import Context
@@ -32,7 +33,7 @@ class ExecutionError(Exception):
 def execute(ctx : Context,
             entity : Entity,
             graph : Graph,
-            interactive : bool,
+            interactive : Optional[bool],
             pre_shell : Optional[str] = None,
             post_shell : Optional[str] = None) -> None:
     """
@@ -42,7 +43,7 @@ def execute(ctx : Context,
     :param ctx:         Workspace context
     :param entity:      Entity build graph focusses on
     :param graph:       The build graph to execute
-    :param interactive: Force all build steps to run interactively
+    :param interactive: Force all build steps to run interactively or non-interactively
     :param pre_shell:   Open a terminal prior to a stage starting
     :param post_shell:  Open a terminal after a stage completes
     """
@@ -97,7 +98,12 @@ def execute(ctx : Context,
             for idx, invocation in enumerate(invocations):
                 stage_id = f"{node.fullname}:{idx}"
                 logging.info(f"Invocation {stage_id} starting")
-                invocation.interactive |= interactive
+                if interactive is None:
+                    # Make interactive based on invocation setting and if we're a terminal
+                    invocation.interactive &= sys.stdin and sys.stdin.isatty()
+                else:
+                    # Force interactive setting
+                    invocation.interactive = interactive
                 if pre_shell == stage_id:
                     logging.warning(f"Opening shell prior to starting {stage_id} - "
                                     f"type 'exit' to continue build")

@@ -22,7 +22,7 @@ from .common import BwExecCommand
 from ..context import Context
 
 @click.command(cls=BwExecCommand)
-@click.option("--interactive", "-i", is_flag=True, default=False,
+@click.option("--interactive", "-i", is_flag=True, default=None,
               help="Force all build steps to run interactively")
 @click.option("--pre-shell", type=str,
               help="Open an interactive shell before a specific stage")
@@ -38,7 +38,7 @@ def build(ctx : Context,
           tool : List[str],
           no_tools : bool,
           tool_mode : str,
-          interactive : bool,
+          interactive : Optional[bool],
           pre_shell : str,
           post_shell : str,
           top : str,
