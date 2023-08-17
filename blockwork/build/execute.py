@@ -98,12 +98,7 @@ def execute(ctx : Context,
             for idx, invocation in enumerate(invocations):
                 stage_id = f"{node.fullname}:{idx}"
                 logging.info(f"Invocation {stage_id} starting")
-                if interactive is None:
-                    # Make interactive based on invocation setting and if we're a terminal
-                    invocation.interactive &= sys.stdin and sys.stdin.isatty()
-                else:
-                    # Force interactive setting
-                    invocation.interactive = interactive
+                invocation.interactive |= interactive
                 if pre_shell == stage_id:
                     logging.warning(f"Opening shell prior to starting {stage_id} - "
                                     f"type 'exit' to continue build")
