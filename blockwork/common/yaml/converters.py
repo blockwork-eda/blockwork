@@ -62,6 +62,23 @@ class YamlExtraFieldsError(YamlConversionError):
 _Convertable = TypeVar('_Convertable')
 _Parser = TypeVar('_Parser', bound="Parser",)
 class Converter(abc.ABC, Generic[_Convertable, _Parser]):
+    """
+    Defines how to convert between a yaml tag and a python type, intended
+    to be subclassed and used in parser registries. For example::
+
+        class WrapConverter(Converter):
+            def construct_scalar(self, loader, node):
+                return self.typ(loader.construct_scalar(node))
+
+        wrap_parser = Parser()
+
+        @wrap_parser.register(WrapConverter, tag='!Wrap')
+        class Wrapper:
+            def __init__(self, content):
+                self.content = content
+
+        print(wrap_parser.parse_str("data: !Wrap yum"))
+    """
 
     def __init__(self, *, tag: str, typ: type[_Convertable], parser: _Parser):
         self.tag = tag
@@ -69,16 +86,17 @@ class Converter(abc.ABC, Generic[_Convertable, _Parser]):
         self.parser = parser
 
     def construct(self, loader: Loader, node: yaml.Node):
-        if isinstance(node, yaml.nodes.MappingNode):
-            return self.construct_mapping(loader, node)
-        elif isinstance(node, yaml.nodes.SequenceNode):
-            return self.construct_sequence(loader, node)
-        elif isinstance(node, yaml.nodes.ScalarNode):
-            return self.construct_scalar(loader, node)
-        elif isinstance(node, yaml.nodes.CollectionNode):
-            return self.construct_collection(loader, node)
-        else:
-            return self.construct_node(loader, node)
+        match node:
+            case yaml.nodes.MappingNode():
+                return self.construct_mapping(loader, node)
+            case yaml.nodes.SequenceNode():
+                return self.construct_sequence(loader, node)
+            case yaml.nodes.ScalarNode():
+                return self.construct_scalar(loader, node)
+            case yaml.nodes.CollectionNode():
+                return self.construct_collection(loader, node)
+            case _:
+                return self.construct_node(loader, node)
         
     def represent(self, dumper: Dumper, value: _Convertable):
         return self.represent_node(dumper, value)
@@ -102,7 +120,7 @@ class Converter(abc.ABC, Generic[_Convertable, _Parser]):
         raise NotImplementedError
 
 
-class Registry:
+class ConverterRegistry:
     """
     Creates an object with which to register converters which
     can be used to initialise a Parser object.
@@ -113,8 +131,7 @@ class Registry:
         self._registry: list[tuple[str, Any, type[Converter]]] = []
 
     def __iter__(self):
-        for (tag, typ, Converter) in self._registry:
-            yield (tag, typ, Converter)
+        yield from self._registry
 
     def register(self, Converter: type[Converter], *, tag: Optional[str]=None) -> Callable[[type[_Convertable]], type[_Convertable]]:
         """

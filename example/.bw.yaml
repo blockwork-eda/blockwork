@@ -1,6 +1,6 @@
 !Blockwork
 project: example
-site: ./site.yml
+site: ./site.yaml
 bootstrap:
   - infra.bootstrap.tools
   - infra.bootstrap.pythonsite

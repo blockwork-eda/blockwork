@@ -14,7 +14,7 @@
 
 from pathlib import Path
 from typing import Any, Callable, Generic, Optional,  Self
-from .converters import Converter, Registry, _Convertable, YamlConversionError
+from .converters import Converter, ConverterRegistry, _Convertable, YamlConversionError
 import yaml
 try:
     from yaml import CDumper as Dumper
@@ -60,7 +60,7 @@ class Parser:
     """
     Creates a parser from a registry of conversions from tag to object and back, for example::
 
-        spacial_registry = Registry()
+        spacial_registry = ConverterRegistry()
         
         @spacial_registry.register(DataclassConverter, tag="!coord")
         @dataclass
@@ -76,7 +76,7 @@ class Parser:
         spacial_parser.parse_str(...)
 
     """
-    def __init__(self, registry: Optional[Registry]=None):
+    def __init__(self, registry: Optional[ConverterRegistry]=None):
         class loader(Loader):
             ...
         class dumper(Dumper):
