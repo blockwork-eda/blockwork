@@ -36,15 +36,15 @@ def workflow(ctx : Context, project: str, target: str, workflow_name: str) -> No
 
     site_parser = parser.Site()
     site_path = ctx.site
-    Site = site_parser(wf_types["site"]).parse(site_path)
+    site_config = site_parser(wf_types["site"]).parse(site_path)
 
-    project_parser = parser.Project(Site)
-    project_path = Path(Site.projects[project])
-    Project = project_parser(wf_types["project"]).parse(project_path)
+    project_parser = parser.Project(site_config)
+    project_path = Path(site_config.projects[project])
+    project_config = project_parser(wf_types["project"]).parse(project_path)
 
-    target_parser = parser.Element(Site, Project)
-    target_path = Path(Project.targets[target])
-    Target = target_parser(wf_types["target"]).parse(target_path)
+    target_parser = parser.Element(site_config, project_config)
+    target_path = Path(project_config.targets[target])
+    target_config = target_parser(wf_types["target"]).parse(target_path)
 
     # Call the workflow with the config
-    wf()(site=Site, project=Project, target=Target)
+    wf()(site=site_config, project=project_config, target=target_config)

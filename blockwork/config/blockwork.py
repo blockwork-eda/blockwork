@@ -18,7 +18,7 @@ from blockwork.common.checkeddataclasses import dataclass, field
 @dataclass
 class Blockwork:
     project      : str
-    site         : str                 = "./site.yml"
+    site         : str                 = "./site.yaml"
     root         : str                 = field(default="/project")
     scratch      : str                 = field(default="/scratch")
     host_scratch : str                 = "../{project}.scratch"

@@ -60,7 +60,7 @@ class Parser:
     """
     Creates a parser from a registry of conversions from tag to object and back, for example::
 
-        spacial_registry = Registry()
+        spacial_registry = ConverterRegistry()
         
         @spacial_registry.register(DataclassConverter, tag="!coord")
         @dataclass

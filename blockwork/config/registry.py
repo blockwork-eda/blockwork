@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from blockwork.common.yaml import Registry
+from blockwork.common.yaml import ConverterRegistry
 
-site = Registry()
-project = Registry()
-element = Registry()
+site = ConverterRegistry()
+project = ConverterRegistry()
+element = ConverterRegistry()
