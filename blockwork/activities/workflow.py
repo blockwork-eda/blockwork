@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import cast
 import click
 
-from blockwork.config import parser, base
+from blockwork.config import parser
 from blockwork.workflows.workflow import Workflow
 
 from ..context import Context

@@ -86,11 +86,12 @@ class Parser:
         self.dumper = dumper
 
         if registry is not None:
-            for tag, typ, Converter in registry:
-                self.register(Converter, tag=tag)(typ)
+            for tag, typ, converter in registry:
+                self.register(converter, tag=tag)(typ)
 
 
-    def register(self, Converter: type[Converter[_Convertable, Self]], *, tag: Optional[str]=None) -> Callable[[type[_Convertable]], type[_Convertable]]:
+    def register(self, Converter: type[Converter[_Convertable, Self]], *, tag: Optional[str]=None)\
+                 -> Callable[[type[_Convertable]], type[_Convertable]]:
         """
         Register a object for parsing with this parser object.
 
@@ -132,7 +133,8 @@ class Parser:
         return self(object).parse_str(data)
 
 
-def SimpleParser(typ: type[_Convertable], Converter: type[Converter[_Convertable, Parser]]) -> ObjectParser[_Convertable]:
+def SimpleParser(typ: type[_Convertable], Converter: type[Converter[_Convertable, Parser]])\
+                 -> ObjectParser[_Convertable]:
     """
     Create a parser for a specific dataclass
     """

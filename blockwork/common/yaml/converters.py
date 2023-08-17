@@ -133,7 +133,8 @@ class ConverterRegistry:
     def __iter__(self):
         yield from self._registry
 
-    def register(self, Converter: type[Converter], *, tag: Optional[str]=None) -> Callable[[type[_Convertable]], type[_Convertable]]:
+    def register(self, Converter: type[Converter], *, tag: Optional[str]=None)\
+                 -> Callable[[type[_Convertable]], type[_Convertable]]:
         """
         Register a object for parsing with this parser object.
 
