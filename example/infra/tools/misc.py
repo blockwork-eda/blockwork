@@ -18,7 +18,7 @@ class Python(Tool):
                 default  = True),
     ]
 
-    @Tool.action("Python")
+    @Tool.installer("Python")
     def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
@@ -55,13 +55,27 @@ class PythonSite(Tool):
 
     @Tool.action("PythonSite")
     def run(self,
-            ctx: Context, 
+            ctx: Context,
             version : Version,
             *args   : List[str]) -> Invocation:
         return Invocation(
             version = version,
             execute = "python3",
             args    = args
+        )
+
+    @Tool.installer("PythonSite")
+    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
+        return Invocation(
+            version     = version,
+            execute     = "python3",
+            args        = ["-m",
+                           "pip",
+                           "--no-cache-dir",
+                           "install",
+                           "-r",
+                           ctx.host_root / "infra" / "tools" / "pythonsite.txt"],
+            interactive = True
         )
 
 
@@ -78,7 +92,7 @@ class Make(Tool):
     def run(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         return Invocation(version=version, execute="make", args=args)
 
-    @Tool.action("Make")
+    @Tool.installer("Make")
     def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)

@@ -133,8 +133,8 @@ from blockwork.tools import Require, Tool, Version
 class Python(Tool):
     """ Base Python installation """
     versions = [
-        Version(location = install_root / "python-3.11",
-                version  = "3.11",
+        Version(location = install_root / "python-3.11.4",
+                version  = "3.11.4",
                 paths    = { "PATH"           : [Tool.ROOT / "bin"],
                              "LD_LIBRARY_PATH": [Tool.ROOT / "lib"] })
     ]
@@ -143,12 +143,12 @@ class Python(Tool):
 class PythonSite(Tool):
     """ Versioned package installation """
     versions = [
-        Version(location = install_root / "python-site-3.11",
-                version  = "3.11",
+        Version(location = install_root / "python-site-3.11.4",
+                version  = "3.11.4",
                 env      = { "PYTHONUSERBASE": Tool.ROOT },
                 paths    = { "PATH"      : [Tool.ROOT / "bin"],
                              "PYTHONPATH": [Tool.ROOT / "lib" / "python3.11" / "site-packages"] },
-                requires = [Require(Python, "3.11")]),
+                requires = [Require(Python, "3.11.4")]),
     ]
 ```
 
@@ -233,3 +233,70 @@ Each bound path must be relative to the project root directory on the host, for
 example if a project is located under `/home/fred/example` then all paths bound
 in must be under this directory - that is to say `/home/fred/example/waves.vcd`
 is okay, but `/home/fred/outside.vcd` is not.
+
+## Installers
+
+Blockwork provides a special `@Tool.installer(...)` decorator for registering a
+specific action for installing a tool's binaries/libraries in some way. How a
+tool is installed (i.e. by downloading or compiling) is up to the action to
+determine.
+
+The example below demonstrates how an installer action can be setup to download
+the source code for a specific version of Python and compile it.
+
+```python
+from pathlib import Path
+
+from blockwork.tools import Invocation, Require, Tool, Version
+from blockwork.context import Context
+
+install_root = Path("/some/path/to/tool/installs")
+
+@Tool.register()
+class Python(Tool):
+    """ Base Python installation """
+    versions = [
+        Version(location = install_root / "python-3.11.4",
+                version  = "3.11.4",
+                paths    = { "PATH"           : [Tool.ROOT / "bin"],
+                             "LD_LIBRARY_PATH": [Tool.ROOT / "lib"] })
+    ]
+
+    @Tool.installer("Python")
+    def install(self, context : Context, version : Version, *args : List[str]) -> Invocation:
+        vernum = version.version
+        tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
+        script = [
+            f"wget --quiet https://www.python.org/ftp/python/{vernum}/Python-{vernum}.tgz",
+            f"tar -xf Python-{vernum}.tgz",
+            f"cd Python-{vernum}",
+            f"./configure --enable-optimizations --with-ensurepip=install "
+            f"--enable-shared --prefix={tool_dir.as_posix()}",
+            "make -j4",
+            "make install",
+            "cd ..",
+            f"rm -rf Python-{vernum} ./*.tgz*"
+        ]
+        return Invocation(
+            version = version,
+            execute = "bash",
+            args    = ["-c", " && ".join(script)],
+            workdir = tool_dir
+        )
+```
+
+There is a built-in bootstrapping action that locates and executes all of the
+tool installation methods:
+
+```bash
+$> bw -v bootstrap
+...
+[16:11:17] DEBUG    Evaluating bootstrap step 'blockwork.bootstrap.tools.install_tools'
+           DEBUG    Ordering 17 tools based on requirements:
+           DEBUG     - 0: n/a gcc 13.1.0
+           DEBUG     - 1: n/a help2man 1.49.3
+           ...
+           INFO     Installing 17 tools:
+           INFO      - 0: Launching installation of n/a gcc 13.1.0
+           ...
+```

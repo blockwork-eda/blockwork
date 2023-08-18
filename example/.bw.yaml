@@ -1,9 +1,6 @@
 !Blockwork
 project: example
 site: ./site.yaml
-bootstrap:
-  - infra.bootstrap.tools
-  - infra.bootstrap.pythonsite
 tooldefs:
   - infra.tools.misc
   - infra.tools.compilers

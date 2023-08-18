@@ -31,6 +31,10 @@ cntr_dir = root_dir / "containerfiles"
 
 @Bootstrap.register()
 def build_foundation(context : Context, last_run : datetime) -> bool:
+    """
+    Built-in bootstrap action that builds the foundation container using the
+    active runtime.
+    """
     host_arch = str(context.host_architecture)
     defn_file = cntr_dir / "foundation" / f"Containerfile_{host_arch}"
     with Runtime.get_client() as client:

@@ -17,7 +17,8 @@ from .bootstrap import Bootstrap, BwBootstrapMode
 
 # Built-in bootstrapping rules
 from .containers import build_foundation
+from .tools import install_tools
 
 # Lint guards
 assert all((Bootstrap, BwBootstrapMode))
-assert all((build_foundation, ))
+assert all((build_foundation, install_tools))
