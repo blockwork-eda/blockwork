@@ -56,7 +56,7 @@ def install_tools(context : Context, last_run : datetime) -> bool:
             logging.debug(f" - {idx}: Tool {tool_id} is already installed")
             continue
         # Attempt to install
-        if act_def := tool.get_installer():
+        if act_def := tool.get_action("installer"):
             logging.info(f" - {idx}: Launching installation of {tool_id}")
             container = Foundation(context, hostname=f"{context.config.project}_install_{tool.id}")
             exit_code = container.invoke(context,

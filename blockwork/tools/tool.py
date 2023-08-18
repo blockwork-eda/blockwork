@@ -151,8 +151,8 @@ class Tool(RegisteredClass, metaclass=Singleton):
     NO_VENDOR = "N/A"
 
     # Action registration
-    ACTIONS = defaultdict(dict)
-    INSTALL = defaultdict(lambda: None)
+    ACTIONS  = defaultdict(dict)
+    RESERVED = ("installer", "default")
 
     # Placeholders
     vendor   : Optional[str]           = None
@@ -245,13 +245,14 @@ class Tool(RegisteredClass, metaclass=Singleton):
         """
         def _inner(method : Callable) -> Callable:
             nonlocal name
-            name = (name or method.__name__).lower()
-            if name == "default":
-                raise ToolError("The action name 'default' is reserved, use the "
-                                "default=True option instead")
-            cls.ACTIONS[tool_name.lower()][name] = method
-            if default:
-                cls.ACTIONS[tool_name.lower()]["default"] = method
+            name = name or method.__name__
+            # Check that the name is not reserved
+            if name.lower() in cls.RESERVED:
+                raise ToolError(f"Cannot register an action called '{name}' to "
+                                f"tool '{tool_name}' as it is a reserved name")
+            # Register the action
+            cls.__register_action(tool_name, name, default, method)
+            # Return the unaltered method
             return method
         return _inner
 
@@ -267,12 +268,40 @@ class Tool(RegisteredClass, metaclass=Singleton):
                             parent.
         """
         def _inner(method : Callable) -> Callable:
-            if cls.INSTALL[tool_name.lower()] is not None:
-                raise ToolError(f"An install action has already been registered "
-                                f"for '{tool_name}'")
-            cls.INSTALL[tool_name.lower()] = method
+            # Register method with a fixed name of 'installer' (reserved)
+            cls.__register_action(tool_name, "installer", False, method)
+            # Return the unaltered method
             return method
         return _inner
+
+    @classmethod
+    def __register_action(cls,
+                          tool_name : str,
+                          name : str,
+                          default : bool,
+                          method : Callable):
+        """
+        Register a provided method as a tool action with a given name, optionally
+        marking it as the 'default'.
+
+        :param tool_name:   Name of the tool, which should match the class name
+                            of the tool
+        :param name:        Name of the action
+        :param default:     Whether to also associate this as the default action
+                            for the tool
+        :param method:      The method implementing the action
+        """
+        tool_name = tool_name.lower()
+        name = name.lower()
+        # Raise an error if the name clashes
+        if name in cls.ACTIONS[tool_name]:
+            raise ToolError(f"An action called '{name}' already been registered "
+                            f"to tool '{tool_name}'")
+        # Register the action as specified
+        cls.ACTIONS[tool_name][name] = method
+        # If marked as default, call recursively
+        if default:
+            cls.__register_action(tool_name, "default", False, method)
 
     def get_action(self, name : str) -> Union[Callable, None]:
         """
@@ -293,26 +322,6 @@ class Tool(RegisteredClass, metaclass=Singleton):
             if not isinstance(context, Context):
                 raise RuntimeError(f"Expected Context object as first argument "
                                    f"to action but got {context}")
-            return raw_act(self, context, *args, **kwargs)
-        return _wrap
-
-    def get_installer(self) -> Union[Callable, None]:
-        """
-        Return the install action registered for this tool if known.
-
-        :param name:    Name of the action
-        :returns:       The instance wrapped decorated method if known, else None
-        """
-        tool_cls = type(self)
-        tool_name = tool_cls.__name__.lower()
-        if (raw_act := tool_cls.INSTALL.get(tool_name, None)) is None:
-            return None
-        # The method held in the actions dictionary is unbound, so this wrapper
-        # provides the instance as the first argument
-        def _wrap(context, *args, **kwargs):
-            if not isinstance(context, Context):
-                raise RuntimeError(f"Expected Context object as first argument "
-                                   f"to install action but got {context}")
             return raw_act(self, context, *args, **kwargs)
         return _wrap
 
