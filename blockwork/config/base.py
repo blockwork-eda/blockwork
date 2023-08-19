@@ -25,13 +25,9 @@ class Site:
 @dataclass
 class Project:
     'Base class for project configuration'
-    targets: dict[str, str]
+    blocks: dict[str, str]
 
 @dataclass
 class Element:
     'Base class for element configuration'
-    pass
-
-class Config(RegisteredClass, metaclass=Singleton):
-    'This is just used point to the modules which register configuration'
     pass
