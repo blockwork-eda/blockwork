@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import cast
 import click
 
-from blockwork.config import parser
+from blockwork.config import parser, Config
 from blockwork.workflows.workflow import Workflow
 
 from ..context import Context
@@ -29,22 +29,18 @@ from ..context import Context
 def workflow(ctx : Context, project: str, target: str, workflow_name: str) -> None:
     """ Run a workflow """
     wf = cast(type[Workflow], Workflow.get_by_name(workflow_name))
-    wf_types = wf.__call__.__annotations__
 
-    if not ('site' in wf_types, 'project' in wf_types, 'target' in wf_types):
-        raise RuntimeError("Workflow __call__ must specify types for configuration")
-
-    site_parser = parser.Site()
+    site_parser = parser.Site(ctx)
     site_path = ctx.site
-    site_config = site_parser(wf_types["site"]).parse(site_path)
+    site_config = site_parser(wf.SITE_TYPE).parse(site_path)
 
-    project_parser = parser.Project(site_config)
+    project_parser = parser.Project(ctx, site_config)
     project_path = Path(site_config.projects[project])
-    project_config = project_parser(wf_types["project"]).parse(project_path)
+    project_config = project_parser(wf.PROJECT_TYPE).parse(project_path)
 
-    target_parser = parser.Element(site_config, project_config)
-    target_path = Path(project_config.targets[target])
-    target_config = target_parser(wf_types["target"]).parse(target_path)
+    target_parser = parser.Element(ctx, site_config, project_config)
+    target_config = target_parser.parse_target(target, wf.TARGET_TYPE)
 
-    # Call the workflow with the config
-    wf()(site=site_config, project=project_config, target=target_config)
+    config = Config(site=site_config, project=project_config, target=target_config)
+
+    wf(ctx, config).exec()
