@@ -21,7 +21,7 @@ class IVerilog(Tool):
                 default  = True),
     ]
 
-    @Tool.action("IVerilog")
+    @Tool.installer("IVerilog")
     def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version.replace(".", "_")
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
@@ -49,7 +49,8 @@ class Verilator(Tool):
     versions = [
         Version(location = TOOL_ROOT / "verilator" / "5.014",
                 version  = "5.014",
-                env      = { "VERILATOR_ROOT": Tool.ROOT },
+                env      = { "VERILATOR_BIN": "../../bin/verilator_bin",
+                             "VERILATOR_ROOT": Tool.ROOT / "share" / "verilator" },
                 paths    = { "PATH": [Tool.ROOT / "bin"] },
                 requires = [Require(Autoconf, "2.71"),
                             Require(Bison,    "3.8"),
@@ -58,16 +59,11 @@ class Verilator(Tool):
                             Require(Flex,     "2.6.4"),
                             Require(Help2Man, "1.49.3")],
                 default  = True),
-        Version(location = TOOL_ROOT / "verilator" / "v4.106",
-                version  = "4.106",
-                env      = { "VERILATOR_ROOT": Tool.ROOT },
-                paths    = { "PATH": [Tool.ROOT / "bin"] },
-                default  = False),
     ]
 
     @Tool.action("Verilator")
     def run(self,
-            ctx: Context, 
+            ctx: Context,
             version : Version,
             *args   : List[str]) -> Invocation:
         return Invocation(
@@ -76,7 +72,7 @@ class Verilator(Tool):
             args    = args
         )
 
-    @Tool.action("Verilator")
+    @Tool.installer("Verilator")
     def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
@@ -88,8 +84,7 @@ class Verilator(Tool):
             f"./configure --prefix={tool_dir.as_posix()}",
             "make -j4",
             "make install",
-            f"rm -rf verilator-{vernum} ./*.tar.*",
-            "cp -r share/verilator/include include"
+            f"rm -rf verilator-{vernum} ./*.tar.*"
         ]
         return Invocation(
             version = version,

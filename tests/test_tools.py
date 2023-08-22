@@ -304,7 +304,7 @@ class TestTools:
             ]
             @Tool.action("Widget")
             def do_something(self,
-                             ctx     : Context, 
+                             ctx     : Context,
                              version : Version,
                              an_arg  : str,
                              *args   : List[str]) -> Invocation:
@@ -359,8 +359,8 @@ class TestTools:
                 def default(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
                     return Invocation(version, Tool.ROOT / "bin" / "blah")
         assert str(exc.value) == (
-            "The action name 'default' is reserved, use the default=True option "
-            "instead"
+            "Cannot register an action called 'default' to tool 'Widget' as it "
+            "is a reserved name"
         )
 
     def test_tool_action_none(self, tmp_path : Path) -> None:

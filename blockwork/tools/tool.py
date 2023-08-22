@@ -18,7 +18,7 @@ import logging
 from collections import defaultdict
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from ..common.registry import RegisteredClass
 from ..common.singleton import Singleton
@@ -46,6 +46,12 @@ class Require:
             raise ToolError("Requirement tool must be of type Tool")
         if (self.version is not None) and not isinstance(self.version, str):
             raise ToolError("Requirement version must be None or a string")
+
+    def resolve(self) -> "Version":
+        if self.version:
+            return self.tool().get_version(self.version)
+        else:
+            return self.tool().default
 
 
 class Version:
@@ -100,6 +106,10 @@ class Version:
         else:
             return "_".join((vend, name, vers))
 
+    @functools.lru_cache()
+    def resolve_requirements(self) -> Set["Version"]:
+        return {x.resolve() for x in self.requires}
+
     @property
     def path_chunk(self) -> Path:
         if self.tool.vendor is not Tool.NO_VENDOR:
@@ -115,6 +125,21 @@ class Version:
             return action(context, self, *args, **kwargs)
         return _wrap
 
+    def get_installer(self) -> Union[Callable, None]:
+        if (action := self.tool.get_installer()) is None:
+            return None
+        # Return a wrapper that inserts the active version
+        def _wrap(context, *args, **kwargs):
+            return action(context, self, *args, **kwargs)
+        return _wrap
+
+    def __getattribute__(self, name: str) -> Any:
+        try:
+            return super().__getattribute__(name)
+        except AttributeError as e:
+            if (act := self.get_action(name)) is not None:
+                return act
+            raise e
 
 class Tool(RegisteredClass, metaclass=Singleton):
     """ Base class for tools """
@@ -126,7 +151,8 @@ class Tool(RegisteredClass, metaclass=Singleton):
     NO_VENDOR = "N/A"
 
     # Action registration
-    ACTIONS = defaultdict(dict)
+    ACTIONS  = defaultdict(dict)
+    RESERVED = ("installer", "default")
 
     # Placeholders
     vendor   : Optional[str]           = None
@@ -219,15 +245,63 @@ class Tool(RegisteredClass, metaclass=Singleton):
         """
         def _inner(method : Callable) -> Callable:
             nonlocal name
-            name = (name or method.__name__).lower()
-            if name == "default":
-                raise Exception("The action name 'default' is reserved, use the "
-                                "default=True option instead")
-            cls.ACTIONS[tool_name.lower()][name] = method
-            if default:
-                cls.ACTIONS[tool_name.lower()]["default"] = method
+            name = name or method.__name__
+            # Check that the name is not reserved
+            if name.lower() in cls.RESERVED:
+                raise ToolError(f"Cannot register an action called '{name}' to "
+                                f"tool '{tool_name}' as it is a reserved name")
+            # Register the action
+            cls.__register_action(tool_name, name, default, method)
+            # Return the unaltered method
             return method
         return _inner
+
+    @classmethod
+    def installer(cls, tool_name : str) -> Callable:
+        """
+        Special decorator to mark an action that installs the tool by downloading
+        it from a central store.
+
+        :param tool_name:   Name of the tool, which should match the class name
+                            of the tool. This must be provided as an argument as
+                            unbound methods do not have a relationship to their
+                            parent.
+        """
+        def _inner(method : Callable) -> Callable:
+            # Register method with a fixed name of 'installer' (reserved)
+            cls.__register_action(tool_name, "installer", False, method)
+            # Return the unaltered method
+            return method
+        return _inner
+
+    @classmethod
+    def __register_action(cls,
+                          tool_name : str,
+                          name : str,
+                          default : bool,
+                          method : Callable):
+        """
+        Register a provided method as a tool action with a given name, optionally
+        marking it as the 'default'.
+
+        :param tool_name:   Name of the tool, which should match the class name
+                            of the tool
+        :param name:        Name of the action
+        :param default:     Whether to also associate this as the default action
+                            for the tool
+        :param method:      The method implementing the action
+        """
+        tool_name = tool_name.lower()
+        name = name.lower()
+        # Raise an error if the name clashes
+        if name in cls.ACTIONS[tool_name]:
+            raise ToolError(f"An action called '{name}' already been registered "
+                            f"to tool '{tool_name}'")
+        # Register the action as specified
+        cls.ACTIONS[tool_name][name] = method
+        # If marked as default, call recursively
+        if default:
+            cls.__register_action(tool_name, "default", False, method)
 
     def get_action(self, name : str) -> Union[Callable, None]:
         """
@@ -246,7 +320,8 @@ class Tool(RegisteredClass, metaclass=Singleton):
         # provides the instance as the first argument
         def _wrap(context, *args, **kwargs):
             if not isinstance(context, Context):
-                raise RuntimeError(f"Expected Context object as first argument to action but got {context}")
+                raise RuntimeError(f"Expected Context object as first argument "
+                                   f"to action but got {context}")
             return raw_act(self, context, *args, **kwargs)
         return _wrap
 
