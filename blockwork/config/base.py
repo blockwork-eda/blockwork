@@ -13,8 +13,6 @@
 # limitations under the License.
 
 from blockwork.common.checkeddataclasses import dataclass
-from blockwork.common.registry import RegisteredClass
-from blockwork.common.singleton import Singleton
 
 
 @dataclass

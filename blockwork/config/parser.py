@@ -14,7 +14,6 @@
 
 import contextlib
 from pathlib import Path
-from typing import TypeVar, cast
 
 import yaml
 from blockwork.common.yaml import Parser, DataclassConverter
