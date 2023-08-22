@@ -13,11 +13,27 @@
 # limitations under the License.
 
 from blockwork.workflows import Workflow
-from ..config.config import Site, Project, Design
+from ..config.config import Site, Project, Design, Testbench
 
 
 @Workflow.register()
-class Lint(Workflow):    
-    def __call__(self, site: Site, project: Project, target: Design):
-        print(site, project, target)
+class Lint(Workflow):
+    SITE_TYPE = Site
+    PROJECT_TYPE = Project
+    TARGET_TYPE = Design
+
+    def exec(self):
+        # Dummy for now
+        pass
+
+@Workflow.register()
+class Sim(Workflow):
+    SITE_TYPE = Site
+    PROJECT_TYPE = Project
+    TARGET_TYPE = Testbench
+
+    def exec(self):
+        # Dummy for now
+        pass
+
 

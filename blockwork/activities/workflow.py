@@ -41,6 +41,6 @@ def workflow(ctx : Context, project: str, target: str, workflow_name: str) -> No
     target_parser = parser.Element(ctx, site_config, project_config)
     target_config = target_parser.parse_target(target, wf.TARGET_TYPE)
 
-    config = Config(site=site_config, project=project_config, target=target_config)
+    config = Config(ctx=ctx, site=site_config, project=project_config, target=target_config)
 
-    wf(ctx, config).exec()
+    wf(config).exec()
