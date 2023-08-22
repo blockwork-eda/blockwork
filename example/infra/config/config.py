@@ -20,25 +20,42 @@ from blockwork.config.parser import ElementConverter
 
 
 @registry.site.register(DataclassConverter)
-@dataclass
+@dataclass(kw_only=True)
 class Site(base.Site):
     pass
 
 
 @registry.project.register(DataclassConverter)
-@dataclass
+@dataclass(kw_only=True)
 class Project(base.Project):
     pass
 
 
 @registry.element.register(ElementConverter)
-@dataclass
+@dataclass(kw_only=True)
 class Design(base.Element):
     top: str
-    sources: list[str] = field(default_factory=list)
+    sources: list[str]
+    transforms: list[base.Transform] = field(default_factory=list)
+
+    def iter_sub_elements(self):
+        yield from self.transforms
+
+    def resolve_input_paths(self, resolved):
+        self.sources = resolved(self.sources)
 
 
 @registry.element.register(ElementConverter)
-@dataclass
+@dataclass(kw_only=True)
 class Testbench(base.Element):
     design: Design
+    bench_python: str
+    bench_make: str
+
+    def iter_sub_elements(self):
+        yield self.design
+
+    def resolve_input_paths(self, resolver):
+        self.bench_python = resolver(self.bench_python)
+        self.bench_make = resolver(self.bench_make)
+

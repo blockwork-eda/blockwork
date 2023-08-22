@@ -1,0 +1,4 @@
+!Testbench
+design: !Design top
+bench_python: bench/bench.py
+bench_make: bench/Makefile

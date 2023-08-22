@@ -1,3 +1,4 @@
 !Project
-targets:
-  top: design/top/design.yaml
+blocks:
+  top: design/top
+  bench: bench
