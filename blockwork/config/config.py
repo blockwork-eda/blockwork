@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Iterable, cast, overload, TYPE_CHECKING
-from blockwork.common.registry import RegisteredClass
-from blockwork.common.singleton import Singleton
+from ..common.registry import RegisteredClass
+from ..common.singleton import Singleton
 if TYPE_CHECKING:
-    from blockwork.context import Context
+    from ..context import Context
 from . import base
 
 class Config(RegisteredClass, metaclass=Singleton):
