@@ -14,7 +14,7 @@
 
 from pathlib import Path
 from typing import Any, Iterable, Optional, Protocol, overload
-from blockwork.common.checkeddataclasses import dataclass
+from ..common.checkeddataclasses import dataclass
 
 class _Resolver(Protocol):
     'Takes a path or list of paths and returns a path or list of paths (respectively)'

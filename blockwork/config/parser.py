@@ -16,8 +16,8 @@ import contextlib
 from pathlib import Path
 
 import yaml
-from blockwork.common.yaml import Parser, DataclassConverter
-from blockwork.context import Context
+from ..common.yaml import Parser, DataclassConverter
+from ..context import Context
 
 from . import base, registry
 
