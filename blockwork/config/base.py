@@ -32,13 +32,13 @@ class Site:
 @dataclass(kw_only=True)
 class Project:
     'Base class for project configuration'
-    blocks: dict[str, str]
+    units: dict[str, str]
 
 
 @dataclass(kw_only=True)
 class ElementContext:
     'Context object bound on to each element to keep track of where it came from'
-    block: str
+    unit: str
     config: Path
 
 @dataclass(kw_only=True)

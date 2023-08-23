@@ -44,8 +44,8 @@ class Linker:
         self.pairs: dict[tuple[str, str], Path] = {}
 
     def link_inputs(self, element: base.Element):
-        block = cast(base.ElementContext, element._context).block
-        block_root = self.config.ctx.host_root / self.config.project.blocks[block]
+        unit = cast(base.ElementContext, element._context).unit
+        block_root = self.config.ctx.host_root / self.config.project.units[unit]
 
         @overload
         def resolve(paths: str) -> str: ...
@@ -57,7 +57,7 @@ class Linker:
 
             resolved_paths: list[str] = []
             for path in paths:
-                pair = (block, path)
+                pair = (unit, path)
                 if pair in self.pairs:
                     full_path = self.pairs[pair]
                 else:
@@ -68,8 +68,8 @@ class Linker:
         element.resolve_input_paths(resolve)
 
     def link_outputs(self, element: base.Transform):
-        block = cast(base.ElementContext, element._context).block
-        block_scratch = self.config.ctx.host_scratch / self.config.project.blocks[block]
+        unit = cast(base.ElementContext, element._context).unit
+        block_scratch = self.config.ctx.host_scratch / self.config.project.units[unit]
 
         @overload
         def resolve(paths: str) -> str: ...
@@ -82,7 +82,7 @@ class Linker:
             resolved_paths: list[str] = []
             for path in paths:
                 full_path = block_scratch / path
-                self.pairs[(block, path)] = full_path
+                self.pairs[(unit, path)] = full_path
                 resolved_paths.append(full_path.as_posix())
 
             return resolved_paths[0] if is_single else resolved_paths

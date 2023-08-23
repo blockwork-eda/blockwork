@@ -1,4 +1,4 @@
 !Project
-blocks:
+units:
   top: design/top
   bench: bench
