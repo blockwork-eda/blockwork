@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import List, Optional
-from blockwork.common.checkeddataclasses import dataclass, field
+from ..common.checkeddataclasses import dataclass, field
 
 @dataclass
 class Blockwork:
