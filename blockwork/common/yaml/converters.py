@@ -19,7 +19,7 @@ from dataclasses import _MISSING_TYPE, fields
 import abc
 import yaml
 if TYPE_CHECKING:
-    from blockwork.common.yaml.parsers import Parser
+    from .parsers import Parser
 try:
     from yaml import CDumper as Dumper
     from yaml import CLoader as Loader

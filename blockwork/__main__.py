@@ -21,7 +21,7 @@ from typing import Optional
 import click
 from rich.console import Console
 from rich.logging import RichHandler
-from blockwork.config import Config
+from .config import Config
 
 from .bootstrap import Bootstrap
 from .build import Entity, Transform

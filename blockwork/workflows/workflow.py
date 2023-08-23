@@ -14,9 +14,9 @@
 
 import functools
 from pathlib import Path
-from blockwork.common.registry import RegisteredClass
-from blockwork.common.singleton import Singleton
-from blockwork.config import base, Config
+from ..common.registry import RegisteredClass
+from ..common.singleton import Singleton
+from ..config import base, Config
 
 
 class Workflow(RegisteredClass, metaclass=Singleton):
