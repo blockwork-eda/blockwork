@@ -52,7 +52,13 @@ def install_tools(context : Context, last_run : datetime) -> bool:
         tool_file = Path(inspect.getfile(type(tool.tool)))
         # If the tool install location already exists and install has been run
         # more recently than the definition file was updated, then skip
-        if tool.location.exists() and last_run >= datetime.fromtimestamp(tool_file.stat().st_mtime):
+        if (
+            tool.location.exists() and
+            (
+                datetime.fromtimestamp(tool.location.stat().st_mtime) >=
+                datetime.fromtimestamp(tool_file.stat().st_mtime)
+            )
+        ):
             logging.debug(f" - {idx}: Tool {tool_id} is already installed")
             continue
         # Attempt to install
