@@ -58,6 +58,11 @@ def install_tools(context : Context, last_run : datetime) -> bool:
         # Attempt to install
         if act_def := tool.get_action("installer"):
             logging.info(f" - {idx}: Launching installation of {tool_id}")
+            invk = act_def(context)
+            if invk is None:
+                logging.debug(f" - {idx}: Installation of {tool_id} produced "
+                              f"a null invocation")
+                continue
             container = Foundation(context, hostname=f"{context.config.project}_install_{tool.id}")
             exit_code = container.invoke(context,
                                          act_def(context),
