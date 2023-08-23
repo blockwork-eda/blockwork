@@ -16,6 +16,7 @@ import functools
 from pathlib import Path
 from blockwork.common.registry import RegisteredClass
 from blockwork.common.singleton import Singleton
+from blockwork.config import base, Config
 
 
 class Workflow(RegisteredClass, metaclass=Singleton):
@@ -24,14 +25,25 @@ class Workflow(RegisteredClass, metaclass=Singleton):
     # Tool root locator
     ROOT : Path = Path("/__tool_root__")
 
+    # Config types this workflow uses
+    SITE_TYPE = base.Site
+    PROJECT_TYPE = base.Project
+    TARGET_TYPE = base.Element
 
-    def __init__(self) -> None:
-        ...
+    def __init__(self, config: Config) -> None:
+        self.config = config
+        # Resolve input and output paths
+        self.config.resolve()
 
+    def exec(self):
+        'Run the workflow'
+        raise NotImplementedError
+
+    @classmethod
     @property
     @functools.lru_cache()
-    def name(self) -> str:
-        return type(self).__name__.lower()
+    def name(cls) -> str:
+        return cls.__name__.lower()
 
     # ==========================================================================
     # Registry Handling
@@ -42,8 +54,6 @@ class Workflow(RegisteredClass, metaclass=Singleton):
         if workflow in RegisteredClass.LOOKUP_BY_OBJ[cls]:
             return workflow
         else:
-            RegisteredClass.LOOKUP_BY_NAME[cls][workflow().name] = workflow
+            RegisteredClass.LOOKUP_BY_NAME[cls][workflow.name] = workflow
             RegisteredClass.LOOKUP_BY_OBJ[cls][workflow] = workflow
             return workflow
-
-

@@ -1,11 +1,10 @@
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Iterable, List, Union
+from typing import Iterable, Union
 
 from blockwork.build import Transform
 from blockwork.context import Context
-from blockwork.tools import Invocation, Version
-
+from blockwork.tools import Invocation
 from infra.tools.simulators import Verilator
 
 @Transform.register()

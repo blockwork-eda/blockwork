@@ -1,5 +1,9 @@
 !Design
 top: top
+transforms:
+  - !Mako
+    template: top.sv.mako
+    output: top.sv
 sources:
   - adder.sv
   - counter.sv

@@ -42,68 +42,68 @@ class Element(Parser):
         self.ctx = ctx
         self.site = site
         self.project = project
-        self._block_stack: list[str] = []
+        self._unit_stack: list[str] = []
 
     def parse_target(self, target_spec: str, target_type: type[base.Element]):
         """
-        Parse a target config file based on the target block, path within that 
-        block and expected type
+        Parse a target config file based on the target unit, path within that 
+        unit and expected type
 
-        :param target_spec: The target specified as `<block>.<path>` or `<path>` 
-                            where path is the path within the block to the yaml,
-                            not including the extension. The <block> component
+        :param target_spec: The target specified as `<unit>.<path>` or `<path>` 
+                            where path is the path within the unit to the yaml,
+                            not including the extension. The <unit> component
                             is inferred where possible.
         :param target_type: Expected element type
         """
         target_parts = target_spec.split('.')
         if len(target_parts) == 2:
-            # Path and block specified as `<block>.<path>`, `.<path>`, or `.`
-            block, target = target_parts
+            # Path and unit specified as `<unit>.<path>`, `.<path>`, or `.`
+            unit, target = target_parts
         elif len(target_parts) == 1:
-            # Block specified as `<block>` or ``
-            block, target = target_parts[0], ''
+            # Unit specified as `<unit>` or ``
+            unit, target = target_parts[0], ''
         else:
             raise RuntimeError(f'Invalid target specification: `{target_spec}`')
 
-        # If given empty block, infer here.
-        if block == '':
-            if (block := self.block) is None:
-                raise RuntimeError(f'Require implicit block for `{target_spec}`, but not in block context!')
+        # If given empty unit, infer here.
+        if unit == '':
+            if (unit := self.unit) is None:
+                raise RuntimeError(f'Require implicit unit for `{target_spec}`, but not in unit context!')
             
         # If given empty target, infer here.
         if target == '':
             target = target_type.__name__.lower()
 
         # Get the path to the config file
-        block_path = self.ctx.host_root / self.project.blocks[block]
-        config_path = block_path / f"{target}.yaml"
+        unit_path = self.ctx.host_root / self.project.units[unit]
+        config_path = unit_path / f"{target}.yaml"
 
         # We're evaluating config files recursively going down, keep track
-        # of the current block so we can use it for relative references.
-        with self.block_context(block):
+        # of the current unit so we can use it for relative references.
+        with self.unit_context(unit):
             return self(target_type).parse(config_path)
 
     @contextlib.contextmanager
-    def block_context(self, block: str):
-        "Context manager for parsing under a particular blocks context"
-        self._block_stack.append(block)
+    def unit_context(self, unit: str):
+        "Context manager for parsing under a particular unit's context"
+        self._unit_stack.append(unit)
         try:
             yield None
         finally:
-            self._block_stack.pop()
+            self._unit_stack.pop()
 
     @property
-    def block(self):
-        "The parser's current block context"
+    def unit(self):
+        "The parser's current unit context"
         try:
-            return self._block_stack[-1]
+            return self._unit_stack[-1]
         except IndexError:
             return None
 
         
 class ElementConverter(DataclassConverter[base.Element, Element]):
     def construct_scalar(self, loader: yaml.Loader, node: yaml.ScalarNode) -> base.Element:
-        # Allow elements to be indirected with a path e.g. `!<element> [<block>.<path>]`
+        # Allow elements to be indirected with a path e.g. `!<element> [<unit>.<path>]`
         target = loader.construct_scalar(node)
         if not isinstance(target, str):
             raise RuntimeError
@@ -111,5 +111,5 @@ class ElementConverter(DataclassConverter[base.Element, Element]):
     
     def construct_mapping(self, loader: yaml.Loader, node: yaml.MappingNode) -> base.Element:
         element = super().construct_mapping(loader, node)
-        element._context = base.ElementContext(block=self.parser.block, config=Path(node.start_mark.name))
+        element._context = base.ElementContext(unit=self.parser.unit, config=Path(node.start_mark.name))
         return element
