@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from blockwork.common.yaml import ConverterRegistry
+from ..common.yaml import ConverterRegistry
 
 site = ConverterRegistry()
 project = ConverterRegistry()

@@ -21,7 +21,7 @@ from typing import Optional
 
 from .config import Blockwork
 from .state import State
-from blockwork.common.yaml import SimpleParser, DataclassConverter
+from .common.yaml import SimpleParser, DataclassConverter
 
 
 BlockworkConfig = SimpleParser(Blockwork, DataclassConverter)
