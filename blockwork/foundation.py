@@ -30,27 +30,13 @@ class Foundation(Container):
         super().__init__(image=f"foundation_{context.host_architecture}",
                          workdir=context.container_root,
                          **kwargs)
-        self.__context   = context
+        self.__context = context
         self.bind(self.__context.host_scratch, self.__context.container_scratch)
         self.set_env("PATH", "usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
-        self.__tools     = {}
-        self.__tool_root = Path("/") / "tools"
+        self.__tools = {}
 
     def add_input(self, path : Path, name : Optional[str] = None) -> None:
         self.bind_readonly(path, Path("/input") / (name or path.name))
-
-    def get_tool_path(self, version : Version, path : Path) -> Path:
-        """
-        Map a path relative to a tool root to the absolute path within the container.
-        :param version: Tool version
-        :param path:    Path relative to Tool.ROOT
-        :returns:       Absolute path
-        """
-        if Tool.ROOT is path or Tool.ROOT in path.parents:
-            full_loc = self.__tool_root / version.path_chunk
-            return full_loc / path.relative_to(Tool.ROOT)
-        else:
-            return path
 
     def add_tool(self, tool : Union[Type[Tool], Tool, Version], readonly : bool = True) -> None:
         # If class has been provided, create an instance
@@ -78,24 +64,23 @@ class Foundation(Container):
                 self.add_tool(req_ver, readonly=readonly)
         # Register tool and bind in the base folder
         self.__tools[tool.base_id] = tool_ver
-        full_location = self.__tool_root / tool_ver.path_chunk
-        logging.debug(f"Binding '{tool_ver.location}' to '{full_location}' {readonly=}")
-        self.bind(tool_ver.location, full_location, readonly=readonly)
+        host_loc = tool_ver.get_host_path(self.__context)
+        cntr_loc = tool_ver.get_container_path(self.__context)
+        logging.debug(f"Binding '{host_loc}' to '{cntr_loc}' {readonly=}")
+        self.bind(host_loc, cntr_loc, readonly=readonly)
         # Overlay the environment, expanding any paths
         if isinstance(tool_ver.env, dict):
             env = {}
             for key, value in tool_ver.env.items():
                 if isinstance(value, Path):
-                    env[key] = self.get_tool_path(tool_ver, value).as_posix()
+                    env[key] = tool_ver.get_container_path(self.__context, value).as_posix()
                 else:
                     env[key] = value
             self.overlay_env(env, strict=True)
         # Append to $PATH
         for key, paths in tool_ver.paths.items():
             for path in paths:
-                self.prepend_env_path(key, self.get_tool_path(tool_ver, path).as_posix())
-
-
+                self.prepend_env_path(key, tool_ver.get_container_path(self.__context, path).as_posix())
 
     def invoke(self,
                context : Context,
@@ -134,7 +119,7 @@ class Foundation(Container):
         # Resolve the binary
         command = invocation.execute
         if isinstance(command, Path):
-            command = self.get_tool_path(invocation.version, command).as_posix()
+            command = self.get_tool_container_path(invocation.version, command).as_posix()
         # Launch
         args = invocation.map_args_to_container(context)
         logging.debug(f"Launching in container: {command} {' '.join(args)}")
