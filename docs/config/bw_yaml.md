@@ -9,8 +9,10 @@ The file must use a `!Blockwork` tag as its root element, as per the example bel
 project     : example
 root        : /project
 scratch     : /scratch
+tools       : /tools
 host_scratch: ../{project}.scratch
 host_state  : ../{project}.state
+host_tools  : ../{project}.tools
 bootstrap   :
   - infra.bootstrap.setup
 tooldefs    :
@@ -25,16 +27,19 @@ The fields of the `!Blockwork` tag are:
 | project      | :material-check: |                        | Sets the project's name                                                 |
 | root         |                  | `/project`             | Location to map the project's root directory inside the container       |
 | scratch      |                  | `/scratch`             | Location to map the scratch area inside the container                   |
+| tools        |                  | `/tools`               | Location to map the tools inside the container                          |
 | host_scratch |                  | `../{project}.scratch` | Directory to store build objects and other artefacts                    |
 | host_state   |                  | `../{project}.state`   | Directory to store Blockwork's state information for the project        |
+| host_tools   |                  | `../{project}.tools`   | Directory containing tool installations on the host                     |
 | bootstrap    |                  |                        | Python paths containing [Bootstrap](../syntax/bootstrap.md) definitions |
 | tooldefs     |                  |                        | Python paths containing [Tool](../syntax/tools.md) definitions          |
 
 !!!note
 
-    The `host_scratch` and `host_state` directories are resolved relative to the
-    project's root directory on the host, and the `{project}` keyword will be
-    substituted for the projects name (taken from the `project` field).
+    The `host_scratch`, `host_state`, and `host_tools` directories are resolved
+    relative to the project's root directory on the host, and the `{project}`
+    keyword will be substituted for the projects name (taken from the `project`
+    field).
 
 ## Variable Substitutions
 

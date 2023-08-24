@@ -51,10 +51,11 @@ def install_tools(context : Context, last_run : datetime) -> bool:
     for idx, tool in enumerate(resolved):
         tool_id = " ".join(tool.id_tuple)
         tool_file = Path(inspect.getfile(type(tool.tool)))
+        host_loc = tool.get_host_path(context)
         # If the tool install location already exists and install has been run
         # more recently than the definition file was updated, then skip
-        if tool.location.exists():
-            loc_date = datetime.fromtimestamp(tool.location.stat().st_mtime)
+        if host_loc.exists():
+            loc_date = datetime.fromtimestamp(host_loc.stat().st_mtime)
             def_date = datetime.fromtimestamp(tool_file.stat().st_mtime)
             if loc_date >= def_date:
                 logging.debug(f" - {idx}: Tool {tool_id} is already installed")
@@ -75,6 +76,6 @@ def install_tools(context : Context, last_run : datetime) -> bool:
                               f"a null invocation")
             logging.debug(f" - {idx}: Installation of {tool_id} succeeded")
             # Touch the install folder to ensure its datetime is updated
-            os.utime(tool.location)
+            os.utime(host_loc)
         else:
             logging.debug(f" - {idx}: Tool {tool_id} does not define an install action")

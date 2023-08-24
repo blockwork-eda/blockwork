@@ -4,27 +4,26 @@ from typing import List
 from blockwork.tools import Invocation, Require, Tool, Version
 from blockwork.context import Context
 
-from .common import TOOL_ROOT
 from .compilers import Autoconf, Bison, CCache, GCC, GPerf, Help2Man, Flex
 
 @Tool.register()
 class IVerilog(Tool):
     versions = [
-        Version(location = TOOL_ROOT / "iverilog" / "12.0",
+        Version(location = Tool.HOST_ROOT / "iverilog" / "12.0",
                 version  = "12.0",
                 requires = [Require(Autoconf, "2.71"),
                             Require(Bison,    "3.8"),
                             Require(GCC,      "13.1.0"),
                             Require(Flex,     "2.6.4"),
                             Require(GPerf,    "3.1")],
-                paths    = { "PATH": [Tool.ROOT / "bin"] },
+                paths    = { "PATH": [Tool.CNTR_ROOT / "bin"] },
                 default  = True),
     ]
 
     @Tool.installer("IVerilog")
     def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version.replace(".", "_")
-        tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
+        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://github.com/steveicarus/iverilog/archive/refs/tags/v{vernum}.tar.gz",
             f"tar -xf v{vernum}.tar.gz",
@@ -47,11 +46,11 @@ class IVerilog(Tool):
 @Tool.register()
 class Verilator(Tool):
     versions = [
-        Version(location = TOOL_ROOT / "verilator" / "5.014",
+        Version(location = Tool.HOST_ROOT / "verilator" / "5.014",
                 version  = "5.014",
                 env      = { "VERILATOR_BIN": "../../bin/verilator_bin",
-                             "VERILATOR_ROOT": Tool.ROOT / "share" / "verilator" },
-                paths    = { "PATH": [Tool.ROOT / "bin"] },
+                             "VERILATOR_ROOT": Tool.CNTR_ROOT / "share" / "verilator" },
+                paths    = { "PATH": [Tool.CNTR_ROOT / "bin"] },
                 requires = [Require(Autoconf, "2.71"),
                             Require(Bison,    "3.8"),
                             Require(CCache,   "4.8.2"),
@@ -75,7 +74,7 @@ class Verilator(Tool):
     @Tool.installer("Verilator")
     def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
+        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://github.com/verilator/verilator/archive/refs/tags/v{vernum}.tar.gz",
             f"tar -xf v{vernum}.tar.gz",
