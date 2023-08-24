@@ -141,13 +141,30 @@ class Version:
                 return act
             raise e
 
-    def get_host_path(self, ctx : Context):
+    def get_host_path(self, ctx : Context) -> Path:
+        """
+        Expand the location to get the full path to the tool on the host system.
+        Substitutes Tool.HOST_ROOT for the 'host_tools' path from Context.
+
+        :param ctx: Context object
+        :returns:   Resolved path
+        """
         if self.location.is_relative_to(Tool.HOST_ROOT):
             return ctx.host_tools / self.location.relative_to(Tool.HOST_ROOT)
         else:
             return self.location
 
-    def get_container_path(self, ctx : Context, path : Optional[Path] = None):
+    def get_container_path(self, ctx : Context, path : Optional[Path] = None) -> Path:
+        """
+        Expand the location to get the full path to the tool within the contained
+        environment, substituting Tool.CNTR_ROOT for the 'container_tools' path
+        from Context.
+
+        :param ctx:  Context object
+        :param path: When provided, this path is resolved relative to the tool's
+                     root (if defined using Tool.CNTR_ROOT)
+        :returns:    Resolved path
+        """
         base = ctx.container_tools / self.path_chunk
         if path:
             if path.is_relative_to(Tool.CNTR_ROOT):
