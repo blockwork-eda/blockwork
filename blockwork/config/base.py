@@ -40,6 +40,7 @@ class ElementContext:
     'Context object bound on to each element to keep track of where it came from'
     unit: str
     config: Path
+    uid: str
 
 @dataclass(kw_only=True)
 class Element:

@@ -111,5 +111,6 @@ class ElementConverter(DataclassConverter[base.Element, Element]):
     
     def construct_mapping(self, loader: yaml.Loader, node: yaml.MappingNode) -> base.Element:
         element = super().construct_mapping(loader, node)
-        element._context = base.ElementContext(unit=self.parser.unit, config=Path(node.start_mark.name))
+        uid = f"{self.parser.unit}:{node.start_mark.name}:{node.start_mark.line}:{node.start_mark.column}"
+        element._context = base.ElementContext(unit=self.parser.unit, config=Path(node.start_mark.name), uid=uid)
         return element
