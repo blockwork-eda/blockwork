@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
+
 import click
 from rich.console import Console
 from rich.table import Table
 
+import blockwork
 from ..context import Context
 
 @click.command()
@@ -27,4 +30,5 @@ def info(ctx : Context):
     table.add_row("Host Root Directory", ctx.host_root.as_posix())
     table.add_row("Container Root Directory", ctx.container_root.as_posix())
     table.add_row("Configuration File", ctx.config_path.as_posix())
+    table.add_row("Blockwork Install", Path(blockwork.__file__).parent.as_posix())
     Console().print(table)

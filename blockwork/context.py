@@ -21,7 +21,7 @@ from typing import Optional
 
 from .config import Blockwork
 from .state import State
-from blockwork.common.yaml import SimpleParser, DataclassConverter
+from .common.yaml import SimpleParser, DataclassConverter
 
 
 BlockworkConfig = SimpleParser(Blockwork, DataclassConverter)
@@ -80,7 +80,7 @@ class Context:
     @property
     @functools.lru_cache()
     def host_scratch(self) -> Path:
-        # Substitute for {project} if required
+        # Substitute for {project} or {root_dir} if required
         subbed = self.config.host_scratch.format(project=self.config.project,
                                                  root_dir=self.host_root.name)
         # Resolve to an absolute path
@@ -97,7 +97,7 @@ class Context:
     @property
     @functools.lru_cache()
     def host_state(self) -> Path:
-        # Substitute for {project} if required
+        # Substitute for {project} or {root_dir} if required
         subbed = self.config.host_state.format(project=self.config.project,
                                                root_dir=self.host_root.name)
         # Resolve to an absolute path
@@ -110,11 +110,28 @@ class Context:
         # Ensure it exists
         path.mkdir(exist_ok=True, parents=True)
         return path
-    
+
+    @property
+    @functools.lru_cache()
+    def host_tools(self) -> Path:
+        # Substitute for {project} or {root_dir} if required
+        subbed = self.config.host_tools.format(project=self.config.project,
+                                               root_dir=self.host_root.name)
+        # Resolve to an absolute path
+        if subbed.startswith("/"):
+            path = Path(subbed)
+        else:
+            path = self.__host_root / subbed
+        # Fully resolve
+        path = path.resolve().absolute()
+        # Ensure it exists
+        path.mkdir(exist_ok=True, parents=True)
+        return path
+
     @property
     @functools.lru_cache()
     def site(self) -> Path:
-        # Substitute for {project} if required
+        # Substitute for {project} or {root_dir} if required
         subbed = self.config.site.format(project=self.config.project,
                                                  root_dir=self.host_root.name)
         # Resolve to an absolute path
@@ -133,6 +150,10 @@ class Context:
     @property
     def container_scratch(self) -> Path:
         return Path(self.config.scratch)
+
+    @property
+    def container_tools(self) -> Path:
+        return Path(self.config.tools)
 
     @property
     def file(self) -> str:

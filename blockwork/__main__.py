@@ -21,7 +21,7 @@ from typing import Optional
 import click
 from rich.console import Console
 from rich.logging import RichHandler
-from blockwork.config import Config
+from .config import Config
 
 from .bootstrap import Bootstrap
 from .build import Entity, Transform
@@ -112,7 +112,7 @@ for activity in activities:
 def main():
     with Verbosity(VERBOSE=True, VERBOSE_LOCALS=True) as v:
         try:
-            blockwork()
+            blockwork(auto_envvar_prefix="BW")
             sys.exit(0)
         except Exception as e:
             if type(e) is not Exception:

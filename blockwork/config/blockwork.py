@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import List, Optional
-from blockwork.common.checkeddataclasses import dataclass, field
+from ..common.checkeddataclasses import dataclass, field
 
 @dataclass
 class Blockwork:
@@ -21,8 +21,10 @@ class Blockwork:
     site         : str                 = "./site.yaml"
     root         : str                 = field(default="/project")
     scratch      : str                 = field(default="/scratch")
+    tools        : str                 = field(default="/tools")
     host_scratch : str                 = "../{project}.scratch"
     host_state   : str                 = "../{project}.state"
+    host_tools   : str                 = "../{project}.tools"
     config       : Optional[List[str]] = field(default_factory=list)
     bootstrap    : Optional[List[str]] = field(default_factory=list)
     tooldefs     : Optional[List[str]] = field(default_factory=list)
