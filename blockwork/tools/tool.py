@@ -141,11 +141,29 @@ class Version:
                 return act
             raise e
 
+    def get_host_path(self, ctx : Context):
+        if self.location.is_relative_to(Tool.HOST_ROOT):
+            return ctx.host_tools / self.location.relative_to(Tool.HOST_ROOT)
+        else:
+            return self.location
+
+    def get_container_path(self, ctx : Context, path : Optional[Path] = None):
+        base = ctx.container_tools / self.path_chunk
+        if path:
+            if path.is_relative_to(Tool.CNTR_ROOT):
+                return base / path.relative_to(Tool.CNTR_ROOT)
+            else:
+                return path
+        else:
+            return base
+
+
 class Tool(RegisteredClass, metaclass=Singleton):
     """ Base class for tools """
 
     # Tool root locator
-    ROOT : Path = Path("/__tool_root__")
+    CNTR_ROOT : Path = Path("/__tool_cntr_root__")
+    HOST_ROOT : Path = Path("/__tool_host_root__")
 
     # Default vendor
     NO_VENDOR = "N/A"

@@ -5,18 +5,17 @@ from typing import List
 from blockwork.context import Context
 from blockwork.tools import Invocation, Require, Tool, Version
 
-from .common import TOOL_ROOT
 from .compilers import Automake, GCC, GPerf
 
 @Tool.register()
 class GTKWave(Tool):
     versions = [
-        Version(location = TOOL_ROOT / "gtkwave" / "3.3.116",
+        Version(location = Tool.HOST_ROOT / "gtkwave" / "3.3.116",
                 version  = "3.3.116",
                 requires = [Require(Automake, "1.16.5"),
                             Require(GCC,      "13.1.0"),
                             Require(GPerf,    "3.1")],
-                paths    = { "PATH": [Tool.ROOT / "bin"] },
+                paths    = { "PATH": [Tool.CNTR_ROOT / "bin"] },
                 default  = True),
     ]
 
@@ -50,7 +49,7 @@ class GTKWave(Tool):
     @Tool.installer("GTKWave")
     def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
         vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
+        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://github.com/gtkwave/gtkwave/archive/refs/tags/v{vernum}.tar.gz",
             f"tar -xf v{vernum}.tar.gz",
