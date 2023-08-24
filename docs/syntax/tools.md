@@ -19,15 +19,13 @@ from pathlib import Path
 
 from blockwork.tools import Tool, Version
 
-install_root = Path("/some/path/to/tool/installs")
-
 @Tool.register()
 class Verilator(Tool):
     versions = [
-        Version(location = install_root / "verilator-4.106"
+        Version(location = Tool.HOST_ROOT / "verilator-4.106"
                 version  = "4.106"
-                env      = { "VERILATOR_ROOT": Tool.ROOT }
-                paths    = { "PATH": [Tool.ROOT / "bin"] }),
+                env      = { "VERILATOR_ROOT": Tool.CNTR_ROOT }
+                paths    = { "PATH": [Tool.CNTR_ROOT / "bin"] }),
     ]
 ```
 
@@ -44,8 +42,8 @@ Working through this example:
  * Each version is defined by an instance of `Version` where:
 
    * `location` - identifies the path on the **host** where the tool is installed,
-     in this example all tools are installed under a common directory which is
-     referenced via `install_root`;
+     this path can use the `Tool.HOST_ROOT` variable that will be resolved to a
+     complete path using the value specified in the [configuration](../config/bw_yaml.md);
 
    * `version` - sets the version number for the tool, this is to make it distinct
      from other declarations;
@@ -57,7 +55,7 @@ Working through this example:
 
 !!!note
 
-    The `Tool.ROOT` variable points to the equivalent of the `location` when
+    The `Tool.CNTR_ROOT` variable points to the equivalent of the `location` when
     mapped into the container (i.e. the root directory of the bound tool)
 
 Tools are mapped into the container using a standard path structure:
@@ -81,9 +79,9 @@ keyword to be provided which adds an extra section into the path. For example:
 class Make(Tool):
     vendor   = "GNU"
     versions = [
-        Version(location = install_root / "make-4.4",
+        Version(location = Tool.HOST_ROOT / "make-4.4",
                 version  = "4.4",
-                paths    = { "PATH": [Tool.ROOT / "bin"] }),
+                paths    = { "PATH": [Tool.CNTR_ROOT / "bin"] }),
     ]
 ```
 
@@ -106,13 +104,13 @@ be bound when a version is not explicitly given:
 class Make(Tool):
     vendor   = "GNU"
     versions = [
-        Version(location = install_root / "make-4.4",
+        Version(location = Tool.HOST_ROOT / "make-4.4",
                 version  = "4.4",
-                paths    = { "PATH": [Tool.ROOT / "bin"] },
+                paths    = { "PATH": [Tool.CNTR_ROOT / "bin"] },
                 default  = True),
-        Version(location = install_root / "make-4.3",
+        Version(location = Tool.HOST_ROOT / "make-4.3",
                 version  = "4.3",
-                paths    = { "PATH": [Tool.ROOT / "bin"] }),
+                paths    = { "PATH": [Tool.CNTR_ROOT / "bin"] }),
     ]
 ```
 
@@ -133,21 +131,21 @@ from blockwork.tools import Require, Tool, Version
 class Python(Tool):
     """ Base Python installation """
     versions = [
-        Version(location = install_root / "python-3.11.4",
+        Version(location = Tool.HOST_ROOT / "python-3.11.4",
                 version  = "3.11.4",
-                paths    = { "PATH"           : [Tool.ROOT / "bin"],
-                             "LD_LIBRARY_PATH": [Tool.ROOT / "lib"] })
+                paths    = { "PATH"           : [Tool.CNTR_ROOT / "bin"],
+                             "LD_LIBRARY_PATH": [Tool.CNTR_ROOT / "lib"] })
     ]
 
 @Tool.register()
 class PythonSite(Tool):
     """ Versioned package installation """
     versions = [
-        Version(location = install_root / "python-site-3.11.4",
+        Version(location = Tool.HOST_ROOT / "python-site-3.11.4",
                 version  = "3.11.4",
-                env      = { "PYTHONUSERBASE": Tool.ROOT },
-                paths    = { "PATH"      : [Tool.ROOT / "bin"],
-                             "PYTHONPATH": [Tool.ROOT / "lib" / "python3.11" / "site-packages"] },
+                env      = { "PYTHONUSERBASE": Tool.CNTR_ROOT },
+                paths    = { "PATH"      : [Tool.CNTR_ROOT / "bin"],
+                             "PYTHONPATH": [Tool.CNTR_ROOT / "lib" / "python3.11" / "site-packages"] },
                 requires = [Require(Python, "3.11.4")]),
     ]
 ```
@@ -180,7 +178,7 @@ class GTKWave(Tool):
     versions = [
         Version(location = tool_root / "gtkwave-3.3.113",
                 version  = "3.3.113",
-                paths    = { "PATH": [Tool.ROOT / "src"] }),
+                paths    = { "PATH": [Tool.CNTR_ROOT / "src"] }),
     ]
 
     @Tool.action("GTKWave", default=True)
@@ -192,7 +190,7 @@ class GTKWave(Tool):
         path = Path(wavefile).absolute()
         return Invocation(
             version = version,
-            execute = Tool.ROOT / "src" / "gtkwave",
+            execute = Tool.CNTR_ROOT / "src" / "gtkwave",
             args    = [path, *args],
             display = True,
             binds   = [path.parent]
@@ -250,16 +248,14 @@ from pathlib import Path
 from blockwork.tools import Invocation, Require, Tool, Version
 from blockwork.context import Context
 
-install_root = Path("/some/path/to/tool/installs")
-
 @Tool.register()
 class Python(Tool):
     """ Base Python installation """
     versions = [
-        Version(location = install_root / "python-3.11.4",
+        Version(location = Tool.HOST_ROOT / "python-3.11.4",
                 version  = "3.11.4",
-                paths    = { "PATH"           : [Tool.ROOT / "bin"],
-                             "LD_LIBRARY_PATH": [Tool.ROOT / "lib"] })
+                paths    = { "PATH"           : [Tool.CNTR_ROOT / "bin"],
+                             "LD_LIBRARY_PATH": [Tool.CNTR_ROOT / "lib"] })
     ]
 
     @Tool.installer("Python")
