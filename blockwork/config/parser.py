@@ -110,7 +110,8 @@ class ElementConverter(DataclassConverter[base.Element, Element]):
         return self.parser.parse_target(target, self.typ)
     
     def construct_mapping(self, loader: yaml.Loader, node: yaml.MappingNode) -> base.Element:
-        element = super().construct_mapping(loader, node)
-        uid = f"{self.parser.unit}:{node.start_mark.name}:{node.start_mark.line}:{node.start_mark.column}"
-        element._context = base.ElementContext(unit=self.parser.unit, config=Path(node.start_mark.name), uid=uid)
+        def dict_callback(node_dict):
+            uid = f"{self.parser.unit}:{node.start_mark.name}:{node.start_mark.line}:{node.start_mark.column}"
+            node_dict['_context'] = base.ElementContext(unit=self.parser.unit, config=Path(node.start_mark.name), uid=uid)
+        element = super().construct_mapping(loader, node, dict_callback=dict_callback)
         return element

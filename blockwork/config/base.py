@@ -45,7 +45,7 @@ class ElementContext:
 @dataclass(kw_only=True)
 class Element:
     'Base class for element configuration'
-    _context: Optional[ElementContext] = None
+    _context: ElementContext
 
     def iter_sub_elements(self) -> Iterable["Element"]:
         '''
