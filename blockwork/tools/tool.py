@@ -207,25 +207,26 @@ class Tool(RegisteredClass, metaclass=Singleton):
             self.default = self.versions[0]
         else:
             # Check for collisions between versions and multiple defaults
-            self.default = None
+            default_version = None
             version_nums = []
             for version in self.versions:
                 version.tool = self
                 # Check for multiple defaults
                 if version.default:
-                    if self.default is not None:
+                    if default_version is not None:
                         raise ToolError(f"Multiple versions marked default for tool {self.name} "
                                         f"from vendor {self.vendor}")
-                    self.default = version
+                    default_version = version
                 # Check for repeated version numbers
                 if version.version in version_nums:
                     raise ToolError(f"Duplicate version {version.version} for tool "
                                     f"{self.name} from vendor {self.vendor}")
                 version_nums.append(version.version)
             # Check the default has been identified
-            if self.default is None:
+            if default_version is None:
                 raise ToolError(f"No version of tool {self.name} from vendor "
                                 f"{self.vendor} marked as default")
+            self.default = default_version
 
     def __iter__(self) -> Iterable[Version]:
         yield from self.versions
