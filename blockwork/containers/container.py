@@ -18,6 +18,7 @@ import itertools
 import logging
 import os
 import shutil
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -228,6 +229,8 @@ class Container:
         # Check for a command
         if not command:
             raise ContainerError("No command provided to execute")
+        # Disable interactive if not a terminal
+        interactive &= sys.stdin and sys.stdin.isatty()
         # Pickup default working directory if not set
         workdir = workdir or self.workdir
         # Make sure the local bind paths exist
