@@ -38,8 +38,9 @@ class Scheduler(Generic[_Schedulable]):
     '''
     def __init__(self, dependent_map: dict[_Schedulable, set[_Schedulable]]):
         '''
-        :param dependent_map: A map between items and the items that depend on them
-            (NOT THE ITEMS THAT THEY DEPEND ON).
+        :param dependent_map: A map between items and the items that depend on them.
+                              (NOT THE ITEMS THAT THEY DEPEND ON). This is expected
+                              to contain empty values for items with no dependents.
         '''
         self._dependent_map = dependent_map
         self._dependency_map: dict[_Schedulable, set[_Schedulable]] = defaultdict(set)

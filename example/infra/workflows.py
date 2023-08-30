@@ -13,27 +13,14 @@
 # limitations under the License.
 
 from blockwork.workflows import Workflow
-from ..config.config import Site, Project, Design, Testbench
+from .config.config import Site, Project
 
 
 @Workflow.register()
-class Lint(Workflow):
+class Build(Workflow):
     SITE_TYPE = Site
     PROJECT_TYPE = Project
-    TARGET_TYPE = Design
 
     def exec(self):
         # Dummy for now
         pass
-
-@Workflow.register()
-class Sim(Workflow):
-    SITE_TYPE = Site
-    PROJECT_TYPE = Project
-    TARGET_TYPE = Testbench
-
-    def exec(self):
-        # Dummy for now
-        pass
-
-

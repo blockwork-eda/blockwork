@@ -14,7 +14,6 @@
 
 # Expose activities
 from .bootstrap import bootstrap
-from .build import build
 from .info import info
 from .exec import exec
 from .shell import shell
@@ -22,7 +21,7 @@ from .tools import tool, tools
 from .workflow import workflow
 
 # List all activities
-activities = (bootstrap, build, info, exec, shell, tool, tools, workflow)
+activities = (bootstrap, info, exec, shell, tool, tools, workflow)
 
 # Lint guard
 assert activities

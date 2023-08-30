@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Iterable
+from blockwork.build.transform import Transform
 from blockwork.common.checkeddataclasses import dataclass, field
 from blockwork.config import base
 from blockwork.config import registry
 from blockwork.common.yaml import DataclassConverter
 from blockwork.config.parser import ElementConverter
+from example.infra.transforms.lint import VerilatorLintTransform
+from example.infra.transforms.templating import MakoTransform
 
 
 @registry.site.register(DataclassConverter)
@@ -36,13 +40,14 @@ class Project(base.Project):
 class Design(base.Element):
     top: str
     sources: list[str]
-    transforms: list[base.Transform] = field(default_factory=list)
+    transforms: list["Mako"] = field(default_factory=list)
 
     def iter_sub_elements(self):
         yield from self.transforms
 
-    def resolve_input_paths(self, resolved):
-        self.sources = resolved(self.sources)
+    def iter_transforms(self) -> Iterable[Transform]:
+        inputs = [self.file_interface(source) for source in self.sources]
+        yield VerilatorLintTransform(inputs=inputs)
 
 
 @registry.element.register(ElementConverter)
@@ -55,7 +60,15 @@ class Testbench(base.Element):
     def iter_sub_elements(self):
         yield self.design
 
-    def resolve_input_paths(self, resolver):
-        self.bench_python = resolver(self.bench_python)
-        self.bench_make = resolver(self.bench_make)
 
+@registry.element.register(ElementConverter)
+@dataclass(kw_only=True)
+class Mako(base.Element):
+    template: str
+    output: str
+
+    def iter_transforms(self):
+        yield MakoTransform(
+            template=self.file_interface(self.template),
+            output=self.file_interface(self.output)
+        )
