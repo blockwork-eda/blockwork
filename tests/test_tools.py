@@ -20,6 +20,7 @@ import pytest
 from blockwork.context import Context
 from blockwork.common.registry import RegistryError
 from blockwork.tools import Invocation, Require, Tool, ToolError, Version
+from blockwork.tools.tool import ToolActionError
 
 
 class DummyContext(Context):
@@ -376,9 +377,11 @@ class TestTools:
                         paths    = { "PATH": [Tool.CNTR_ROOT / "bin"] })
             ]
         # Via the tool
-        assert Widget().get_action("blah") is None
+        with pytest.raises(ToolActionError):
+            Widget().get_action("blah")
         # Via the version
-        assert Widget().get_version("1.1").get_action("blah") is None
+        with pytest.raises(ToolActionError):
+            Widget().get_version("1.1").get_action("blah")
 
     def test_tool_action_bad_name(self, tmp_path : Path) -> None:
         """ Check that a non-existent action returns 'None' """
@@ -397,9 +400,11 @@ class TestTools:
             def blah(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
                 return Invocation(version, Tool.CNTR_ROOT / "bin" / "blah")
         # Via the tool
-        assert Widget().get_action("not_blah") is None
+        with pytest.raises(ToolActionError):
+            Widget().get_action("not_blah")
         # Via the version
-        assert Widget().get_version("1.1").get_action("not_blah") is None
+        with pytest.raises(ToolActionError):
+            Widget().get_version("1.1").get_action("not_blah")
 
     def test_registry(self, tmp_path : Path) -> None:
         """ Exercise search functionality of the registry """

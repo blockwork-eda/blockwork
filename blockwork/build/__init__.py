@@ -12,11 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .entity import Entity
-from .execute import execute
 from .file import FileType
-from .orchestrate import orchestrate
 from .transform import Transform
+from .interface import Interface
 
-assert all((Entity, FileType, Transform))
-assert all((execute, orchestrate))
+assert all((FileType, Transform, Interface))

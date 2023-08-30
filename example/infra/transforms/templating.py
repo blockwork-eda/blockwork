@@ -1,45 +1,37 @@
+# Copyright 2023, Blockwork, github.com/intuity/blockwork
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Iterable, Union
-from blockwork.config import registry
-from blockwork.config.parser import ElementConverter
-from blockwork.common.checkeddataclasses import dataclass
-from blockwork.config import base
-from blockwork.build import Transform
+from typing import Any
+from blockwork.build import Interface, Transform
+from blockwork.common.complexnamespaces import ReadonlyNamespace
 from blockwork.context import Context
-from blockwork.tools.tool import Invocation
+from blockwork.tools.tool import Version
 from infra.tools.misc import PythonSite
 
+class MakoTransform(Transform):
+    tools = [PythonSite]
 
-@registry.element.register(ElementConverter)
-@dataclass(kw_only=True)
-class Mako(base.Transform):
-    template: str
-    output: str
+    def __init__(self, template: Interface[Path, Path], output: Interface[Path, Path]):
+        super().__init__()
+        self.bind_inputs(template=template)
+        self.bind_outputs(output=output)
 
-    def resolve_input_paths(self, resolve):
-        self.template = resolve(self.template)
-
-    def resolve_output_paths(self, resolved):
-        self.output = resolved(self.output)
-
-
-    @Transform.register("mako")
-    @Transform.tool(PythonSite)
-    @Transform.input(".sv.mako")
-    @Transform.output(".sv")
-    @staticmethod
-    def exec(ctx      : Context,
-             tools    : SimpleNamespace,
-             inputs   : SimpleNamespace,
-             out_dirx : Path) -> Iterable[Union[Invocation, Path]]:
-        assert len(inputs.sv_mako) == 1
-        tmpl  = inputs.sv_mako[0]
-        fname = tmpl.name.rstrip(".mako")
+    def exec(self, ctx: Context, tools: ReadonlyNamespace[Version], iface: ReadonlyNamespace[Any]):
         cmd  = "from mako.template import Template;"
-        cmd += f"fh = open('{out_dirx / fname}', 'w');"
-        cmd += f"fh.write(Template(filename='{tmpl}').render());"
+        cmd += f"fh = open('{iface.output}', 'w');"
+        cmd += f"fh.write(Template(filename='{iface.template}').render());"
         cmd += "fh.flush();"
         cmd += "fh.close()"
         yield tools.pythonsite.get_action("run")(ctx, "-c", cmd)
-        yield out_dirx / fname

@@ -13,16 +13,13 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, Iterable, Optional, Protocol, overload
-from ..common.checkeddataclasses import dataclass
+from typing import Iterable
+from ..build.interface import FileInterface
+from ..build.transform import Transform
 
-class _Resolver(Protocol):
-    'Takes a path or list of paths and returns a path or list of paths (respectively)'
-    @overload
-    def __call__(self, paths: list[str]) -> list[str]: ...
-    @overload
-    def __call__(self, paths: str) -> str: ...
-    def __call__(self, paths) -> Any: ...
+from ..common.checkeddataclasses import dataclass
+from dataclasses import dataclass as unchecked_dataclass
+
 
 @dataclass(kw_only=True)
 class Site:
@@ -35,65 +32,55 @@ class Project:
     units: dict[str, str]
 
 
-@dataclass(kw_only=True)
+@unchecked_dataclass(kw_only=True)
 class ElementContext:
     'Context object bound on to each element to keep track of where it came from'
     unit: str
     config: Path
+    unit_project_path: Path
+    unit_scratch_path: Path
+
+
+class ElementFileInterface(FileInterface):
+    """
+    File interface for config elements
+    """
+    def __init__(self, element: "Element", path: str) -> None:
+        self.element = element
+        self.path = Path(path)
+
+    def keys(self):
+        yield (self.element._context.unit, self.path)
+    
+    def resolve_output(self):
+        return (self.element._context.unit_scratch_path / self.transform.id() / self.path)
+    
+    def resolve_input(self):
+        return (self.element._context.unit_project_path / self.path)
+
 
 @dataclass(kw_only=True)
 class Element:
-    'Base class for element configuration'
-    _context: Optional[ElementContext] = None
+    "Base class for element configuration"
+    _context: ElementContext
 
     def iter_sub_elements(self) -> Iterable["Element"]:
-        '''
+        """
         Yields any sub-elements which are used as part of this one.
 
         Implementation notes:
             - This function must be implemented when sub-elements are used.
-        '''
+        """
         yield from []
 
-    def resolve_input_paths(self, resolver: _Resolver):
-        '''
-        Resolves relative 'input' paths specified in the config to absolute ones based 
-        on the resolver argument. Where input paths are paths which reference either
-        static paths from the repository, or paths which refer to files which are output 
-        from transforms.
-        
-        The resolver is expected to take a relative path and return an absolute path.
+    def iter_transforms(self) -> Iterable[Transform]:
+        """
+        Yields any transforms from this element.
+        """
+        yield from []
 
-        Implementation notes:
-            - This function must be implemented when config specifies paths to static
-              or generated files.
-            - The element is expected to patch itself with the output of the resolver
-              for each path, for example::
-              
-            self.a_path = resolver(self.a_path)
-
-        '''
-        pass
-
-@dataclass(kw_only=True)
-class Transform(Element):
-    'Base class for transforms'
-
-    def resolve_output_paths(self, resolver: _Resolver):
-        '''
-        Resolves relative 'output' paths specified in the config to absolute ones based 
-        on the resolver argument. Where output paths are absolute paths which can be 
-        generated based on the transform inputs.
-
-        The resolver is expected to take a relative path and return an absolute path.
-
-        Implementation notes:
-            - This function must be implemented when config transforms are used to
-              create files.
-            - The element is expected to patch itself with the output of the resolver
-              for each path, for example::
-              
-            self.a_path = resolver(self.a_path)
-
-        '''
-        pass
+    def file_interface(self, path):
+        """
+        Utility method to to create a fileinterface for this element.
+        """
+        return ElementFileInterface(self, path)

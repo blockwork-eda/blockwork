@@ -12,131 +12,109 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import functools
-import logging
-from types import SimpleNamespace
-from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Iterable
+from ..build.interface import Interface, InterfaceDirection
+if TYPE_CHECKING:
+    from ..tools.tool import Version, Tool, Invocation
+    from ..context import Context
+from ..common.complexnamespaces import ReadonlyNamespace
 
-from ..common.registry import RegisteredMethod
-from ..context import Context
-from .entity import Entity
-from .file import FileType
-from ..tools import Tool, Invocation
+class Transform:
+    """
+    Base class for transforms.
+    """
+    tools: list[type["Tool"]] = []
 
-class TransformError(Exception):
-    pass
+    def __init__(self):
+        self.interfaces: list[Interface] = []
+        self.interfaces_by_name: dict[str, Interface | list[Interface]] = {}
 
-class TransformImpossible(Exception):
-    pass
+    def id(self):
+        """
+        Unique ID for the transform. This is currently just used for uniquifying
+        transform output paths.
 
-class Transform(RegisteredMethod):
+        @ed.kotarski: Ideally this should be some hash of the values so we get the
+                      same value each time.
+        """
+        return f"{self.__class__.__name__}_{id(self)}"
 
-    # Transform output root locator
-    ROOT : Path = Path("/__transform_root__")
+    def _bind_interfaces(self, direction: InterfaceDirection, **kwargs: Interface | Iterable[Interface]):
+        for name, interfaces in kwargs.items():
+            # Don't allow the same name to be bound twice
+            # Though a single call may bind that name to an array of interfaces.
+            if name in self.interfaces_by_name:
+                raise RuntimeError(f"Interface already bound with name `{name}`.")
 
-    def __init__(self, method : Callable) -> None:
-        self.name = method.__name__
-        self.method = method
-        self.inputs : List[FileType] = []
-        self.outputs : List[FileType] = []
-        self.tools : List[Tool] = []
+            if isinstance(interfaces, Interface):
+                self.interfaces_by_name[name] = interfaces
+                interfaces = [interfaces]
+            else:
+                interfaces = list(interfaces)
+                self.interfaces_by_name[name] = interfaces
 
-    def __repr__(self) -> str:
-        return f"<Transform name='{self.name}'>"
+            # Establish two-way link from transform to interface and interface to transfor,
+            for interface in interfaces:
+                self.interfaces.append(interface)
+                interface._bind_transform(self, direction, name)
 
-    def add_input(self, ftype : FileType) -> None:
-        self.inputs.append(ftype)
+    def bind_outputs(self, **interfaces: Interface | Iterable[Interface]):
+        """
+        Attach interfaces to this transform by name as outputs. The 
+        supplied names can be used to refer the interfaces in `exec`.
 
-    def add_output(self, ftype : FileType) -> None:
-        self.outputs.append(ftype)
+        For each name, either a single interfaces or an array of interfaces
+        may be supplied. Resolved values will be passed through to the exec
+        method accordingly as a single value or array of values.
+        """
+        return self._bind_interfaces(InterfaceDirection.Output, **interfaces)
 
-    def add_tool(self, tool : Tool) -> None:
-        self.tools.append(tool)
+    def bind_inputs(self, **interfaces: Interface | Iterable[Interface]):
+        """
+        Attach interfaces to this transform by name as inputs. The 
+        supplied names can be used to refer the interfaces in `exec`.
 
-    def __call__(self,
-                 ctx : Context,
-                 entity : Entity,
-                 inputs : Dict[FileType, Path]) -> Union[Invocation, Path]:
-        # Determine working directory for this transform
-        cntr_dirx = ctx.container_scratch / entity.name / self.name
-        # Create namespace for tools
-        tool_map = {}
+        For each name, either a single interfaces or an array of interfaces
+        may be supplied. Resolved values will be passed through to the exec
+        method accordingly as a single value or array of values.
+        """
+        return self._bind_interfaces(InterfaceDirection.Input, **interfaces)
+
+    def run(self, ctx: "Context"):
+        """Run the transform in a container."""
+        # Create  a container
+        # Note need to do this import here to avoid circular import
+        from ..foundation import Foundation
+        container = Foundation(ctx)
+
+        # Bind tools to container
+        tool_instances: dict[str, Version] = {}
         for tool_def in self.tools:
             tool = tool_def()
-            tool_map[tool.name] = tool.default
-        n_tools = SimpleNamespace(**tool_map)
-        # Create namespace for inputs
-        m_inputs = { x.strip(".").replace(".", "_"): y for x, y in inputs.items() }
-        n_inputs = SimpleNamespace(**m_inputs)
-        # Invoke the transform
-        yield from self.method(ctx, n_tools, n_inputs, cntr_dirx)
+            tool_instances[tool.name] = tool.default
+            container.add_tool(tool)
 
-    @classmethod
-    def tool(cls, tool : Tool) -> Callable:
-        def _inner(func : Callable) -> Callable:
-            tran = cls.wrap(func)
-            tran.add_tool(tool)
-            return func
-        return _inner
-
-    @classmethod
-    def input(cls, ftype : Union[str, FileType]) -> Callable:
-        ftype = ftype if isinstance(ftype, FileType) else FileType(ftype)
-        def _inner(func : Callable) -> Callable:
-            tran = cls.wrap(func)
-            tran.add_input(ftype)
-            return func
-        return _inner
-
-    @classmethod
-    def output(cls, ftype : Union[str, FileType]) -> Callable:
-        ftype = ftype if isinstance(ftype, FileType) else FileType(ftype)
-        def _inner(func : Callable) -> Callable:
-            tran = cls.wrap(func)
-            tran.add_output(ftype)
-            return func
-        return _inner
-
-    @classmethod
-    @functools.lru_cache()
-    def identify_chain(cls, from_type : FileType, to_type : FileType) -> List[Tuple[FileType, FileType, "Transform"]]:
-        """
-        Identify chain of transforms that can convert from any one type to any
-        other type.
-
-        :param from_type:   The existing type of the file
-        :param to_type:     The desired type of the file
-        :returns:           The chain of transformations required, each element
-                            is a tuple of the matched input type, the matched
-                            output type, and the transformation
-        """
-        logging.debug(f"Searching for transform chain from '{from_type.extension}' "
-                      f"to '{to_type.extension}'")
-        def _inner(from_type : FileType, to_type : FileType) -> Iterable[Tuple[FileType, FileType, Transform]]:
-            # Identify transforms that support the input type
-            for tran in filter(lambda x: from_type in x.inputs,
-                            Transform.get_all().values()):
-                # If this transform reaches the desired output, yield immediately
-                if to_type in tran.outputs:
-                    logging.debug(f"Transform '{tran.name}' matches on input type "
-                                  f"'{from_type.extension}' and output type "
-                                  f"'{to_type.extension}'")
-                    yield from_type, to_type, tran
-                    break
-                # Otherwise, recurse to see if another step can help?
-                for out_ftype in tran.outputs:
-                    try:
-                        yield from Transform.identify_chain(out_ftype, to_type)
-                        break
-                    except TransformImpossible:
-                        continue
-                else:
-                    logging.debug(f"Transform '{tran.name}' matches input type "
-                                  f"'{from_type.extension}' but cannot achieve "
-                                  f"output type '{to_type.extension}'")
-            # If we search without success, raise error
+        # Bind interfaces to container
+        interface_values: dict[str, Any] = {}
+        for name, interfaces in self.interfaces_by_name.items():
+            if isinstance(interfaces, Interface):
+                value = interfaces.bind_container(ctx, container, interfaces.resolve())
             else:
-                raise TransformImpossible(f"Cannot identify transform chain between "
-                                          f"'{from_type.extension}' and '{to_type.extension}'")
-        return list(_inner(from_type, to_type))
+                value = [interface.bind_container(ctx, container, interface.resolve()) for interface in interfaces]
+            interface_values[name] = value
+
+        tools = ReadonlyNamespace(**tool_instances)
+        iface = ReadonlyNamespace(**interface_values)
+
+        for invocation in self.exec(ctx, tools, iface):
+            if exit_code:=container.invoke(ctx, invocation) != 0:
+                raise RuntimeError(f"Invocation `{invocation}` failed with exit code `{exit_code}`.")
+
+    def exec(self,
+             ctx  : "Context",
+             tools: ReadonlyNamespace["Version"],
+             iface: ReadonlyNamespace[Any]) -> Iterable["Invocation"]:
+        """
+        Execute method to be implemented in subclasses.
+        """
+        raise NotImplementedError

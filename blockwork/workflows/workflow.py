@@ -33,7 +33,7 @@ class Workflow(RegisteredClass, metaclass=Singleton):
     def __init__(self, config: Config) -> None:
         self.config = config
         # Resolve input and output paths
-        self.config.resolve()
+        self.config.run()
 
     def exec(self):
         'Run the workflow'

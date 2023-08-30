@@ -17,7 +17,7 @@ from typing import List, Optional
 
 import click
 
-from ..build import Entity, Transform, execute, orchestrate
+from ..build import Entity, Transform, _execute, orchestrate
 from .common import BwExecCommand
 from ..context import Context
 
@@ -62,7 +62,7 @@ def build(ctx : Context,
             fh.write(graph.to_dot())
     # Execute the graph
     logging.debug(f"Executing the build graph of {len(graph.nodes)} nodes")
-    execute(ctx,
+    _execute(ctx,
             entity,
             graph,
             interactive=interactive,

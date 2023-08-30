@@ -34,6 +34,10 @@ class ToolError(Exception):
     pass
 
 
+class ToolActionError(ToolError):
+    "Tool doesn't have requested action"
+
+
 class Require:
     """ Forms a requirement on another tool and version """
 
@@ -117,9 +121,8 @@ class Version:
         else:
             return Path(self.tool.name) / self.version
 
-    def get_action(self, name : str) -> Union[Callable, None]:
-        if (action := self.tool.get_action(name)) is None:
-            return None
+    def get_action(self, name : str) -> Callable:
+        action = self.tool.get_action(name)
         # Return a wrapper that inserts the active version
         def _wrap(context, *args, **kwargs):
             return action(context, self, *args, **kwargs)
@@ -137,9 +140,10 @@ class Version:
         try:
             return super().__getattribute__(name)
         except AttributeError as e:
-            if (act := self.get_action(name)) is not None:
-                return act
-            raise e
+            try:
+                return self.get_action(name)
+            except ToolActionError:
+                raise e
 
     def get_host_path(self, ctx : Context) -> Path:
         """
@@ -207,25 +211,26 @@ class Tool(RegisteredClass, metaclass=Singleton):
             self.default = self.versions[0]
         else:
             # Check for collisions between versions and multiple defaults
-            self.default = None
+            default_version = None
             version_nums = []
             for version in self.versions:
                 version.tool = self
                 # Check for multiple defaults
                 if version.default:
-                    if self.default is not None:
+                    if default_version is not None:
                         raise ToolError(f"Multiple versions marked default for tool {self.name} "
                                         f"from vendor {self.vendor}")
-                    self.default = version
+                    default_version = version
                 # Check for repeated version numbers
                 if version.version in version_nums:
                     raise ToolError(f"Duplicate version {version.version} for tool "
                                     f"{self.name} from vendor {self.vendor}")
                 version_nums.append(version.version)
             # Check the default has been identified
-            if self.default is None:
+            if default_version is None:
                 raise ToolError(f"No version of tool {self.name} from vendor "
                                 f"{self.vendor} marked as default")
+            self.default = default_version
 
     def __iter__(self) -> Iterable[Version]:
         yield from self.versions
@@ -338,19 +343,19 @@ class Tool(RegisteredClass, metaclass=Singleton):
         if default:
             cls.__register_action(tool_name, "default", False, method)
 
-    def get_action(self, name : str) -> Union[Callable, None]:
+    def get_action(self, name : str) -> Callable:
         """
         Return an action registered for this tool if known.
 
         :param name:    Name of the action
-        :returns:       The instance wrapped decorated method if known, else None
+        :returns:       The instance wrapped decorated method if known, else excepts
         """
         tool_cls = type(self)
         tool_name = tool_cls.__name__.lower()
         if (actions := tool_cls.ACTIONS.get(tool_name, None)) is None:
-            return None
+            raise ToolActionError
         if (raw_act := actions.get(name.lower(), None)) is None:
-            return None
+            raise ToolActionError
         # The method held in the actions dictionary is unbound, so this wrapper
         # provides the instance as the first argument
         def _wrap(context, *args, **kwargs):

@@ -155,7 +155,10 @@ class ConverterRegistry:
 
 
 class DataclassConverter(Converter[_Convertable, _Parser]):
-    def construct_mapping(self, loader: Loader, node: yaml.MappingNode) -> _Convertable:
+    def construct_mapping(self,
+                          loader: Loader,
+                          node: yaml.MappingNode,
+                          dict_callback: Optional[Callable[[dict[str, Any]], None]]=None) -> _Convertable:
         loc = f"{Path(node.start_mark.name).absolute()}:{node.start_mark.line}:{node.start_mark.column}"
         node_dict = cast(dict[str, Any], loader.construct_mapping(node, deep=True))
 
@@ -166,6 +169,11 @@ class DataclassConverter(Converter[_Convertable, _Parser]):
             keys.add(field.name)
             if isinstance(field.default, _MISSING_TYPE) and isinstance(field.default_factory, _MISSING_TYPE):
                 required_keys.add(field.name)
+
+        # Gives the caller an opportunity to modify the read dict prior to checking
+        # e.g. to add extra implicit data
+        if dict_callback:
+            dict_callback(node_dict)
                 
         # Check there are no extra fields provided
         if (extra := set(node_dict.keys()) - set(keys)):
@@ -175,7 +183,7 @@ class DataclassConverter(Converter[_Convertable, _Parser]):
         missing = set(required_keys) - set(node_dict.keys())
         if missing:
             raise YamlMissingFieldsError(loc, missing)
-        
+
         try:
             # Create the dataclass instance
             instance = self.typ(**node_dict)

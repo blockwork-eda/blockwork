@@ -30,7 +30,6 @@ class Blockwork:
     tooldefs     : Optional[List[str]] = field(default_factory=list)
     transforms   : Optional[List[str]] = field(default_factory=list)
     workflows    : Optional[List[str]] = field(default_factory=list)
-    entities     : Optional[List[str]] = field(default_factory=list)
 
     @root.check
     @scratch.check

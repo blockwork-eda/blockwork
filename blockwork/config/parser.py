@@ -110,6 +110,15 @@ class ElementConverter(DataclassConverter[base.Element, Element]):
         return self.parser.parse_target(target, self.typ)
     
     def construct_mapping(self, loader: yaml.Loader, node: yaml.MappingNode) -> base.Element:
-        element = super().construct_mapping(loader, node)
-        element._context = base.ElementContext(unit=self.parser.unit, config=Path(node.start_mark.name))
+        unit = self.parser.unit
+        unit_project_path = self.parser.ctx.host_root / self.parser.project.units[unit]
+        unit_scratch_path = self.parser.ctx.host_scratch / self.parser.project.units[unit]
+        def dict_callback(node_dict):
+            node_dict['_context'] = base.ElementContext(
+                unit=unit,
+                config=Path(node.start_mark.name),
+                unit_project_path=unit_project_path,
+                unit_scratch_path=unit_scratch_path
+            )
+        element = super().construct_mapping(loader, node, dict_callback=dict_callback)
         return element
