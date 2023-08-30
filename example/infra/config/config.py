@@ -59,8 +59,7 @@ class Design(base.Element):
         yield from self.transforms
 
     def iter_transforms(self) -> Iterable[Transform]:
-        inputs = [self.file_interface(source) for source in self.sources]
-        yield VerilatorLintTransform(inputs=inputs)
+        yield VerilatorLintTransform(inputs=map(self.file_interface, self.sources))
 
 @registry.element.register(ElementConverter)
 @dataclass(kw_only=True)

@@ -42,17 +42,17 @@ class Scheduler(Generic[_Schedulable]):
                               (NOT THE ITEMS THAT THEY DEPEND ON). This is expected
                               to contain empty values for items with no dependents.
         '''
-        self._dependent_map = dependent_map
-        self._dependency_map: dict[_Schedulable, set[_Schedulable]] = defaultdict(set)
+        self.__dependent_map = dependent_map
+        self.__dependency_map: dict[_Schedulable, set[_Schedulable]] = defaultdict(set)
         for dependency, dependents in dependent_map.items():
             for dependent in dependents:
-                self._dependency_map[dependent].add(dependency)
+                self.__dependency_map[dependent].add(dependency)
 
-        self._remaining = set(dependent_map.keys()) | set(self._dependency_map.keys())
-        self._all = set(self._remaining)
-        self._unscheduled = set(self._all)
-        self._scheduled: set[_Schedulable] = set()
-        self._complete: set[_Schedulable] = set()
+        self.__remaining = set(dependent_map.keys()) | set(self.__dependency_map.keys())
+        self.__all = set(self.__remaining)
+        self.__unscheduled = set(self.__all)
+        self.__scheduled: set[_Schedulable] = set()
+        self.__complete: set[_Schedulable] = set()
 
     def get_leaves(self) -> set[_Schedulable]:
         """
@@ -60,44 +60,44 @@ class Scheduler(Generic[_Schedulable]):
         Note: dependencies are dropped as items finish so this
               will change as the scheduler runs.
         """
-        dependents = set(self._dependency_map.keys())
-        return self._remaining - dependents
+        dependents = set(self.__dependency_map.keys())
+        return self.__remaining - dependents
 
     def get_schedulable(self) -> set[_Schedulable]:
         "Get schedulable items (leaves which haven't been scheduled)"
         leaves = self.get_leaves()
-        if not leaves and not self._scheduled and self.get_incomplete():
+        if not leaves and not self.__scheduled and self.get_incomplete():
             # Detects cycles in the graph
-            raise CyclicError(f"{self._dependency_map}")
-        return leaves - self._scheduled
+            raise CyclicError(f"{self.__dependency_map}")
+        return leaves - self.__scheduled
 
     def get_blocked(self) -> set[_Schedulable]:
         "Get non-leaf items which depend on something else"
-        return self._unscheduled - self.get_leaves()
+        return self.__unscheduled - self.get_leaves()
 
     def get_unscheduled(self) -> set[_Schedulable]:
         "Get any items that haven't been scheduled yet"
-        return set(self._unscheduled)
+        return set(self.__unscheduled)
 
     def get_scheduled(self) -> set[_Schedulable]:
         "Get any items that have been scheduled, but are not complete"
-        return set(self._scheduled)
+        return set(self.__scheduled)
 
     def get_incomplete(self) -> set[_Schedulable]:
         "Get any items that are not complete"
-        return self._unscheduled | self._scheduled
+        return self.__unscheduled | self.__scheduled
 
     def get_complete(self) -> set[_Schedulable]:
         "Get any items that are complete"
-        return set(self._complete)
+        return set(self.__complete)
     
     def schedule(self, item: _Schedulable):
         """
         Schedule an item. This item must come from the get_schedulable result
         or bad things will happen.
         """
-        self._unscheduled.remove(item)
-        self._scheduled.add(item)
+        self.__unscheduled.remove(item)
+        self.__scheduled.add(item)
 
     def finish(self, item: _Schedulable):
         """
@@ -105,13 +105,13 @@ class Scheduler(Generic[_Schedulable]):
         This should only be a previously scheduled item, and must only
         be called once per item.
         """
-        if item in self._dependent_map:
-            for dependent in self._dependent_map[item]:
-                self._dependency_map[dependent].remove(item)
-                if not self._dependency_map[dependent]:
-                    del self._dependency_map[dependent]
+        if item in self.__dependent_map:
+            for dependent in self.__dependent_map[item]:
+                self.__dependency_map[dependent].remove(item)
+                if not self.__dependency_map[dependent]:
+                    del self.__dependency_map[dependent]
 
-        self._remaining.remove(item)
-        self._scheduled.remove(item)
-        self._complete.add(item)
+        self.__remaining.remove(item)
+        self.__scheduled.remove(item)
+        self.__complete.add(item)
 

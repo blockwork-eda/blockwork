@@ -24,15 +24,15 @@ class ComplexNamespace(Generic[_NamespaceValue]):
         self.__dict__["MO"] = _MO
         self.__dict__['ns'] = kwargs
        
-    def __getattr__(self, __name) -> _NamespaceValue:
-        return self.ns[__name]
+    def __getattr__(self, name) -> _NamespaceValue:
+        return self.ns[name]
 
-    def __setattr__(self, __name: str, __value: _NamespaceValue) -> None:
+    def __setattr__(self, name: str, value: _NamespaceValue) -> None:
         if self.RO:
             raise RuntimeError("Namespace is read only")
-        if self.MO and __name not in self.ns:
-            raise RuntimeError(f"Namespace is modify only and {__name} is not already present")
-        self.ns[__name] = __value
+        if self.MO and name not in self.ns:
+            raise RuntimeError(f"Namespace is modify only and {name} is not already present")
+        self.ns[name] = value
 
 
 class ReadonlyNamespace(ComplexNamespace[_NamespaceValue]):

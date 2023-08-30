@@ -13,9 +13,12 @@
 # limitations under the License.
 
 from pathlib import Path
+from typing import Any
 from blockwork.build import Interface, Transform
+from blockwork.common.complexnamespaces import ReadonlyNamespace
+from blockwork.context import Context
+from blockwork.tools.tool import Version
 from infra.tools.misc import PythonSite
-
 
 class MakoTransform(Transform):
     tools = [PythonSite]
@@ -25,7 +28,7 @@ class MakoTransform(Transform):
         self.bind_inputs(template=template)
         self.bind_outputs(output=output)
 
-    def exec(self, ctx, tools, iface):
+    def exec(self, ctx: Context, tools: ReadonlyNamespace[Version], iface: ReadonlyNamespace[Any]):
         cmd  = "from mako.template import Template;"
         cmd += f"fh = open('{iface.output}', 'w');"
         cmd += f"fh.write(Template(filename='{iface.template}').render());"

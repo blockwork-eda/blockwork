@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Any, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Iterable
 from ..build.interface import Interface, InterfaceDirection
 if TYPE_CHECKING:
     from ..tools.tool import Version, Tool, Invocation
@@ -27,7 +27,7 @@ class Transform:
 
     def __init__(self):
         self.interfaces: list[Interface] = []
-        self.interfaces_by_name: dict[str, Interface | Sequence[Interface]] = {}
+        self.interfaces_by_name: dict[str, Interface | list[Interface]] = {}
 
     def id(self):
         """
@@ -39,21 +39,26 @@ class Transform:
         """
         return f"{self.__class__.__name__}_{id(self)}"
 
-    def _bind_interfaces(self, direction: InterfaceDirection, **kwargs: Interface | Sequence[Interface]):
+    def _bind_interfaces(self, direction: InterfaceDirection, **kwargs: Interface | Iterable[Interface]):
         for name, interfaces in kwargs.items():
             # Don't allow the same name to be bound twice
             # Though a single call may bind that name to an array of interfaces.
             if name in self.interfaces_by_name:
                 raise RuntimeError(f"Interface already bound with name `{name}`.")
-            self.interfaces_by_name[name] = interfaces
+
             if isinstance(interfaces, Interface):
+                self.interfaces_by_name[name] = interfaces
                 interfaces = [interfaces]
+            else:
+                interfaces = list(interfaces)
+                self.interfaces_by_name[name] = interfaces
+
             # Establish two-way link from transform to interface and interface to transfor,
             for interface in interfaces:
                 self.interfaces.append(interface)
                 interface._bind_transform(self, direction, name)
 
-    def bind_outputs(self, **interfaces: Interface | Sequence[Interface]):
+    def bind_outputs(self, **interfaces: Interface | Iterable[Interface]):
         """
         Attach interfaces to this transform by name as outputs. The 
         supplied names can be used to refer the interfaces in `exec`.
@@ -64,7 +69,7 @@ class Transform:
         """
         return self._bind_interfaces(InterfaceDirection.Output, **interfaces)
 
-    def bind_inputs(self, **interfaces: Interface | Sequence[Interface]):
+    def bind_inputs(self, **interfaces: Interface | Iterable[Interface]):
         """
         Attach interfaces to this transform by name as inputs. The 
         supplied names can be used to refer the interfaces in `exec`.

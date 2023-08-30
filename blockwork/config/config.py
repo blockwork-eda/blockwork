@@ -59,14 +59,14 @@ class Config(RegisteredClass, metaclass=Singleton):
 
         interface_map: dict[Hashable, Interface] = {}
         for interface in interfaces:
-            if interface.direction == InterfaceDirection.Output:
+            if interface.direction is InterfaceDirection.Output:
                 for key in interface.keys():
                     if key in interface_map:
                         raise RuntimeError
                     interface_map[key] = interface
 
         for interface in interfaces:
-            if interface.direction == InterfaceDirection.Input:
+            if interface.direction is InterfaceDirection.Input:
                 for key in interface.keys():
                     if (output:=interface_map.get(key, None)) is not None:
                         interface.connect(output)

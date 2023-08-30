@@ -74,7 +74,7 @@ class Interface(Generic[_RVALUE, _CVALUE]):
         """
         if other.direction == self.direction:
             raise RuntimeError(f"Tried to connect two interfaces with same direction `{self}` and `{other}`")
-        i, o = (self, other) if self.direction == InterfaceDirection.Input else (other, self)
+        i, o = (self, other) if self.direction is InterfaceDirection.Input else (other, self)
         if len(i.connections) != 0:
             raise RuntimeError(f"Tried to connect input interface `{i}` to multiple outputs `{i.connections[0]}` and `{o}`")
         i.connections.append(o)
@@ -108,7 +108,7 @@ class Interface(Generic[_RVALUE, _CVALUE]):
               method has another chance to "resolve" the output of this method to the
               value that will be seen in the `transform.exec` method.
         """
-        if self.direction == InterfaceDirection.Output:
+        if self.direction is InterfaceDirection.Output:
             return self.resolve_output()
         if self.connections:
             return self.connections[0].resolve_output()
@@ -132,6 +132,6 @@ class Interface(Generic[_RVALUE, _CVALUE]):
 class FileInterface(Interface[Path, Path]):
     def bind_container(self, ctx: "Context", container: Container, value: Path):
         container_path = ctx.map_to_container(value)
-        readonly = self.direction == InterfaceDirection.Input
+        readonly = self.direction is InterfaceDirection.Input
         container.bind(value.parent, container_path.parent, readonly=readonly)
         return container_path

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Sequence
+from typing import Iterable
 
 from blockwork.build import Transform
 from blockwork.build.interface import Interface
@@ -22,7 +22,7 @@ from infra.tools.simulators import Verilator
 class VerilatorLintTransform(Transform):
     tools = [Verilator]
 
-    def __init__(self, inputs: Sequence[Interface[Path, Path]]):
+    def __init__(self, inputs: Iterable[Interface[Path, Path]]):
         super().__init__()
         self.bind_inputs(inputs=inputs)
 
