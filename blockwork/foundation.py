@@ -125,7 +125,7 @@ class Foundation(Container):
         # Resolve the binary
         command = invocation.execute
         if isinstance(command, Path):
-            command = self.get_tool_container_path(invocation.version, command).as_posix()
+            command = invocation.version.get_container_path(command).as_posix()
         # Launch
         args = invocation.map_args_to_container(context)
         logging.debug(f"Launching in container: {command} {' '.join(args)}")
