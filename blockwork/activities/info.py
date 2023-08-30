@@ -22,13 +22,33 @@ import blockwork
 from ..context import Context
 
 @click.command()
+@click.argument("query", nargs=-1, type=str)
 @click.pass_obj
-def info(ctx : Context):
-    """ List information about the project """
-    table = Table(show_header=False)
-    table.add_row("Project", ctx.config.project)
-    table.add_row("Host Root Directory", ctx.host_root.as_posix())
-    table.add_row("Container Root Directory", ctx.container_root.as_posix())
-    table.add_row("Configuration File", ctx.config_path.as_posix())
-    table.add_row("Blockwork Install", Path(blockwork.__file__).parent.as_posix())
-    Console().print(table)
+def info(ctx : Context, query: list[str]):
+    """
+    List information about the project, an optional list of keys may be provided
+    to only print select information - for example 'bw info host_tools' will just
+    show the host tools' root directory path and nothing else.
+    """
+    info = {
+        "Project": ctx.config.project,
+        "Configuration File": ctx.config_path.as_posix(),
+        "Blockwork Install": Path(blockwork.__file__).parent.as_posix(),
+        "Host Root": ctx.host_root.as_posix(),
+        "Host Tools": ctx.host_tools.as_posix(),
+        "Host Scratch": ctx.host_scratch.as_posix(),
+        "Host State": ctx.host_state.as_posix(),
+        "Container Root": ctx.container_root.as_posix(),
+        "Container Tools": ctx.container_tools.as_posix(),
+        "Container Scratch": ctx.container_scratch.as_posix(),
+    }
+    if query:
+        for partial in query:
+            for name, value in info.items():
+                if name.lower().replace(" ", "_").startswith(partial):
+                    print(value)
+    else:
+        table = Table(show_header=False)
+        for name, value in info.items():
+            table.add_row(name, value)
+        Console().print(table)
