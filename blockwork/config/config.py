@@ -19,7 +19,7 @@ from ..common.registry import RegisteredClass
 from ..common.singleton import Singleton
 from ..build.interface import Interface, InterfaceDirection
 if TYPE_CHECKING:
-    from ..build.transform import Transform, Transform
+    from ..build.transform import Transform
     from ..context import Context
 from . import base
 from .scheduler import Scheduler

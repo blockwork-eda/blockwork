@@ -15,7 +15,7 @@
 from pathlib import Path
 from typing import Iterable
 from ..build.interface import FileInterface
-from ..build.transform import Transform, Transform
+from ..build.transform import Transform
 
 from ..common.checkeddataclasses import dataclass
 from dataclasses import dataclass as unchecked_dataclass

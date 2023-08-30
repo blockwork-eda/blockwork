@@ -142,7 +142,7 @@ class Version:
         except AttributeError as e:
             try:
                 return self.get_action(name)
-            except:
+            except ToolActionError:
                 raise e
 
     def get_host_path(self, ctx : Context) -> Path:
