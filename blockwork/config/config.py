@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from typing import Hashable, Iterable, TYPE_CHECKING
 
 from ..common.registry import RegisteredClass
@@ -83,5 +84,7 @@ class Config(RegisteredClass, metaclass=Singleton):
         while scheduler.get_incomplete():
             for element in scheduler.get_schedulable():
                 scheduler.schedule(element)
+                # Note this message is info for now for demonstrative purposes only
+                logging.info("Running transform: %s", element)
                 element.run(self.ctx)
                 scheduler.finish(element)

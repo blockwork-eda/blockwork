@@ -37,10 +37,23 @@ class Project(base.Project):
 
 @registry.element.register(ElementConverter)
 @dataclass(kw_only=True)
+class Mako(base.Element):
+    template: str
+    output: str
+
+    def iter_transforms(self):
+        yield MakoTransform(
+            template=self.file_interface(self.template),
+            output=self.file_interface(self.output)
+        )
+
+
+@registry.element.register(ElementConverter)
+@dataclass(kw_only=True)
 class Design(base.Element):
     top: str
     sources: list[str]
-    transforms: list["Mako"] = field(default_factory=list)
+    transforms: list[Mako] = field(default_factory=list)
 
     def iter_sub_elements(self):
         yield from self.transforms
@@ -48,7 +61,6 @@ class Design(base.Element):
     def iter_transforms(self) -> Iterable[Transform]:
         inputs = [self.file_interface(source) for source in self.sources]
         yield VerilatorLintTransform(inputs=inputs)
-
 
 @registry.element.register(ElementConverter)
 @dataclass(kw_only=True)
@@ -59,16 +71,3 @@ class Testbench(base.Element):
 
     def iter_sub_elements(self):
         yield self.design
-
-
-@registry.element.register(ElementConverter)
-@dataclass(kw_only=True)
-class Mako(base.Element):
-    template: str
-    output: str
-
-    def iter_transforms(self):
-        yield MakoTransform(
-            template=self.file_interface(self.template),
-            output=self.file_interface(self.output)
-        )
