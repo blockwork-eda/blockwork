@@ -32,7 +32,13 @@ class Foundation(Container):
                          **kwargs)
         self.__context = context
         self.bind(self.__context.host_scratch, self.__context.container_scratch)
-        self.set_env("PATH", "usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+        # Ensure various standard $PATHs are present
+        self.append_env_path("PATH", "/usr/local/sbin")
+        self.append_env_path("PATH", "/usr/local/bin")
+        self.append_env_path("PATH", "/usr/sbin")
+        self.append_env_path("PATH", "/usr/bin")
+        self.append_env_path("PATH", "/sbin")
+        self.append_env_path("PATH", "/bin")
         self.__tools = {}
 
     def add_input(self, path : Path, name : Optional[str] = None) -> None:
