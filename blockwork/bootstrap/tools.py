@@ -18,6 +18,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+from blockwork.tools.tool import ToolActionError
+
 from ..context import Context
 from ..foundation import Foundation
 from ..tools import Tool, ToolError
@@ -61,7 +63,11 @@ def install_tools(context : Context, last_run : datetime) -> bool:
                 logging.debug(f" - {idx}: Tool {tool_id} is already installed")
                 continue
         # Attempt to install
-        if act_def := tool.get_action("installer"):
+        try:
+            act_def = tool.get_action("installer")
+        except ToolActionError:
+            logging.debug(f" - {idx}: Tool {tool_id} does not define an install action")
+        else:
             logging.info(f" - {idx}: Launching installation of {tool_id}")
             invk = act_def(context)
             if invk is not None:
@@ -77,5 +83,4 @@ def install_tools(context : Context, last_run : datetime) -> bool:
             logging.debug(f" - {idx}: Installation of {tool_id} succeeded")
             # Touch the install folder to ensure its datetime is updated
             os.utime(host_loc)
-        else:
-            logging.debug(f" - {idx}: Tool {tool_id} does not define an install action")
+

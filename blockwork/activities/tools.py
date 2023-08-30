@@ -19,6 +19,8 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from blockwork.tools.tool import ToolActionError
+
 from .common import BwExecCommand, ToolMode
 from ..context import Context
 from ..foundation import Foundation
@@ -87,10 +89,12 @@ def tool(ctx         : Context,
     if (tool_ver := Tool.get(vendor, name, version)) is None:
         raise Exception(f"Cannot locate tool for {tool}")
     # See if there is an action registered
-    if (act_def := tool_ver.get_action(action)) is None:
+    try:
+        act_def = tool_ver.get_action(action)
+    except ToolActionError:
         raise Exception(f"No action known for '{action}' on tool {tool}")
     # Run the action and forward the exit code
     container = Foundation(ctx, hostname=f"{ctx.config.project}_{tool}_{action}")
     sys.exit(container.invoke(ctx,
-                              act_def(ctx, *runargs),
-                              readonly=(ToolMode(tool_mode) == ToolMode.READONLY)))
+                            act_def(ctx, *runargs),
+                            readonly=(ToolMode(tool_mode) == ToolMode.READONLY)))

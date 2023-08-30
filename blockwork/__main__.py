@@ -100,7 +100,6 @@ def blockwork(ctx,
     # Trigger registration procedures
     Tool.setup(ctx.obj.host_root, ctx.obj.config.tooldefs)
     Bootstrap.setup(ctx.obj.host_root, ctx.obj.config.bootstrap)
-    Transform.setup(ctx.obj.host_root, ctx.obj.config.transforms)
     Workflow.setup(ctx.obj.host_root, ctx.obj.config.workflows)
     Config.setup(ctx.obj.host_root, ctx.obj.config.config)
     Entity.setup(ctx.obj.host_root, ctx.obj.config.entities)
