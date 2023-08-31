@@ -23,7 +23,7 @@ class StateRecord:
         self.keys = {"leaves","schedulable","blocked","unscheduled","scheduled","incomplete","complete"}
 
     def record(self, scheduler):
-        self.states.append({key: getattr(scheduler, f"get_{key}")() for key in self.keys})
+        self.states.append({key: getattr(scheduler, key) for key in self.keys})
 
     def __getattr__(self, __name: str) -> Any:
         if __name in self.keys:
@@ -43,9 +43,9 @@ class TestScheduler:
         
         states = StateRecord()
 
-        while scheduler.get_incomplete():
+        while scheduler.incomplete:
             states.record(scheduler)
-            for item in scheduler.get_schedulable():
+            for item in scheduler.schedulable:
                 scheduler.schedule(item)
                 scheduler.finish(item)
 
@@ -64,7 +64,7 @@ class TestScheduler:
         scheduler = Scheduler(dependency_map)
 
         with pytest.raises(CyclicError):
-            scheduler.get_schedulable()
+            scheduler.schedulable
 
     def test_complex(self) -> None:
         'Tests a more complex tree is scheduled correctly'
@@ -78,9 +78,9 @@ class TestScheduler:
         scheduler = Scheduler(dependency_map)
         
         states = StateRecord()
-        while scheduler.get_incomplete():
+        while scheduler.incomplete:
             states.record(scheduler)
-            for item in scheduler.get_schedulable():
+            for item in scheduler.schedulable:
                 scheduler.schedule(item)
                 scheduler.finish(item)
 
@@ -89,9 +89,9 @@ class TestScheduler:
         # Do it again, but this time with a specific target
         scheduler = Scheduler(dependency_map, targets=['e'])
         states = StateRecord()
-        while scheduler.get_incomplete():
+        while scheduler.incomplete:
             states.record(scheduler)
-            for item in scheduler.get_schedulable():
+            for item in scheduler.schedulable:
                 scheduler.schedule(item)
                 scheduler.finish(item)
         assert states.schedulable == ({"a"}, {"b"}, {"c"}, {"e"})

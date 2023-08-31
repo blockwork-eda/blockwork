@@ -30,8 +30,8 @@ class Scheduler(Generic[_Schedulable]):
 
         dependant_map = {"x": set(("y")), "y": set(("z"))}
         scheduler = Schedular(dependant_map)
-        while scheduler.get_incomplete():
-            for item in scheduler.get_schedulable():
+        while scheduler.incomplete:
+            for item in scheduler.schedulable:
                 scheduler.schedule(item)
                 ...run the step related to the item...
                 scheduler.finish(item)                
@@ -85,7 +85,8 @@ class Scheduler(Generic[_Schedulable]):
         self._scheduled: set[_Schedulable] = set()
         self._complete: set[_Schedulable] = set()
 
-    def get_leaves(self) -> set[_Schedulable]:
+    @property
+    def leaves(self) -> set[_Schedulable]:
         """
         Get leaf items which don't depend on anything else.
         Note: dependencies are dropped as items finish so this
@@ -94,37 +95,43 @@ class Scheduler(Generic[_Schedulable]):
         dependents = set(self._dependency_map.keys())
         return self._remaining - dependents
 
-    def get_schedulable(self) -> set[_Schedulable]:
+    @property
+    def schedulable(self) -> set[_Schedulable]:
         "Get schedulable items (leaves which haven't been scheduled)"
-        leaves = self.get_leaves()
-        if not leaves and not self._scheduled and self.get_incomplete():
+        leaves = self.leaves
+        if not leaves and not self._scheduled and self.incomplete:
             # Detects cycles in the graph
             raise CyclicError(f"{self._dependency_map}")
         return leaves - self._scheduled
 
-    def get_blocked(self) -> set[_Schedulable]:
+    @property
+    def blocked(self) -> set[_Schedulable]:
         "Get non-leaf items which depend on something else"
-        return self._unscheduled - self.get_leaves()
+        return self._unscheduled - self.leaves
 
-    def get_unscheduled(self) -> set[_Schedulable]:
+    @property
+    def unscheduled(self) -> set[_Schedulable]:
         "Get any items that haven't been scheduled yet"
         return set(self._unscheduled)
 
-    def get_scheduled(self) -> set[_Schedulable]:
+    @property
+    def scheduled(self) -> set[_Schedulable]:
         "Get any items that have been scheduled, but are not complete"
         return set(self._scheduled)
 
-    def get_incomplete(self) -> set[_Schedulable]:
+    @property
+    def incomplete(self) -> set[_Schedulable]:
         "Get any items that are not complete"
         return self._unscheduled | self._scheduled
 
-    def get_complete(self) -> set[_Schedulable]:
+    @property
+    def complete(self) -> set[_Schedulable]:
         "Get any items that are complete"
         return set(self._complete)
     
     def schedule(self, item: _Schedulable):
         """
-        Schedule an item. This item must come from the get_schedulable result
+        Schedule an item. This item must come from `schedulable`
         or bad things will happen.
         """
         self._unscheduled.remove(item)

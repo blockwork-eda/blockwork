@@ -88,8 +88,8 @@ class Config(RegisteredClass, metaclass=Singleton):
 
         # Run everything in order serially
         scheduler = Scheduler(dependency_map, targets=targets)
-        while scheduler.get_incomplete():
-            for element in scheduler.get_schedulable():
+        while scheduler.incomplete:
+            for element in scheduler.schedulable:
                 scheduler.schedule(element)
                 # Note this message is info for now for demonstrative purposes only
                 logging.info("Running transform: %s", element)
