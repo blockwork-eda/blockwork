@@ -200,8 +200,8 @@ class Tool(RegisteredClass, metaclass=Singleton):
     def __init__(self) -> None:
         self.vendor = self.vendor.strip() if isinstance(self.vendor, str) else Tool.NO_VENDOR
         self.versions = self.versions or []
-        if not isinstance(self.versions, list):
-            raise ToolError(f"Versions of tool {self.name} must be a list")
+        if not isinstance(self.versions, (list, tuple)):
+            raise ToolError(f"Versions of tool {self.name} must be a list or a tuple")
         if not all(isinstance(x, Version) for x in self.versions):
             raise ToolError(f"Versions of tool {self.name} must be a list of Version objects")
         # If only one version is defined, make that the default
