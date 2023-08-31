@@ -14,6 +14,9 @@
 
 import functools
 from pathlib import Path
+from typing import Iterable
+
+from ..build.transform import Transform
 from ..common.registry import RegisteredClass
 from ..common.singleton import Singleton
 from ..config import base, Config
@@ -33,10 +36,12 @@ class Workflow(RegisteredClass, metaclass=Singleton):
     def __init__(self, config: Config) -> None:
         self.config = config
         # Resolve input and output paths
-        self.config.run()
 
-    def exec(self):
-        'Run the workflow'
+    def run(self):
+        self.config.run(self.transform_filter)
+
+    def transform_filter(self, transforms: Iterable[Transform]) -> Iterable[Transform]:
+        'Yield transforms that this workflow is interested in'
         raise NotImplementedError
 
     @classmethod

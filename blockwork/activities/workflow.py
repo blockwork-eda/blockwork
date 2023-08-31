@@ -43,4 +43,4 @@ def workflow(ctx : Context, project: str, target: str, workflow_name: str) -> No
 
     config = Config(ctx=ctx, site=site_config, project=project_config, target=target_config)
 
-    wf(config).exec()
+    wf(config).run()

@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Iterable
+from blockwork.build.transform import Transform
 from blockwork.workflows import Workflow
-from .config.config import Site, Project
+from .transforms.lint import VerilatorLintTransform
+from .config.config import Design, Site, Project
 
 
 @Workflow.register()
@@ -21,6 +24,16 @@ class Build(Workflow):
     SITE_TYPE = Site
     PROJECT_TYPE = Project
 
-    def exec(self):
-        # Dummy for now
-        pass
+    def transform_filter(self, transforms: Iterable[Transform]) -> Iterable[Transform]:
+        yield from transforms
+
+@Workflow.register()
+class Lint(Workflow):
+    SITE_TYPE = Site
+    PROJECT_TYPE = Project
+    TARGET_TYPE = Design
+
+    def transform_filter(self, transforms: Iterable[Transform]) -> Iterable[Transform]:
+        for transform in transforms:
+            if isinstance(transform, VerilatorLintTransform):
+                yield transform
