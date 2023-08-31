@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Hashable, Iterable, TYPE_CHECKING
+from typing import Callable, Hashable, Iterable, TYPE_CHECKING, Optional
 
 from ..common.registry import RegisteredClass
 from ..common.singleton import Singleton
@@ -40,7 +40,7 @@ class Config(RegisteredClass, metaclass=Singleton):
         yield element
 
 
-    def run(self):
+    def run(self, transform_filter: Optional[Callable[[Iterable["Transform"]], Iterable["Transform"]]]=None):
         """
         Run every transform from the configuration.
 
@@ -49,11 +49,12 @@ class Config(RegisteredClass, metaclass=Singleton):
         """
         # Join interfaces together and get transform dependencies
         interfaces: list[Interface] = []
-
-        dependent_map: dict[Transform, set[Transform]] = {}
+        transforms: list[Transform] = []
+        dependency_map: dict[Transform, set[Transform]] = {}
         for element in Config.depth_first_elements(self.target):
             for transform in element.iter_transforms():
-                dependent_map[transform] = set()
+                transforms.append(transform)
+                dependency_map[transform] = set()
                 for interface in transform.interfaces:
                     interfaces.append(interface)
 
@@ -70,7 +71,7 @@ class Config(RegisteredClass, metaclass=Singleton):
                 for key in interface.keys():
                     if (output:=interface_map.get(key, None)) is not None:
                         interface.connect(output)
-                        dependent_map[output.transform].add(interface.transform)
+                        dependency_map[interface.transform].add(output.transform)
                         break
                 else:
                     # If there's no matching output for an input interface
@@ -79,8 +80,14 @@ class Config(RegisteredClass, metaclass=Singleton):
                     # `resolve_input` method.
                     pass
 
+        # Use the provided filter to pick out targets
+        if transform_filter is None:
+            targets = None
+        else:
+            targets = transform_filter(transforms)
+
         # Run everything in order serially
-        scheduler = Scheduler(dependent_map)
+        scheduler = Scheduler(dependency_map, targets=targets)
         while scheduler.get_incomplete():
             for element in scheduler.get_schedulable():
                 scheduler.schedule(element)

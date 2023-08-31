@@ -19,8 +19,8 @@ from blockwork.config import base
 from blockwork.config import registry
 from blockwork.common.yaml import DataclassConverter
 from blockwork.config.parser import ElementConverter
-from example.infra.transforms.lint import VerilatorLintTransform
-from example.infra.transforms.templating import MakoTransform
+from ..transforms.lint import VerilatorLintTransform
+from ..transforms.templating import MakoTransform
 
 
 @registry.site.register(DataclassConverter)
