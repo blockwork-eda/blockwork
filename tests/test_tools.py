@@ -173,7 +173,7 @@ class TestTools:
             class Widget(Tool):
                 versions = { "1.1": True }
             Widget()
-        assert str(exc.value) == "Versions of tool widget must be a list"
+        assert str(exc.value) == "Versions of tool widget must be a list or a tuple"
         # Not a list of version objects
         with pytest.raises(ToolError) as exc:
             class Widget(Tool):
