@@ -14,6 +14,8 @@
 
 from pathlib import Path
 from typing import Iterable
+
+from ..context import Context
 from ..build.interface import FileInterface
 from ..build.transform import Transform
 
@@ -52,10 +54,10 @@ class ElementFileInterface(FileInterface):
     def keys(self):
         yield (self.element._context.unit, self.path)
     
-    def resolve_output(self):
+    def resolve_output(self, ctx: Context):
         return (self.element._context.unit_scratch_path / self.transform.id() / self.path)
     
-    def resolve_input(self):
+    def resolve_input(self, ctx: Context):
         return (self.element._context.unit_project_path / self.path)
 
 

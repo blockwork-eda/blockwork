@@ -98,9 +98,9 @@ class Transform:
         interface_values: dict[str, Any] = {}
         for name, interfaces in self.interfaces_by_name.items():
             if isinstance(interfaces, Interface):
-                value = interfaces.bind_container(ctx, container, interfaces.resolve())
+                value = interfaces.bind_container(ctx, container, interfaces.resolve(ctx))
             else:
-                value = [interface.bind_container(ctx, container, interface.resolve()) for interface in interfaces]
+                value = [interface.bind_container(ctx, container, interface.resolve(ctx)) for interface in interfaces]
             interface_values[name] = value
 
         tools = ReadonlyNamespace(**tool_instances)

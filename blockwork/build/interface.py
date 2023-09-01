@@ -80,21 +80,21 @@ class Interface(Generic[_RVALUE, _CVALUE]):
         i.connections.append(o)
         o.connections.append(i)
 
-    def resolve_output(self) -> _RVALUE:
+    def resolve_output(self, ctx: "Context") -> _RVALUE:
         """
         Resolve this interface as an output value to pass through to the transform.
         See `resolve` for further details.
         """
         raise NotImplementedError
     
-    def resolve_input(self) -> _RVALUE:
+    def resolve_input(self, ctx: "Context") -> _RVALUE:
         """
         Resolve this interface as an input value to pass through to the transform. 
         See `resolve` for further details.
         """
         raise InterfaceError(f"Interface {self} has no connections and has no way to resolve itself as an input!")
     
-    def resolve(self) -> _RVALUE:
+    def resolve(self, ctx: "Context") -> _RVALUE:
         """
         Resolve this interface to the value that will be passed through to the transform.
         This will internally call:
@@ -109,11 +109,11 @@ class Interface(Generic[_RVALUE, _CVALUE]):
               value that will be seen in the `transform.exec` method.
         """
         if self.direction is InterfaceDirection.Output:
-            return self.resolve_output()
+            return self.resolve_output(ctx)
         if self.connections:
-            return self.connections[0].resolve_output()
+            return self.connections[0].resolve_output(ctx)
         else:
-            return self.resolve_input()
+            return self.resolve_input(ctx)
 
     @classmethod
     def bind_container(cls, ctx: "Context",  container: Container, value: _RVALUE) -> _CVALUE:
