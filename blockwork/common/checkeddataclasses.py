@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import dataclasses
+import warnings
 import typeguard
 import typing
 
@@ -45,10 +46,17 @@ def _dataclass_inner(cls: DCLS) -> DCLS:
         # Check each field has the expected type
         for field in dataclasses.fields(cls):
             value = getattr(self, field.name)
-            try:
-                typeguard.check_type(value, field.type)
-            except typeguard.TypeCheckError as ex:
-                raise FieldError(str(ex), field.name) from None
+            with warnings.catch_warnings():
+                # Catches a warning when typegaurd can't resolve a string type 
+                # definition to an actual type meaning it can't check the type.
+                # This isn't ideal, but as far as @ed.kotarski can tell there
+                # is no way round this limitation in user code meaning the
+                # warning is just noise.
+                warnings.simplefilter("ignore", category=typeguard.TypeHintWarning)
+                try:
+                    typeguard.check_type(value, field.type)
+                except typeguard.TypeCheckError as ex:
+                    raise FieldError(str(ex), field.name) from None
             if isinstance(field, Field):
                 field.run_checks(value)
 
