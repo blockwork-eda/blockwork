@@ -69,14 +69,19 @@ class Element(Parser):
         if unit == '':
             if (unit := self.unit) is None:
                 raise RuntimeError(f'Require implicit unit for `{target_spec}`, but not in unit context!')
-            
-        # If given empty target, infer here.
-        if target == '':
-            target = target_type.__name__.lower()
-
         # Get the path to the config file
         unit_path = self.ctx.host_root / self.project.units[unit]
-        config_path = unit_path / f"{target}.yaml"
+
+        # The target should be either referring to a directory (in which case the
+        # filename will be implicit based on the target type), or a file.
+        directory_path = unit_path / target / f"{target_type.__name__.lower()}.yaml"
+        file_path = unit_path / f"{target}.yaml"
+        if directory_path.exists():
+            config_path = directory_path
+        elif file_path.exists():
+            config_path = file_path
+        else:
+            raise RuntimeError(f'Config not found for {target_spec} at either `{directory_path}` or `{file_path}`')
 
         # We're evaluating config files recursively going down, keep track
         # of the current unit so we can use it for relative references.
