@@ -12,25 +12,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from abc import ABC
 from pathlib import Path
-from typing import Iterable, TYPE_CHECKING
+from typing import Iterable, TYPE_CHECKING, Optional
 
+import yaml
 if TYPE_CHECKING:
     from ..context import Context
+    from . import parsers #noqa: F401
 from ..build.interface import FileInterface
 from ..build.transform import Transform
 
 from ..common.checkeddataclasses import dataclass
 from dataclasses import dataclass as unchecked_dataclass
+from ..common.yaml import ConverterRegistry, DataclassConverter
 
 
-@dataclass(kw_only=True)
-class Site:
+class Config(ABC):
+    'Base class for all config'
+    _registry: ConverterRegistry
+    _converter: type[DataclassConverter] = DataclassConverter
+    _YAML_TAG: Optional[str] = None
+
+    def __init_subclass__(cls, *args, **kwargs):
+        super().__init_subclass__(*args, **kwargs)
+        dataclass(kw_only=True)(cls)
+        if Config in cls.__bases__:
+            cls._registry = ConverterRegistry()
+        cls._registry.register(cls._converter, tag=cls._YAML_TAG)(cls)
+
+
+class Site(Config):
     'Base class for site configuration'
     projects: dict[str, str]
 
-@dataclass(kw_only=True)
-class Project:
+
+class Project(Config):
     'Base class for project configuration'
     units: dict[str, str]
 
@@ -62,9 +79,32 @@ class ElementFileInterface(FileInterface):
         return (self.element._context.unit_project_path / self.path)
 
 
-@dataclass(kw_only=True)
-class Element:
+class ElementConverter(DataclassConverter["Element", "parsers.Element"]):
+    def construct_scalar(self, loader: yaml.Loader, node: yaml.ScalarNode) -> "Element":
+        # Allow elements to be indirected with a path e.g. `!<element> [<unit>.<path>]`
+        target = loader.construct_scalar(node)
+        if not isinstance(target, str):
+            raise RuntimeError
+        return self.parser.parse_target(target, self.typ)
+    
+    def construct_mapping(self, loader: yaml.Loader, node: yaml.MappingNode) -> "Element":
+        unit = self.parser.unit
+        unit_project_path = self.parser.ctx.host_root / self.parser.project.units[unit]
+        unit_scratch_path = self.parser.ctx.host_scratch / self.parser.project.units[unit]
+        def dict_callback(node_dict):
+            node_dict['_context'] = ElementContext(
+                unit=unit,
+                config=Path(node.start_mark.name),
+                unit_project_path=unit_project_path,
+                unit_scratch_path=unit_scratch_path
+            )
+        element = super().construct_mapping(loader, node, dict_callback=dict_callback)
+        return element
+
+
+class Element(Config):
     "Base class for element configuration"
+    _converter = ElementConverter
     _context: ElementContext
 
     def iter_sub_elements(self) -> Iterable["Element"]:
