@@ -31,6 +31,7 @@ class Foundation(Container):
                          workdir=context.container_root,
                          **kwargs)
         self.__context = context
+        self.__tools = {}
         self.bind(self.__context.host_scratch, self.__context.container_scratch)
         # Ensure various standard $PATHs are present
         self.append_env_path("PATH", "/usr/local/sbin")
@@ -39,7 +40,11 @@ class Foundation(Container):
         self.append_env_path("PATH", "/usr/bin")
         self.append_env_path("PATH", "/sbin")
         self.append_env_path("PATH", "/bin")
-        self.__tools = {}
+        # Provide standard paths as environment variables
+        self.set_env("BW_ROOT", context.container_root.as_posix())
+        self.set_env("BW_SCRATCH", context.container_scratch.as_posix())
+        self.set_env("BW_TOOLS", context.container_tools.as_posix())
+        self.set_env("BW_PROJECT", context.config.project)
 
     def add_input(self, path : Path, name : Optional[str] = None) -> None:
         self.bind_readonly(path, Path("/input") / (name or path.name))
