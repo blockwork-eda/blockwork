@@ -19,7 +19,7 @@ from typing import Iterable, TYPE_CHECKING, Optional
 import yaml
 if TYPE_CHECKING:
     from ..context import Context
-    from . import parsers #noqa: F401
+    from . import parsers # noqa: F401
 from ..build.interface import FileInterface
 from ..build.transform import Transform
 
