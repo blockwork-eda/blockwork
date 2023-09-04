@@ -32,7 +32,7 @@ class InterfaceDirection(Enum):
 
 # The resolved value type
 _RVALUE = TypeVar("_RVALUE")
-# The container value type (passed into exec)
+# The container value type (passed into execute)
 if sys.version_info >= (3, 12): # (PEP 696)
     # Most of the time the type won't change when binding to container
     _CVALUE = TypeVar("_CVALUE", default=_RVALUE)
@@ -106,7 +106,7 @@ class Interface(Generic[_RVALUE, _CVALUE]):
 
         Note: If the associated transform uses containers, then the `bind_container`
               method has another chance to "resolve" the output of this method to the
-              value that will be seen in the `transform.exec` method.
+              value that will be seen in the `transform.execute` method.
         """
         if self.direction is InterfaceDirection.Output:
             return self.resolve_output(ctx)
@@ -119,7 +119,7 @@ class Interface(Generic[_RVALUE, _CVALUE]):
     def bind_container(cls, ctx: "Context",  container: Container, value: _RVALUE) -> _CVALUE:
         """
         Bind this interface into a transform container, and return the value
-        that should appear in the transforms exec method.
+        that should appear in the transforms execute method.
         """
         raise NotImplementedError
 

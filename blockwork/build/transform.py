@@ -61,10 +61,10 @@ class Transform:
     def bind_outputs(self, **interfaces: Interface | Iterable[Interface]):
         """
         Attach interfaces to this transform by name as outputs. The 
-        supplied names can be used to refer the interfaces in `exec`.
+        supplied names can be used to refer the interfaces in `execute`.
 
         For each name, either a single interfaces or an array of interfaces
-        may be supplied. Resolved values will be passed through to the exec
+        may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
         return self._bind_interfaces(InterfaceDirection.Output, **interfaces)
@@ -72,10 +72,10 @@ class Transform:
     def bind_inputs(self, **interfaces: Interface | Iterable[Interface]):
         """
         Attach interfaces to this transform by name as inputs. The 
-        supplied names can be used to refer the interfaces in `exec`.
+        supplied names can be used to refer the interfaces in `execute`.
 
         For each name, either a single interfaces or an array of interfaces
-        may be supplied. Resolved values will be passed through to the exec
+        may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
         return self._bind_interfaces(InterfaceDirection.Input, **interfaces)
@@ -106,11 +106,11 @@ class Transform:
         tools = ReadonlyNamespace(**tool_instances)
         iface = ReadonlyNamespace(**interface_values)
 
-        for invocation in self.exec(ctx, tools, iface):
+        for invocation in self.execute(ctx, tools, iface):
             if exit_code:=container.invoke(ctx, invocation) != 0:
                 raise RuntimeError(f"Invocation `{invocation}` failed with exit code `{exit_code}`.")
 
-    def exec(self,
+    def execute(self,
              ctx  : "Context",
              tools: ReadonlyNamespace["Version"],
              iface: ReadonlyNamespace[Any]) -> Iterable["Invocation"]:

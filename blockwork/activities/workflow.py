@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import cast
 import click
 
-from ..config import parser, Config
+from ..config import Config, parsers
 from ..workflows.workflow import Workflow
 
 from ..context import Context
@@ -30,15 +30,15 @@ def workflow(ctx : Context, project: str, target: str, workflow_name: str) -> No
     """ Run a workflow """
     wf = cast(type[Workflow], Workflow.get_by_name(workflow_name))
 
-    site_parser = parser.Site(ctx)
+    site_parser = parsers.Site(ctx)
     site_path = ctx.site
     site_config = site_parser(wf.SITE_TYPE).parse(site_path)
 
-    project_parser = parser.Project(ctx, site_config)
+    project_parser = parsers.Project(ctx, site_config)
     project_path = Path(site_config.projects[project])
     project_config = project_parser(wf.PROJECT_TYPE).parse(project_path)
 
-    target_parser = parser.Element(ctx, site_config, project_config)
+    target_parser = parsers.Element(ctx, site_config, project_config)
     target_config = target_parser.parse_target(target, wf.TARGET_TYPE)
 
     config = Config(ctx=ctx, site=site_config, project=project_config, target=target_config)

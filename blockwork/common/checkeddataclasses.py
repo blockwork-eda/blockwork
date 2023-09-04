@@ -38,10 +38,10 @@ def _copytypes(_frm: typing.Callable[CTP, CTR]):
 DCLS = typing.TypeVar("DCLS")
 def _dataclass_inner(cls: DCLS) -> DCLS:
     "Subclasses a dataclass, adding checking after initialisation."
-
+    orig_init = cls.__init__
     # Replacement init function calls original, then runs checks
     def __init__(self, *args, **kwargs):
-        cls.__init__(self, *args, **kwargs)
+        orig_init(self, *args, **kwargs)
 
         # Check each field has the expected type
         for field in dataclasses.fields(cls):
@@ -59,8 +59,8 @@ def _dataclass_inner(cls: DCLS) -> DCLS:
                     raise FieldError(str(ex), field.name) from None
             if isinstance(field, Field):
                 field.run_checks(value)
-
-    return type(cls.__name__, (cls,), {"__init__": __init__})
+    cls.__init__ = __init__
+    return cls
 
 @_copytypes(dataclasses.dataclass)
 def dataclass(__cls=None, /, **kwargs):
