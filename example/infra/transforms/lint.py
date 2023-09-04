@@ -26,7 +26,7 @@ class VerilatorLintTransform(Transform):
         super().__init__()
         self.bind_inputs(inputs=inputs)
 
-    def exec(self, ctx, tools, iface):
+    def execute(self, ctx, tools, iface):
         yield tools.verilator.get_action("run")(
             ctx,
             "--lint-only",
