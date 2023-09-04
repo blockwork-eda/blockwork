@@ -14,29 +14,19 @@
 
 from typing import Iterable
 from blockwork.build.transform import Transform
-from blockwork.common.checkeddataclasses import dataclass, field
+from blockwork.common.checkeddataclasses import field
 from blockwork.config import base
-from blockwork.config import registry
-from blockwork.common.yaml import DataclassConverter
-from blockwork.config.parser import ElementConverter
 from ..transforms.lint import VerilatorLintTransform
 from ..transforms.templating import MakoTransform
 
 
-@registry.site.register(DataclassConverter)
-@dataclass(kw_only=True)
 class Site(base.Site):
     pass
 
 
-@registry.project.register(DataclassConverter)
-@dataclass(kw_only=True)
 class Project(base.Project):
     pass
 
-
-@registry.element.register(ElementConverter)
-@dataclass(kw_only=True)
 class Mako(base.Element):
     template: str
     output: str
@@ -48,8 +38,6 @@ class Mako(base.Element):
         )
 
 
-@registry.element.register(ElementConverter)
-@dataclass(kw_only=True)
 class Design(base.Element):
     top: str
     sources: list[str]
@@ -61,8 +49,7 @@ class Design(base.Element):
     def iter_transforms(self) -> Iterable[Transform]:
         yield VerilatorLintTransform(inputs=map(self.file_interface, self.sources))
 
-@registry.element.register(ElementConverter)
-@dataclass(kw_only=True)
+
 class Testbench(base.Element):
     design: Design
     bench_python: str

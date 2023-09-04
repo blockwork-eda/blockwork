@@ -13,32 +13,30 @@
 # limitations under the License.
 
 import contextlib
-from pathlib import Path
 
-import yaml
-from ..common.yaml import Parser, DataclassConverter
+from ..common.yaml import Parser
 from ..context import Context
 
-from . import base, registry
+from . import base
 
 
 class Site(Parser):
     "Parser for site yaml files"
     def __init__(self, ctx: Context):
-        super().__init__(registry.site)
+        super().__init__(base.Site._registry)
         self.ctx = ctx
 
 class Project(Parser):
     "Parser for project yaml files"
     def __init__(self, ctx: Context, site: base.Site):
-        super().__init__(registry.project)
+        super().__init__(base.Project._registry)
         self.ctx = ctx
         self.site = site
 
 class Element(Parser):
     "Parser for 'element' yaml files where an 'element' is a unit of configuration within the target" 
     def __init__(self, ctx: Context, site: base.Site, project: base.Project):
-        super().__init__(registry.element)
+        super().__init__(base.Element._registry)
         self.ctx = ctx
         self.site = site
         self.project = project
@@ -69,14 +67,19 @@ class Element(Parser):
         if unit == '':
             if (unit := self.unit) is None:
                 raise RuntimeError(f'Require implicit unit for `{target_spec}`, but not in unit context!')
-            
-        # If given empty target, infer here.
-        if target == '':
-            target = target_type.__name__.lower()
-
         # Get the path to the config file
         unit_path = self.ctx.host_root / self.project.units[unit]
-        config_path = unit_path / f"{target}.yaml"
+
+        # The target should be either referring to a directory (in which case the
+        # filename will be implicit based on the target type), or a file.
+        directory_path = unit_path / target / f"{target_type.__name__.lower()}.yaml"
+        file_path = unit_path / f"{target}.yaml"
+        if directory_path.exists():
+            config_path = directory_path
+        elif file_path.exists():
+            config_path = file_path
+        else:
+            raise RuntimeError(f'Config not found for {target_spec} at either `{directory_path}` or `{file_path}`')
 
         # We're evaluating config files recursively going down, keep track
         # of the current unit so we can use it for relative references.
@@ -99,26 +102,3 @@ class Element(Parser):
             return self._unit_stack[-1]
         except IndexError:
             return None
-
-        
-class ElementConverter(DataclassConverter[base.Element, Element]):
-    def construct_scalar(self, loader: yaml.Loader, node: yaml.ScalarNode) -> base.Element:
-        # Allow elements to be indirected with a path e.g. `!<element> [<unit>.<path>]`
-        target = loader.construct_scalar(node)
-        if not isinstance(target, str):
-            raise RuntimeError
-        return self.parser.parse_target(target, self.typ)
-    
-    def construct_mapping(self, loader: yaml.Loader, node: yaml.MappingNode) -> base.Element:
-        unit = self.parser.unit
-        unit_project_path = self.parser.ctx.host_root / self.parser.project.units[unit]
-        unit_scratch_path = self.parser.ctx.host_scratch / self.parser.project.units[unit]
-        def dict_callback(node_dict):
-            node_dict['_context'] = base.ElementContext(
-                unit=unit,
-                config=Path(node.start_mark.name),
-                unit_project_path=unit_project_path,
-                unit_scratch_path=unit_scratch_path
-            )
-        element = super().construct_mapping(loader, node, dict_callback=dict_callback)
-        return element
