@@ -70,13 +70,13 @@ class ElementFileInterface(FileInterface):
         self.path = Path(path)
 
     def keys(self):
-        yield (self.element._context.unit, self.path)
+        yield (self.element.ctx.unit, self.path)
     
     def resolve_output(self, ctx: "Context"):
-        return (self.element._context.unit_scratch_path / self.transform.id() / self.path)
+        return (self.element.ctx.unit_scratch_path / self.transform.id() / self.path)
     
     def resolve_input(self, ctx: "Context"):
-        return (self.element._context.unit_project_path / self.path)
+        return (self.element.ctx.unit_project_path / self.path)
 
 
 class ElementConverter(DataclassConverter["Element", "parsers.Element"]):
@@ -92,7 +92,7 @@ class ElementConverter(DataclassConverter["Element", "parsers.Element"]):
         unit_project_path = self.parser.ctx.host_root / self.parser.project.units[unit]
         unit_scratch_path = self.parser.ctx.host_scratch / self.parser.project.units[unit]
         def dict_callback(node_dict):
-            node_dict['_context'] = ElementContext(
+            node_dict['ctx'] = ElementContext(
                 unit=unit,
                 config=Path(node.start_mark.name),
                 unit_project_path=unit_project_path,
@@ -105,7 +105,7 @@ class ElementConverter(DataclassConverter["Element", "parsers.Element"]):
 class Element(Config):
     "Base class for element configuration"
     _converter = ElementConverter
-    _context: ElementContext
+    ctx: ElementContext
 
     def iter_sub_elements(self) -> Iterable["Element"]:
         """
