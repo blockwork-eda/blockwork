@@ -26,8 +26,8 @@ class Registry:
     LOOKUP_BY_NAME : Dict[Type, Dict[str, "RegisteredMethod"]] = defaultdict(lambda: {})
     LOOKUP_BY_OBJ  : Dict[Type, Dict[Callable, "RegisteredMethod"]] = defaultdict(lambda: {})
 
-    @classmethod
-    def setup(cls, root : Path, paths : List[str]) -> None:
+    @staticmethod
+    def setup(root : Path, paths : List[str]) -> None:
         """
         Import Python modules that register objects of this type from a list of
         module paths that are either system wide or relative to a given root path.

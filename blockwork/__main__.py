@@ -22,6 +22,8 @@ import click
 from rich.console import Console
 from rich.logging import RichHandler
 
+from .common.registry import Registry
+
 from .bootstrap import Bootstrap
 from .activities import activities
 from .activities.workflow import Workflow
@@ -99,6 +101,7 @@ def blockwork(ctx,
     Tool.setup(ctx.obj.host_root, ctx.obj.config.tooldefs)
     Bootstrap.setup(ctx.obj.host_root, ctx.obj.config.bootstrap)
     Workflow.setup(ctx.obj.host_root, ctx.obj.config.workflows)
+    Registry.setup(ctx.obj.host_root, ctx.obj.config.config)
 
 
 for activity in activities:
