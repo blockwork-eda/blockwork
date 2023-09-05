@@ -107,7 +107,7 @@ class Element(Config):
     _converter = ElementConverter
     ctx: ElementContext
 
-    def iter_sub_elements(self) -> Iterable["Element"]:
+    def iter_elements(self) -> Iterable["Element"]:
         """
         Yields any sub-elements which are used as part of this one.
 

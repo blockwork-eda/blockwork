@@ -35,7 +35,7 @@ class Config(RegisteredClass, metaclass=Singleton):
     @classmethod
     def depth_first_elements(cls, element: base.Element) -> Iterable[base.Element]:
         'Recures elements and yields depths first'
-        for sub_element in element.iter_sub_elements():
+        for sub_element in element.iter_elements():
             yield from cls.depth_first_elements(sub_element)
         yield element
 
