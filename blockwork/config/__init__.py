@@ -13,6 +13,5 @@
 # limitations under the License.
 
 from .blockwork import Blockwork
-from .config import Config
 
-assert all((Blockwork, Config))
+assert all((Blockwork,))

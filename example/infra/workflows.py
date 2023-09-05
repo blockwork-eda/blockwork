@@ -24,8 +24,8 @@ class Build(Workflow):
     SITE_TYPE = Site
     PROJECT_TYPE = Project
 
-    def transform_filter(self, transforms: Iterable[Transform]) -> Iterable[Transform]:
-        yield from transforms
+    def transform_filter(self, transform: Transform) -> bool:
+        return True
 
 @Workflow.register()
 class Lint(Workflow):
@@ -33,7 +33,5 @@ class Lint(Workflow):
     PROJECT_TYPE = Project
     TARGET_TYPE = Design
 
-    def transform_filter(self, transforms: Iterable[Transform]) -> Iterable[Transform]:
-        for transform in transforms:
-            if isinstance(transform, VerilatorLintTransform):
-                yield transform
+    def transform_filter(self, transform: Transform) -> bool:
+        return isinstance(transform, VerilatorLintTransform)
