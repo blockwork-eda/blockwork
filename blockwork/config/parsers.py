@@ -55,13 +55,15 @@ class Element(Parser):
         """
         target_parts = target_spec.split(':')
         if len(target_parts) == 2:
-            # Path and unit specified as `<unit>.<path>`, `.<path>`, or `.`
+            # Path and unit specified as `<unit>:<path>`, `:<path>`, or `:`
             unit, target = target_parts
+            if not target:
+                 raise RuntimeError(f'Invalid target specification `{target_spec}` (trailing `:` after unit)')
         elif len(target_parts) == 1:
             # Unit specified as `<unit>` or ``
             unit, target = target_parts[0], ''
         else:
-            raise RuntimeError(f'Invalid target specification: `{target_spec}`')
+            raise RuntimeError(f'Invalid target specification `{target_spec}` (too many `:`)')
 
         # If given empty unit, infer here.
         if unit == '':
