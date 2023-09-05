@@ -53,7 +53,7 @@ class Element(Parser):
                             is inferred where possible.
         :param target_type: Expected element type
         """
-        target_parts = target_spec.split('.')
+        target_parts = target_spec.split(':')
         if len(target_parts) == 2:
             # Path and unit specified as `<unit>.<path>`, `.<path>`, or `.`
             unit, target = target_parts
