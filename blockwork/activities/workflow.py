@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import cast
 import click
 
-from ..config import Config, parsers
+from ..config import parsers
 from ..workflows.workflow import Workflow
 
 from ..context import Context
@@ -41,6 +41,4 @@ def workflow(ctx : Context, project: str, target: str, workflow_name: str) -> No
     target_parser = parsers.Element(ctx, site_config, project_config)
     target_config = target_parser.parse_target(target, wf.TARGET_TYPE)
 
-    config = Config(ctx=ctx, site=site_config, project=project_config, target=target_config)
-
-    wf(config).run()
+    wf(ctx=ctx, site=site_config, project=project_config, target=target_config).run()

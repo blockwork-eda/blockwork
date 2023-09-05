@@ -23,20 +23,20 @@ from . import base
 class Site(Parser):
     "Parser for site yaml files"
     def __init__(self, ctx: Context):
-        super().__init__(base.Site._registry)
+        super().__init__(base.Site._REGISTRY)
         self.ctx = ctx
 
 class Project(Parser):
     "Parser for project yaml files"
     def __init__(self, ctx: Context, site: base.Site):
-        super().__init__(base.Project._registry)
+        super().__init__(base.Project._REGISTRY)
         self.ctx = ctx
         self.site = site
 
 class Element(Parser):
     "Parser for 'element' yaml files where an 'element' is a unit of configuration within the target" 
     def __init__(self, ctx: Context, site: base.Site, project: base.Project):
-        super().__init__(base.Element._registry)
+        super().__init__(base.Element._REGISTRY)
         self.ctx = ctx
         self.site = site
         self.project = project
@@ -53,15 +53,17 @@ class Element(Parser):
                             is inferred where possible.
         :param target_type: Expected element type
         """
-        target_parts = target_spec.split('.')
+        target_parts = target_spec.split(':')
         if len(target_parts) == 2:
-            # Path and unit specified as `<unit>.<path>`, `.<path>`, or `.`
+            # Path and unit specified as `<unit>:<path>`, `:<path>`, or `:`
             unit, target = target_parts
+            if not target:
+                 raise RuntimeError(f'Invalid target specification `{target_spec}` (trailing `:` after unit)')
         elif len(target_parts) == 1:
             # Unit specified as `<unit>` or ``
             unit, target = target_parts[0], ''
         else:
-            raise RuntimeError(f'Invalid target specification: `{target_spec}`')
+            raise RuntimeError(f'Invalid target specification `{target_spec}` (too many `:`)')
 
         # If given empty unit, infer here.
         if unit == '':
@@ -72,8 +74,11 @@ class Element(Parser):
 
         # The target should be either referring to a directory (in which case the
         # filename will be implicit based on the target type), or a file.
-        directory_path = unit_path / target / f"{target_type.__name__.lower()}.yaml"
-        file_path = unit_path / f"{target}.yaml"
+        implicit_file_name = (target_type.FILE_NAME or
+                              target_type.YAML_TAG or
+                              target_type.__name__.lower())
+        directory_path = unit_path / target / f"{implicit_file_name}.yaml"
+        file_path = unit_path / f"{target or implicit_file_name}.yaml"
         if directory_path.exists():
             config_path = directory_path
         elif file_path.exists():
