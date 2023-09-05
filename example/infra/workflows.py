@@ -14,6 +14,7 @@
 
 from typing import Iterable
 from blockwork.build.transform import Transform
+from blockwork.config.base import Element
 from blockwork.workflows import Workflow
 from .transforms.lint import VerilatorLintTransform
 from .config.config import Design, Site, Project
@@ -24,8 +25,9 @@ class Build(Workflow):
     SITE_TYPE = Site
     PROJECT_TYPE = Project
 
-    def transform_filter(self, transform: Transform) -> bool:
+    def transform_filter(self, transform: Transform, element: Element) -> bool:
         return True
+
 
 @Workflow.register()
 class Lint(Workflow):
@@ -33,5 +35,5 @@ class Lint(Workflow):
     PROJECT_TYPE = Project
     TARGET_TYPE = Design
 
-    def transform_filter(self, transform: Transform) -> bool:
+    def transform_filter(self, transform: Transform, element: Element) -> bool:
         return isinstance(transform, VerilatorLintTransform)

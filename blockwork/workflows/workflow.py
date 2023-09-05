@@ -93,10 +93,7 @@ class Workflow(RegisteredClass, metaclass=Singleton):
                     pass
 
         # Use the filters to pick out targets
-        targets: list[Transform] = []
-        for element, transform in element_transforms:
-            if self.element_filter(element) and self.transform_filter(transform):
-                targets.append(transform)
+        targets = (t for e,t in element_transforms if self.transform_filter(t, e))
 
         # Run everything in order serially
         scheduler = Scheduler(dependency_map, targets=targets)
@@ -108,13 +105,9 @@ class Workflow(RegisteredClass, metaclass=Singleton):
                 element.run(self.ctx)
                 scheduler.finish(element)
 
-    def transform_filter(self, transform: Transform) -> bool:
-        'Yield transform that this workflow is interested in'
+    def transform_filter(self, transform: Transform, element: base.Element) -> bool:
+        'Return true for transforms that this workflow is interested in'
         raise NotImplementedError
-    
-    def element_filter(self, element: base.Element) -> bool:
-        'Yield elements that this workflow is interested in'
-        return True
 
     @classmethod
     @property
