@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import TYPE_CHECKING, Any, Iterable
-from ..build.interface import Interface, InterfaceDirection
+from ..build.interface import Interface, InterfaceDirection, MetaInterface
 if TYPE_CHECKING:
     from ..tools.tool import Version, Tool, Invocation
     from ..context import Context
@@ -27,7 +27,7 @@ class Transform:
 
     def __init__(self):
         self.interfaces: list[Interface] = []
-        self.interfaces_by_name: dict[str, Interface | list[Interface]] = {}
+        self.interfaces_by_name: dict[str, Interface] = {}
 
     def id(self):
         """
@@ -39,26 +39,17 @@ class Transform:
         """
         return f"{self.__class__.__name__}_{id(self)}"
 
-    def _bind_interfaces(self, direction: InterfaceDirection, **kwargs: Interface | Iterable[Interface]):
-        for name, interfaces in kwargs.items():
+    def _bind_interfaces(self, direction: InterfaceDirection, **kwargs: Interface):
+        for name, interface in kwargs.items():
             # Don't allow the same name to be bound twice
             # Though a single call may bind that name to an array of interfaces.
             if name in self.interfaces_by_name:
                 raise RuntimeError(f"Interface already bound with name `{name}`.")
 
-            if isinstance(interfaces, Interface):
-                self.interfaces_by_name[name] = interfaces
-                interfaces = [interfaces]
-            else:
-                interfaces = list(interfaces)
-                self.interfaces_by_name[name] = interfaces
+            self.interfaces_by_name[name] = interface
+            interface._bind_transform(self, direction, name)
 
-            # Establish two-way link from transform to interface and interface to transfor,
-            for interface in interfaces:
-                self.interfaces.append(interface)
-                interface._bind_transform(self, direction, name)
-
-    def bind_outputs(self, **interfaces: Interface | Iterable[Interface]):
+    def bind_outputs(self, **interface: Interface):
         """
         Attach interfaces to this transform by name as outputs. The 
         supplied names can be used to refer the interfaces in `execute`.
@@ -67,9 +58,9 @@ class Transform:
         may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
-        return self._bind_interfaces(InterfaceDirection.Output, **interfaces)
+        return self._bind_interfaces(InterfaceDirection.Output, **interface)
 
-    def bind_inputs(self, **interfaces: Interface | Iterable[Interface]):
+    def bind_inputs(self, **interface: Interface):
         """
         Attach interfaces to this transform by name as inputs. The 
         supplied names can be used to refer the interfaces in `execute`.
@@ -78,7 +69,7 @@ class Transform:
         may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
-        return self._bind_interfaces(InterfaceDirection.Input, **interfaces)
+        return self._bind_interfaces(InterfaceDirection.Input, **interface)
 
     def run(self, ctx: "Context"):
         """Run the transform in a container."""
@@ -96,12 +87,8 @@ class Transform:
 
         # Bind interfaces to container
         interface_values: dict[str, Any] = {}
-        for name, interfaces in self.interfaces_by_name.items():
-            if isinstance(interfaces, Interface):
-                value = interfaces.bind_container(ctx, container, interfaces.resolve(ctx))
-            else:
-                value = [interface.bind_container(ctx, container, interface.resolve(ctx)) for interface in interfaces]
-            interface_values[name] = value
+        for name, interface in self.interfaces_by_name.items():
+            interface_values[name] = interface.resolve_container(ctx, container)
 
         tools = ReadonlyNamespace(**tool_instances)
         iface = ReadonlyNamespace(**interface_values)

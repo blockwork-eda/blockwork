@@ -23,7 +23,7 @@ from infra.tools.misc import PythonSite
 class MakoTransform(Transform):
     tools = [PythonSite]
 
-    def __init__(self, template: Interface[Path, Path], output: Interface[Path, Path]):
+    def __init__(self, template: Interface[Path], output: Interface[Path]):
         super().__init__()
         self.bind_inputs(template=template)
         self.bind_outputs(output=output)

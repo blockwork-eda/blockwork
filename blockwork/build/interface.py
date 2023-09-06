@@ -15,7 +15,7 @@
 from enum import Enum, auto
 from pathlib import Path
 import sys
-from typing import Generic, Hashable, Iterable, Self, TypeVar, TYPE_CHECKING
+from typing import Any, Callable, Generic, Hashable, Iterable, Self, TypeVar, TYPE_CHECKING
 
 from ..containers.container import Container
 
@@ -32,14 +32,8 @@ class InterfaceDirection(Enum):
 
 # The resolved value type
 _RVALUE = TypeVar("_RVALUE")
-# The container value type (passed into execute)
-if sys.version_info >= (3, 12): # (PEP 696)
-    # Most of the time the type won't change when binding to container
-    _CVALUE = TypeVar("_CVALUE", default=_RVALUE)
-else:
-    _CVALUE = TypeVar("_CVALUE")
 
-class Interface(Generic[_RVALUE, _CVALUE]):
+class Interface(Generic[_RVALUE]):
     transform: "Transform"
     name: str
     direction: InterfaceDirection
@@ -67,6 +61,7 @@ class Interface(Generic[_RVALUE, _CVALUE]):
         self.direction = direction
         self.name = name
         self.connections = []
+        transform.interfaces.append(self)
 
     def connect(self, other: Self):
         """
@@ -104,9 +99,8 @@ class Interface(Generic[_RVALUE, _CVALUE]):
             - this interfaces `resolve_input` method if this interface is an 
               unconnected input.
 
-        Note: If the associated transform uses containers, then the `bind_container`
-              method has another chance to "resolve" the output of this method to the
-              value that will be seen in the `transform.execute` method.
+        Note: If the associated transform uses containers, then the `resolve_container`
+              method will be called instead. See `resolve_container` for details.
         """
         if self.direction is InterfaceDirection.Output:
             return self.resolve_output(ctx)
@@ -115,13 +109,16 @@ class Interface(Generic[_RVALUE, _CVALUE]):
         else:
             return self.resolve_input(ctx)
 
-    @classmethod
-    def bind_container(cls, ctx: "Context",  container: Container, value: _RVALUE) -> _CVALUE:
+    def resolve_container(self, ctx: "Context",  container: Container) -> _RVALUE:
         """
-        Bind this interface into a transform container, and return the value
-        that should appear in the transforms execute method.
+        Resolve the value for a container, and return the value that should
+        appear in the transforms execute method.
+
+        This gives an an opportunity to bind required container paths etc. 
+        Usually this is expected to internally call the standard `resolve` 
+        method (the default implementation simply returns the value from resolve).
         """
-        raise NotImplementedError
+        return self.resolve(ctx)
 
     def __repr__(self):
         if not hasattr(self, 'transform'):
@@ -129,9 +126,68 @@ class Interface(Generic[_RVALUE, _CVALUE]):
         return f"<{self.direction.name}:{self.__class__.__name__}:`{self.name}`>"
 
 
-class FileInterface(Interface[Path, Path]):
-    def bind_container(self, ctx: "Context", container: Container, value: Path):
-        container_path = ctx.map_to_container(value)
+class MetaInterface(Interface[_RVALUE]):
+    '''
+    An interface base class that can be used to encapsulate other interfaces
+    into this one. For example::
+
+        class DesignInterface(MetaInterface):
+        
+            def __init__(self, sources: list[FileInterface], 
+                               headers: list[FileInterface]) -> None:
+                self.sources = sources
+                self.headers = headers
+
+            def abstract_resolve(self, fn):
+                return ReadonlyNamespace(sources=map(fn, self.sources),
+                                         headers=map(fn, self.headers))
+
+    '''
+    def __init__(self) -> None:
+        raise NotImplementedError
+
+    def connect(self, other):
+        raise RuntimeError("MetaInterfaces should never be connected")
+
+    def _bind_transform(self, *args, **kwargs):
+        self.resolve_meta(lambda v: v._bind_transform(*args, **kwargs))
+
+    def resolve(self, ctx) -> _RVALUE:
+        return self.resolve_meta(lambda v: v.resolve(ctx))
+    
+    def resolve_container(self, ctx, container) -> _RVALUE:
+        return self.resolve_meta(lambda v: v.resolve_container(ctx, container))
+    
+    @staticmethod
+    def map(fn, iterable):
+        return list(map(fn, iterable))
+
+    def resolve_meta(self, fn: Callable[[Interface], Any]) -> Any:
+        '''
+        This is expected to return the resolved structure where the resolver `fn`
+        argument will take an interface and return the correct resolved value
+        based on context. 
+
+        Note: Lazy iteration using map (or similar) will not work since we rely
+              on all interfaces being processed in stages. For convenience a
+              `map` method which isn't lazy is provided on this class. 
+        '''
+        raise NotImplementedError
+
+
+class ListInterface(MetaInterface):
+    # List of other interfaces
+    def __init__(self, items: Iterable[Interface]) -> None:
+        self.items = list(items)
+
+    def resolve_meta(self, fn):
+        return self.map(fn, self.items)
+
+
+class FileInterface(Interface[Path]):
+    def resolve_container(self, ctx: "Context", container: Container):
+        host_path = self.resolve(ctx)
+        container_path = ctx.map_to_container(host_path)
         readonly = self.direction is InterfaceDirection.Input
-        container.bind(value.parent, container_path.parent, readonly=readonly)
+        container.bind(host_path.parent, container_path.parent, readonly=readonly)
         return container_path

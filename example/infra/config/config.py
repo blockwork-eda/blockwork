@@ -16,7 +16,7 @@ from typing import Iterable
 from blockwork.build.transform import Transform
 from blockwork.common.checkeddataclasses import field
 from blockwork.config import base
-from ..transforms.lint import VerilatorLintTransform
+from ..transforms.lint import DesignInterface, VerilatorLintTransform
 from ..transforms.templating import MakoTransform
 
 
@@ -47,7 +47,9 @@ class Design(base.Element):
         yield from self.transforms
 
     def iter_transforms(self) -> Iterable[Transform]:
-        yield VerilatorLintTransform(inputs=map(self.file_interface, self.sources))
+        idesign = DesignInterface(sources=map(self.file_interface, self.sources),
+                                  headers=[])
+        yield VerilatorLintTransform(idesign)
 
 
 class Testbench(base.Element):
