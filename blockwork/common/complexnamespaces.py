@@ -34,6 +34,8 @@ class ComplexNamespace(Generic[_NamespaceValue]):
             raise RuntimeError(f"Namespace is modify only and {name} is not already present")
         self.ns[name] = value
 
+    def __repr__(self):
+        return f"namespace({', '.join(f'{k}={v}' for k,v in self.ns.items())})"
 
 class ReadonlyNamespace(ComplexNamespace[_NamespaceValue]):
     '''
