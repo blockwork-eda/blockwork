@@ -29,17 +29,25 @@ from ..common.yaml import ConverterRegistry, DataclassConverter
 
 
 class Config(ABC):
-    'Base class for all config'
-    _registry: ConverterRegistry
-    _converter: type[DataclassConverter] = DataclassConverter
-    _YAML_TAG: Optional[str] = None
-
+    '''
+    Base class for all config.
+    All-caps keys are reserved.
+    '''
+    _REGISTRY: ConverterRegistry
+    "Defines which YAML registry the config belongs to i.e. site/project/element"
+    _CONVERTER: type[DataclassConverter] = DataclassConverter
+    "Defines how to convert the YAML tag into a Python object"
+    YAML_TAG: Optional[str] = None
+    "The !<Tag> to represent this document in YAML"
+    FILE_NAME: Optional[str] = None
+    """The implicit file name to use when one isn't provided, 
+       defaults to YAML_TAG if provided, else class name"""
     def __init_subclass__(cls, *args, **kwargs):
         super().__init_subclass__(*args, **kwargs)
         dataclass(kw_only=True)(cls)
         if Config in cls.__bases__:
-            cls._registry = ConverterRegistry()
-        cls._registry.register(cls._converter, tag=cls._YAML_TAG)(cls)
+            cls._REGISTRY = ConverterRegistry()
+        cls._REGISTRY.register(cls._CONVERTER, tag=cls.YAML_TAG)(cls)
 
 
 class Site(Config):
@@ -70,13 +78,13 @@ class ElementFileInterface(FileInterface):
         self.path = Path(path)
 
     def keys(self):
-        yield (self.element._context.unit, self.path)
+        yield (self.element.CTX.unit, self.path)
     
     def resolve_output(self, ctx: "Context"):
-        return (self.element._context.unit_scratch_path / self.transform.id() / self.path)
+        return (self.element.CTX.unit_scratch_path / self.transform.id() / self.path)
     
     def resolve_input(self, ctx: "Context"):
-        return (self.element._context.unit_project_path / self.path)
+        return (self.element.CTX.unit_project_path / self.path)
 
 
 class ElementConverter(DataclassConverter["Element", "parsers.Element"]):
@@ -92,7 +100,7 @@ class ElementConverter(DataclassConverter["Element", "parsers.Element"]):
         unit_project_path = self.parser.ctx.host_root / self.parser.project.units[unit]
         unit_scratch_path = self.parser.ctx.host_scratch / self.parser.project.units[unit]
         def dict_callback(node_dict):
-            node_dict['_context'] = ElementContext(
+            node_dict['CTX'] = ElementContext(
                 unit=unit,
                 config=Path(node.start_mark.name),
                 unit_project_path=unit_project_path,
@@ -104,10 +112,10 @@ class ElementConverter(DataclassConverter["Element", "parsers.Element"]):
 
 class Element(Config):
     "Base class for element configuration"
-    _converter = ElementConverter
-    _context: ElementContext
+    _CONVERTER = ElementConverter
+    CTX: ElementContext
 
-    def iter_sub_elements(self) -> Iterable["Element"]:
+    def iter_elements(self) -> Iterable["Element"]:
         """
         Yields any sub-elements which are used as part of this one.
 
