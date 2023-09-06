@@ -12,21 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from blockwork.build import Transform
-from ..interfaces.interfaces import DesignInterface
-from infra.tools.simulators import Verilator
+from pathlib import Path
+from typing import Iterable
+from blockwork.build.interface import Interface, MetaInterface
+from blockwork.common.complexnamespaces import ReadonlyNamespace
 
-class VerilatorLintTransform(Transform):
-    tools = [Verilator]
+class DesignInterface(MetaInterface):
+    def __init__(self, sources: Iterable[Interface[Path]], 
+                       headers: Iterable[Interface[Path]]) -> None:
+        self.sources = list(sources)
 
-    def __init__(self, design: DesignInterface):
-        super().__init__()
-        self.bind_inputs(design=design)
-
-    def execute(self, ctx, tools, iface):
-        yield tools.verilator.get_action("run")(
-            ctx,
-            "--lint-only",
-            "-Wall",
-            *iface.design.sources
-        )
+    def resolve_meta(self, fn):
+        return ReadonlyNamespace(sources=self.map(fn, self.sources))
