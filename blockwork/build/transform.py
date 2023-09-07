@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import TYPE_CHECKING, Any, Iterable
-from ..build.interface import Interface
+from ..build.interface import Interface, Direction
 if TYPE_CHECKING:
     from ..tools.tool import Version, Tool, Invocation
     from ..context import Context
@@ -28,7 +28,7 @@ class Transform:
     def __init__(self):
         self.input_interfaces: list[Interface] = []
         self.output_interfaces: list[Interface] = []
-        self.interfaces_by_name: dict[str, (Interface.Direction, Interface)] = {}
+        self.interfaces_by_name: dict[str, tuple[Direction, Interface]] = {}
 
     def id(self):
         """
@@ -40,7 +40,7 @@ class Transform:
         """
         return f"{self.__class__.__name__}_{id(self)}"
 
-    def _bind_interfaces(self, direction: Interface.Direction, **kwargs: Interface):
+    def _bind_interfaces(self, direction: Direction, **kwargs: Interface):
         for name, interface in kwargs.items():
             # Don't allow the same name to be bound twice
             # Though a single call may bind that name to an array of interfaces.
@@ -59,7 +59,7 @@ class Transform:
         may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
-        return self._bind_interfaces(Interface.Direction.Output, **interface)
+        return self._bind_interfaces(Direction.Output, **interface)
 
     def bind_inputs(self, **interface: Interface):
         """
@@ -70,7 +70,7 @@ class Transform:
         may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
-        return self._bind_interfaces(Interface.Direction.Input, **interface)
+        return self._bind_interfaces(Direction.Input, **interface)
 
     def run(self, ctx: "Context"):
         """Run the transform in a container."""

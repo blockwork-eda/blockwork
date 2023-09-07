@@ -32,14 +32,24 @@ class InterfaceError(Exception): ...
 # The resolved value type
 _RVALUE = TypeVar("_RVALUE")
 
+class Direction(Enum):
+    Input = auto()
+    Output = auto()
+
+    # Note these is_* methods may seem pointless but it
+    # prevents the need to import round
+    @property
+    def is_input(self):
+        return self is Direction.Input
+
+    @property
+    def is_output(self):
+        return self is Direction.Output
+
 @InitHooks()
 class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (i.__class__, i.key()))):
     input_transform: Optional["Transform"]
     output_transforms: list["Transform"]
-
-    class Direction(Enum):
-        Input = auto()
-        Output = auto()
 
     @InitHooks.pre
     def init_transforms(self):
@@ -61,7 +71,7 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         This should not be called by user code. Instead call `bind_inputs` or `bind_outputs` on
         the transform object (which will call this internally).
         """
-        if direction == self.Direction.Input:
+        if direction.is_input:
             self.output_transforms.append(transform)
             transform.input_interfaces.append(self)
         else:
@@ -142,7 +152,7 @@ class MetaInterface(Interface[_RVALUE]):
     def resolve(self, ctx) -> _RVALUE:
         return self.resolve_meta(lambda v: v.resolve(ctx))
     
-    def resolve_container(self, ctx, container, direction: Interface.Direction) -> _RVALUE:
+    def resolve_container(self, ctx, container, direction: Direction) -> _RVALUE:
         return self.resolve_meta(lambda v: v.resolve_container(ctx, container, direction))
     
     @staticmethod
@@ -172,9 +182,9 @@ class ListInterface(MetaInterface):
 
 
 class FileInterface(Interface[Path]):
-    def resolve_container(self, ctx: "Context", container: Container, direction: Interface.Direction):
+    def resolve_container(self, ctx: "Context", container: Container, direction: Direction):
         host_path = self.resolve(ctx)
         container_path = ctx.map_to_container(host_path)
-        readonly = direction is self.Direction.Input
+        readonly = direction.is_input
         container.bind(host_path.parent, container_path.parent, readonly=readonly)
         return container_path

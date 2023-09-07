@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from inspect import getmembers_static
 
 class InitHooks:
     """
@@ -34,12 +35,11 @@ class InitHooks:
         # Find the pre and post hooks
         pre_hooks = []
         post_hooks = []
-        for name in dir(cls_):
-            attr=getattr(cls_, name)
-            if hasattr(attr, InitHooks.PRE_ATTR):
-                pre_hooks.append(attr)
-            if hasattr(attr, InitHooks.POST_ATTR):
-                post_hooks.append(attr)
+        for _name, value in getmembers_static(cls_):
+            if hasattr(value, InitHooks.PRE_ATTR):
+                pre_hooks.append(value)
+            if hasattr(value, InitHooks.POST_ATTR):
+                post_hooks.append(value)
 
         # Replace the init_subclass method with one that wraps
         # the subclasses init method.
