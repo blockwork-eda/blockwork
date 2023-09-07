@@ -77,11 +77,11 @@ class ElementFileInterface(FileInterface):
         self.element = element
         self.path = Path(path)
 
-    def keys(self):
-        yield (self.element.CTX.unit, self.path)
+    def key(self):
+        return (self.element.CTX.unit, self.path)
     
     def resolve_output(self, ctx: "Context"):
-        return (self.element.CTX.unit_scratch_path / self.transform.id() / self.path)
+        return (self.element.CTX.unit_scratch_path / self.input_transform.id() / self.path)
     
     def resolve_input(self, ctx: "Context"):
         return (self.element.CTX.unit_project_path / self.path)

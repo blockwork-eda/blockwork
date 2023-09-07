@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import TYPE_CHECKING, Any, Iterable
-from ..build.interface import Interface, InterfaceDirection, MetaInterface
+from ..build.interface import Interface, Direction
 if TYPE_CHECKING:
     from ..tools.tool import Version, Tool, Invocation
     from ..context import Context
@@ -26,8 +26,9 @@ class Transform:
     tools: list[type["Tool"]] = []
 
     def __init__(self):
-        self.interfaces: list[Interface] = []
-        self.interfaces_by_name: dict[str, Interface] = {}
+        self.input_interfaces: list[Interface] = []
+        self.output_interfaces: list[Interface] = []
+        self.interfaces_by_name: dict[str, tuple[Direction, Interface]] = {}
 
     def id(self):
         """
@@ -39,15 +40,15 @@ class Transform:
         """
         return f"{self.__class__.__name__}_{id(self)}"
 
-    def _bind_interfaces(self, direction: InterfaceDirection, **kwargs: Interface):
+    def _bind_interfaces(self, direction: Direction, **kwargs: Interface):
         for name, interface in kwargs.items():
             # Don't allow the same name to be bound twice
             # Though a single call may bind that name to an array of interfaces.
             if name in self.interfaces_by_name:
                 raise RuntimeError(f"Interface already bound with name `{name}`.")
 
-            self.interfaces_by_name[name] = interface
-            interface._bind_transform(self, direction, name)
+            self.interfaces_by_name[name] = (direction, interface)
+            interface._bind_transform(self, direction)
 
     def bind_outputs(self, **interface: Interface):
         """
@@ -58,7 +59,7 @@ class Transform:
         may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
-        return self._bind_interfaces(InterfaceDirection.Output, **interface)
+        return self._bind_interfaces(Direction.Output, **interface)
 
     def bind_inputs(self, **interface: Interface):
         """
@@ -69,7 +70,7 @@ class Transform:
         may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
-        return self._bind_interfaces(InterfaceDirection.Input, **interface)
+        return self._bind_interfaces(Direction.Input, **interface)
 
     def run(self, ctx: "Context"):
         """Run the transform in a container."""
@@ -87,8 +88,8 @@ class Transform:
 
         # Bind interfaces to container
         interface_values: dict[str, Any] = {}
-        for name, interface in self.interfaces_by_name.items():
-            interface_values[name] = interface.resolve_container(ctx, container)
+        for name, (direction, interface) in self.interfaces_by_name.items():
+            interface_values[name] = interface.resolve_container(ctx, container, direction)
 
         tools = ReadonlyNamespace(**tool_instances)
         iface = ReadonlyNamespace(**interface_values)
