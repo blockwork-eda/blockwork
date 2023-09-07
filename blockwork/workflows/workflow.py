@@ -15,13 +15,13 @@
 import functools
 import logging
 from pathlib import Path
-from typing import Hashable, Iterable
+from typing import Iterable, cast
 
 from ..config.scheduler import Scheduler
 
 from ..context import Context
 
-from ..build.interface import Interface, InterfaceDirection
+from ..build.interface import Interface
 
 from ..build.transform import Transform
 from ..common.registry import RegisteredClass
@@ -60,37 +60,22 @@ class Workflow(RegisteredClass, metaclass=Singleton):
                       intend to change soon
         """
         # Join interfaces together and get transform dependencies
-        interfaces: list[Interface] = []
+        output_interfaces: list[Interface] = []
         element_transforms: list[tuple[base.Element, Transform]] = []
         dependency_map: dict[Transform, set[Transform]] = {}
         for element in self.depth_first_elements(self.target):
             for transform in element.iter_transforms():
                 element_transforms.append((element, transform))
                 dependency_map[transform] = set()
-                for interface in transform.interfaces:
-                    interfaces.append(interface)
+                for interface in transform.output_interfaces:
+                    output_interfaces.append(interface)
 
-        interface_map: dict[Hashable, Interface] = {}
-        for interface in interfaces:
-            if interface.direction is InterfaceDirection.Output:
-                for key in interface.keys():
-                    if key in interface_map:
-                        raise RuntimeError
-                    interface_map[key] = interface
-
-        for interface in interfaces:
-            if interface.direction is InterfaceDirection.Input:
-                for key in interface.keys():
-                    if (output:=interface_map.get(key, None)) is not None:
-                        interface.connect(output)
-                        dependency_map[interface.transform].add(output.transform)
-                        break
-                else:
-                    # If there's no matching output for an input interface
-                    # we may later want to error ... but currently this is
-                    # allowed so long as the interface specifies a 
-                    # `resolve_input` method.
-                    pass
+        # We only need to look at output interfaces since an output must
+        # exist in order for a dependency to exist
+        for interface in output_interfaces:
+            input_transform = cast(Transform, interface.input_transform)
+            for output_transform in interface.output_transforms:
+                dependency_map[output_transform].add(input_transform)
 
         # Use the filters to pick out targets
         targets = (t for e,t in element_transforms if self.transform_filter(t, e))
