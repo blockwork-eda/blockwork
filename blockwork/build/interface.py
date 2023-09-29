@@ -73,12 +73,10 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         """
         if direction.is_input:
             self.output_transforms.append(transform)
-            transform.input_interfaces.append(self)
         else:
             if self.input_transform:
                 raise RuntimeError(f"Tried to output interface `{self}` from multiple transforms `{self.input_transform}` and `{transform}`")
             self.input_transform = transform
-            transform.output_interfaces.append(self)
 
     def resolve_output(self, ctx: "Context") -> _RVALUE:
         """

@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Iterable
+from typing import Optional
+import click
 from blockwork.build.transform import Transform
 from blockwork.config.base import Element
 from blockwork.workflows import Workflow
@@ -21,12 +22,13 @@ from .config.config import Design, Site, Project
 
 
 @Workflow.register()
+@click.option('--match', type=str, default=None)
 class Build(Workflow):
     SITE_TYPE = Site
     PROJECT_TYPE = Project
 
-    def transform_filter(self, transform: Transform, element: Element) -> bool:
-        return True
+    def transform_filter(self, transform: Transform, element: Element, match: Optional[str]) -> bool:
+        return match is None or match.lower() in transform.__class__.__name__.lower()
 
 
 @Workflow.register()
