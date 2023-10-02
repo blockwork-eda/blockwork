@@ -13,20 +13,25 @@
 # limitations under the License.
 
 from typing import TYPE_CHECKING, Any, Iterable
+
+from ..common.inithooks import InitHooks
 from ..build.interface import Interface, Direction
 if TYPE_CHECKING:
     from ..tools.tool import Version, Tool, Invocation
     from ..context import Context
 from ..common.complexnamespaces import ReadonlyNamespace
 
+@InitHooks()
 class Transform:
     """
     Base class for transforms.
     """
     tools: list[type["Tool"]] = []
+    _interfaces: dict[str, tuple[Direction, Interface]] 
 
-    def __init__(self):
-        self._interfaces: dict[str, tuple[Direction, Interface]] = {}
+    @InitHooks.pre
+    def init_interfaces(self):
+        self._interfaces = {}
 
     @property
     def output_interfaces(self):
