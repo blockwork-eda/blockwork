@@ -48,8 +48,24 @@ class Direction(Enum):
 
 @InitHooks()
 class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (i.__class__, i.key()))):
+    '''
+    Base class for interfaces that link transforms together.
+
+    Interfaces are automatically linked based on the the output of the key
+    method which should be overriden in subclasses.
+
+    The resolve_* methods can be overriden to control the interface value
+    that transforms see. 
+
+    The base Interface takes a single value that resolves as itself, with
+    a unique key so it'll never link transforms together. This can be used
+    to pass values directly into transforms.
+    '''
     input_transform: Optional["Transform"]
     output_transforms: list["Transform"]
+
+    def __init__(self, value) -> None:
+        self.value = value
 
     @InitHooks.pre
     def init_transforms(self):
@@ -58,11 +74,11 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
     
     def key(self) -> Hashable:
         """
-        Yields keys which are used for matching up interfaces.
+        Returns a key which is used for matching up interfaces.
 
         @ed.kotarski: Note this is a temporary mechansim that will be replaced later on.
         """
-        raise NotImplementedError
+        return id(self)
 
     def _bind_transform(self, transform: "Transform", direction: Direction):
         """
@@ -83,22 +99,20 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         Resolve this interface as an output value to pass through to the transform.
         See `resolve` for further details.
         """
-        raise NotImplementedError
+        return self.value
     
     def resolve_input(self, ctx: "Context") -> _RVALUE:
         """
         Resolve this interface as an input value to pass through to the transform. 
         See `resolve` for further details.
         """
-        raise InterfaceError(f"Interface {self} has no connections and has no way to resolve itself as an input!")
+        return self.value
     
     def resolve(self, ctx: "Context") -> _RVALUE:
         """
         Resolve this interface to the value that will be passed through to the transform.
         This will internally call:
             - this interfaces `resolve_output` method if this interface is an output
-            - the connected interfaces `resolve_output` method if this interface is
-              a connected input.
             - this interfaces `resolve_input` method if this interface is an 
               unconnected input.
 
@@ -140,9 +154,6 @@ class MetaInterface(Interface[_RVALUE]):
     '''
     def __init__(self) -> None:
         raise NotImplementedError
-
-    def key(self):
-        return id(self)
 
     def _bind_transform(self, *args, **kwargs):
         self.resolve_meta(lambda v: v._bind_transform(*args, **kwargs))

@@ -60,7 +60,7 @@ class Workflow:
 
     @staticmethod
     def register():
-        def inner(workflow: "Workflow") -> "Workflow":
+        def inner(workflow: type["Workflow"]) -> "Workflow":
             # This registers the workflow as a subcommand with default options
             workflow = click.pass_obj(workflow)
             wf_command = click.command(workflow)
