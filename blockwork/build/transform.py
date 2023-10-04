@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 from typing import TYPE_CHECKING, Any, Iterable
 
 from ..common.inithooks import InitHooks
@@ -34,6 +35,7 @@ class Transform:
         self._interfaces = {}
 
     @property
+    @functools.lru_cache()
     def output_interfaces(self):
         interfaces: dict[str, Any] = {}
         for name, (direction, interface) in self._interfaces.items():
@@ -42,6 +44,7 @@ class Transform:
         return ReadonlyNamespace(**interfaces)
 
     @property
+    @functools.lru_cache()
     def input_interfaces(self):
         interfaces: dict[str, Any] = {}
         for name, (direction, interface) in self._interfaces.items():
@@ -50,6 +53,7 @@ class Transform:
         return ReadonlyNamespace(**interfaces)
 
     @property
+    @functools.lru_cache()
     def interfaces(self):
         interfaces: dict[str, Any] = {}
         for name, (_direction, interface) in self._interfaces.items():

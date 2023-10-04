@@ -86,13 +86,16 @@ class Workflow:
         @ed.kotarski: This is a temporary implementation that I
                       intend to change soon
         """
-        # Join interfaces together and get transform dependencies
+        # Join interfaces together and get transform dependencies and targets
         output_interfaces: list[Interface] = []
-        element_transforms: list[tuple[base.Element, Transform]] = []
+        targets: list[Transform] = []
         dependency_map: dict[Transform, set[Transform]] = {}
         for element in self.depth_first_elements(self.target):
             for transform in element.iter_transforms():
-                element_transforms.append((element, transform))
+                # Use filters to pick out targets
+                if self.transform_filter(transform, element, **self.workflow_options):
+                    targets.append(transform)
+                # Record dependencies
                 dependency_map[transform] = set()
                 for interface in transform.output_interfaces.values():
                     output_interfaces.append(interface)
@@ -103,9 +106,6 @@ class Workflow:
             input_transform = cast(Transform, interface.input_transform)
             for output_transform in interface.output_transforms:
                 dependency_map[output_transform].add(input_transform)
-
-        # Use the filters to pick out targets
-        targets = (t for e,t in element_transforms if self.transform_filter(t, e, **self.workflow_options))
 
         # Run everything in order serially
         scheduler = Scheduler(dependency_map, targets=targets)
