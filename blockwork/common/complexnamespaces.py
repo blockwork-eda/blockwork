@@ -37,6 +37,16 @@ class ComplexNamespace(Generic[_NamespaceValue]):
     def __repr__(self):
         return f"namespace({', '.join(f'{k}={v}' for k,v in self.ns.items())})"
 
+    def keys(self):
+        yield from self.ns.keys()
+
+    def values(self):
+        yield from self.ns.values()
+
+    def items(self):
+        yield from self.ns.items()
+
+
 class ReadonlyNamespace(ComplexNamespace[_NamespaceValue]):
     '''
     Namespace where attributes cannot be added or modified post initialisation

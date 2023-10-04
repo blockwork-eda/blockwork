@@ -12,23 +12,53 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 from typing import TYPE_CHECKING, Any, Iterable
+
+from ..common.inithooks import InitHooks
 from ..build.interface import Interface, Direction
 if TYPE_CHECKING:
     from ..tools.tool import Version, Tool, Invocation
     from ..context import Context
 from ..common.complexnamespaces import ReadonlyNamespace
 
+@InitHooks()
 class Transform:
     """
     Base class for transforms.
     """
     tools: list[type["Tool"]] = []
+    _interfaces: dict[str, tuple[Direction, Interface]] 
 
-    def __init__(self):
-        self.input_interfaces: list[Interface] = []
-        self.output_interfaces: list[Interface] = []
-        self.interfaces_by_name: dict[str, tuple[Direction, Interface]] = {}
+    @InitHooks.pre
+    def init_interfaces(self):
+        self._interfaces = {}
+
+    @property
+    @functools.lru_cache()
+    def output_interfaces(self):
+        interfaces: dict[str, Any] = {}
+        for name, (direction, interface) in self._interfaces.items():
+            if direction.is_output:
+                interfaces[name] = interface
+        return ReadonlyNamespace(**interfaces)
+
+    @property
+    @functools.lru_cache()
+    def input_interfaces(self):
+        interfaces: dict[str, Any] = {}
+        for name, (direction, interface) in self._interfaces.items():
+            if direction.is_input:
+                interfaces[name] = interface
+        return ReadonlyNamespace(**interfaces)
+
+    @property
+    @functools.lru_cache()
+    def interfaces(self):
+        interfaces: dict[str, Any] = {}
+        for name, (_direction, interface) in self._interfaces.items():
+            interfaces[name] = interface
+        return ReadonlyNamespace(**interfaces)
 
     def id(self):
         """
@@ -44,10 +74,10 @@ class Transform:
         for name, interface in kwargs.items():
             # Don't allow the same name to be bound twice
             # Though a single call may bind that name to an array of interfaces.
-            if name in self.interfaces_by_name:
+            if name in self._interfaces:
                 raise RuntimeError(f"Interface already bound with name `{name}`.")
 
-            self.interfaces_by_name[name] = (direction, interface)
+            self._interfaces[name] = (direction, interface)
             interface._bind_transform(self, direction)
 
     def bind_outputs(self, **interface: Interface):
@@ -88,7 +118,7 @@ class Transform:
 
         # Bind interfaces to container
         interface_values: dict[str, Any] = {}
-        for name, (direction, interface) in self.interfaces_by_name.items():
+        for name, (direction, interface) in self._interfaces.items():
             interface_values[name] = interface.resolve_container(ctx, container, direction)
 
         tools = ReadonlyNamespace(**tool_instances)

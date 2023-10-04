@@ -12,25 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import functools
+from ..common.inithooks import InitHooks
+import click
 import logging
 from pathlib import Path
 from typing import Iterable, cast
 
 from ..config.scheduler import Scheduler
+from ..config import parsers
 
 from ..context import Context
 
 from ..build.interface import Interface
 
 from ..build.transform import Transform
-from ..common.registry import RegisteredClass
-from ..common.singleton import Singleton
 from ..config import base
+from ..activities.workflow import wf
 
 
-class Workflow(RegisteredClass, metaclass=Singleton):
-    """ Base class for workflows """
+@InitHooks()
+class Workflow:
+    """Base class for workflows"""
 
     # Tool root locator
     ROOT : Path = Path("/__tool_root__")
@@ -40,11 +42,33 @@ class Workflow(RegisteredClass, metaclass=Singleton):
     PROJECT_TYPE = base.Project
     TARGET_TYPE = base.Element
 
-    def __init__(self, ctx: Context, site: base.Site, project: base.Project, target: base.Element) -> None:
+    def __init__(self, ctx: Context, project: str, target: str, **options) -> None:
         self.ctx = ctx
-        self.site = site
-        self.project = project
-        self.target = target
+
+        site_parser = parsers.Site(ctx)
+        site_path = ctx.site
+        self.site = site_parser(self.SITE_TYPE).parse(site_path)
+
+        project_parser = parsers.Project(ctx, self.site)
+        project_path = Path(self.site.projects[project])
+        self.project = project_parser(self.PROJECT_TYPE).parse(project_path)
+
+        target_parser = parsers.Element(ctx, self.site, self.project)
+        self.target = target_parser.parse_target(target, self.TARGET_TYPE)
+
+        self.workflow_options = options
+
+    @staticmethod
+    def register():
+        def inner(workflow: type["Workflow"]) -> "Workflow":
+            # This registers the workflow as a subcommand with default options
+            workflow = click.pass_obj(workflow)
+            wf_command = click.command(workflow)
+            wf_command = click.option('--project', '-p', type=str, required=True)(wf_command)
+            wf_command = click.option('--target', '-t', type=str, required=True)(wf_command)
+            wf.add_command(wf_command, name=workflow.__name__.lower())
+            return wf_command
+        return inner
 
     def depth_first_elements(self, element: base.Element) -> Iterable[base.Element]:
         'Recures elements and yields depths first'
@@ -52,6 +76,9 @@ class Workflow(RegisteredClass, metaclass=Singleton):
             yield from self.depth_first_elements(sub_element)
         yield element
 
+    # Note this is run as a post-init hook so subclasses can add attributes
+    # after the init by overriding the method but before the run.
+    @InitHooks.post
     def run(self):
         """
         Run every transform from the configuration.
@@ -59,15 +86,18 @@ class Workflow(RegisteredClass, metaclass=Singleton):
         @ed.kotarski: This is a temporary implementation that I
                       intend to change soon
         """
-        # Join interfaces together and get transform dependencies
+        # Join interfaces together and get transform dependencies and targets
         output_interfaces: list[Interface] = []
-        element_transforms: list[tuple[base.Element, Transform]] = []
+        targets: list[Transform] = []
         dependency_map: dict[Transform, set[Transform]] = {}
         for element in self.depth_first_elements(self.target):
             for transform in element.iter_transforms():
-                element_transforms.append((element, transform))
+                # Use filters to pick out targets
+                if self.transform_filter(transform, element, **self.workflow_options):
+                    targets.append(transform)
+                # Record dependencies
                 dependency_map[transform] = set()
-                for interface in transform.output_interfaces:
+                for interface in transform.output_interfaces.values():
                     output_interfaces.append(interface)
 
         # We only need to look at output interfaces since an output must
@@ -76,9 +106,6 @@ class Workflow(RegisteredClass, metaclass=Singleton):
             input_transform = cast(Transform, interface.input_transform)
             for output_transform in interface.output_transforms:
                 dependency_map[output_transform].add(input_transform)
-
-        # Use the filters to pick out targets
-        targets = (t for e,t in element_transforms if self.transform_filter(t, e))
 
         # Run everything in order serially
         scheduler = Scheduler(dependency_map, targets=targets)
@@ -93,22 +120,3 @@ class Workflow(RegisteredClass, metaclass=Singleton):
     def transform_filter(self, transform: Transform, element: base.Element) -> bool:
         'Return true for transforms that this workflow is interested in'
         raise NotImplementedError
-
-    @classmethod
-    @property
-    @functools.lru_cache()
-    def name(cls) -> str:
-        return cls.__name__.lower()
-
-    # ==========================================================================
-    # Registry Handling
-    # ==========================================================================
-
-    @classmethod
-    def wrap(cls, workflow : "Workflow") -> "Workflow":
-        if workflow in RegisteredClass.LOOKUP_BY_OBJ[cls]:
-            return workflow
-        else:
-            RegisteredClass.LOOKUP_BY_NAME[cls][workflow.name] = workflow
-            RegisteredClass.LOOKUP_BY_OBJ[cls][workflow] = workflow
-            return workflow

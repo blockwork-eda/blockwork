@@ -48,8 +48,8 @@ class InitHooks:
             orig_init_subclass(*args, **kwargs)
             InitHooks._wrap_subcls(subcls_, pre_hooks, post_hooks)
         cls_.__init_subclass__ = classmethod(__init_subclass__)
-
-        return cls_
+        # Finally wrap the cls itself
+        return InitHooks._wrap_subcls(cls_, pre_hooks, post_hooks)
 
     @staticmethod
     def _wrap_subcls(subcls_, pre_hooks, post_hooks):
@@ -57,11 +57,13 @@ class InitHooks:
         # runs our hooks.
         orig_init = subcls_.__init__
         def __init__(self, *args, **kwargs):
-            for hook in pre_hooks:
-                hook(self)
+            if self.__class__ is subcls_:
+                for hook in pre_hooks:
+                    hook(self)
             orig_init(self, *args, **kwargs)
-            for hook in post_hooks:
-                hook(self)
+            if self.__class__ is subcls_:
+                for hook in post_hooks:
+                    hook(self)
         subcls_.__init__ = __init__
         return subcls_
 

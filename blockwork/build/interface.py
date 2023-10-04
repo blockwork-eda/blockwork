@@ -16,6 +16,8 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Callable, Generic, Hashable, Iterable, Optional, TypeVar, TYPE_CHECKING
 
+from ..common.complexnamespaces import ReadonlyNamespace
+
 from ..common.inithooks import InitHooks
 
 from ..common.singleton import keyed_singleton
@@ -48,8 +50,24 @@ class Direction(Enum):
 
 @InitHooks()
 class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (i.__class__, i.key()))):
+    '''
+    Base class for interfaces that link transforms together.
+
+    Interfaces are automatically linked based on the the output of the key
+    method which should be overriden in subclasses.
+
+    The resolve_* methods can be overriden to control the interface value
+    that transforms see. 
+
+    The base Interface takes a single value that resolves as itself, with
+    a unique key so it'll never link transforms together. This can be used
+    to pass values directly into transforms.
+    '''
     input_transform: Optional["Transform"]
     output_transforms: list["Transform"]
+
+    def __init__(self, value) -> None:
+        self.value = value
 
     @InitHooks.pre
     def init_transforms(self):
@@ -58,11 +76,11 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
     
     def key(self) -> Hashable:
         """
-        Yields keys which are used for matching up interfaces.
+        Returns a key which is used for matching up interfaces.
 
         @ed.kotarski: Note this is a temporary mechansim that will be replaced later on.
         """
-        raise NotImplementedError
+        return id(self)
 
     def _bind_transform(self, transform: "Transform", direction: Direction):
         """
@@ -73,34 +91,30 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         """
         if direction.is_input:
             self.output_transforms.append(transform)
-            transform.input_interfaces.append(self)
         else:
             if self.input_transform:
                 raise RuntimeError(f"Tried to output interface `{self}` from multiple transforms `{self.input_transform}` and `{transform}`")
             self.input_transform = transform
-            transform.output_interfaces.append(self)
 
     def resolve_output(self, ctx: "Context") -> _RVALUE:
         """
         Resolve this interface as an output value to pass through to the transform.
         See `resolve` for further details.
         """
-        raise NotImplementedError
+        return self.value
     
     def resolve_input(self, ctx: "Context") -> _RVALUE:
         """
         Resolve this interface as an input value to pass through to the transform. 
         See `resolve` for further details.
         """
-        raise InterfaceError(f"Interface {self} has no connections and has no way to resolve itself as an input!")
+        return self.value
     
     def resolve(self, ctx: "Context") -> _RVALUE:
         """
         Resolve this interface to the value that will be passed through to the transform.
         This will internally call:
             - this interfaces `resolve_output` method if this interface is an output
-            - the connected interfaces `resolve_output` method if this interface is
-              a connected input.
             - this interfaces `resolve_input` method if this interface is an 
               unconnected input.
 
@@ -143,9 +157,6 @@ class MetaInterface(Interface[_RVALUE]):
     def __init__(self) -> None:
         raise NotImplementedError
 
-    def key(self):
-        return id(self)
-
     def _bind_transform(self, *args, **kwargs):
         self.resolve_meta(lambda v: v._bind_transform(*args, **kwargs))
 
@@ -173,12 +184,20 @@ class MetaInterface(Interface[_RVALUE]):
 
 
 class ListInterface(MetaInterface):
-    # List of other interfaces
+    'List of other interfaces'
     def __init__(self, items: Iterable[Interface]) -> None:
         self.items = list(items)
 
     def resolve_meta(self, fn):
         return self.map(fn, self.items)
+    
+class DictInterface(MetaInterface):
+    'Dict of other interfaces'
+    def __init__(self, mapping: dict[str, Interface] | None = None, **interfaces: Interface):
+        self.interfaces = {**(mapping or {}), **interfaces}
+
+    def resolve_meta(self, fn):
+        return ReadonlyNamespace(**{k: fn(v) for k, v in self.interfaces.items()})
 
 
 class FileInterface(Interface[Path]):
