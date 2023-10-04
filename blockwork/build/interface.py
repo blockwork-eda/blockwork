@@ -16,6 +16,8 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Callable, Generic, Hashable, Iterable, Optional, TypeVar, TYPE_CHECKING
 
+from ..common.complexnamespaces import ReadonlyNamespace
+
 from ..common.inithooks import InitHooks
 
 from ..common.singleton import keyed_singleton
@@ -182,12 +184,20 @@ class MetaInterface(Interface[_RVALUE]):
 
 
 class ListInterface(MetaInterface):
-    # List of other interfaces
+    'List of other interfaces'
     def __init__(self, items: Iterable[Interface]) -> None:
         self.items = list(items)
 
     def resolve_meta(self, fn):
         return self.map(fn, self.items)
+    
+class DictInterface(MetaInterface):
+    'Dict of other interfaces'
+    def __init__(self, mapping: dict[str, Interface] | None = None, **interfaces: Interface):
+        self.interfaces = {**(mapping or {}), **interfaces}
+
+    def resolve_meta(self, fn):
+        return ReadonlyNamespace(**{k: fn(v) for k, v in self.interfaces.items()})
 
 
 class FileInterface(Interface[Path]):
