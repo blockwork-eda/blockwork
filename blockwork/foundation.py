@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional, Type, Union
 
 from .containers import Container
-from .context import Context
+from .context import Context, ContextContainerPathError
 from .tools import Invocation, Tool, Version
 
 class FoundationError(Exception):
@@ -131,6 +131,14 @@ class Foundation(Container):
         command = invocation.execute
         if isinstance(command, Path):
             command = invocation.version.get_container_path(self.__context, command).as_posix()
+        # Determine and create (if required) the working directory
+        c_workdir = invocation.workdir or context.container_root
+        try:
+            h_workdir = context.map_to_host(c_workdir)
+            if not h_workdir.exists():
+                h_workdir.mkdir(parents=True, exist_ok=True)
+        except ContextContainerPathError:
+            pass
         # Launch
         args = invocation.map_args_to_container(context)
         logging.debug(f"Launching in container: {command} {' '.join(args)}")

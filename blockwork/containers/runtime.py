@@ -226,12 +226,12 @@ class Runtime:
             client.close()
 
     @classmethod
-    def get_uid(cls) -> int:
+    def get_uid(cls) -> str:
         """
         Determine the UID to use - on a macOS system this should remain fixed
         to the root user (UID=0), while on a Linux box it should map to the UID
         of the user running the tool.
 
-        :returns:   The UID to use
+        :returns:   The UID:GID pair to use
         """
-        return 0 if cls.is_macos() else os.getuid()
+        return "0:0" if cls.is_macos() else f"{os.getuid()}:{os.getgid()}"
