@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC
 from pathlib import Path
 from typing import Iterable, TYPE_CHECKING, Optional
 
 import yaml
+
+from ..common.singleton import keyed_singleton
 if TYPE_CHECKING:
     from ..context import Context
     from . import parsers # noqa: F401
@@ -28,27 +29,52 @@ from dataclasses import dataclass as unchecked_dataclass
 from ..common.yaml import ConverterRegistry, DataclassConverter
 
 
-class Config(ABC):
+class Config(metaclass=keyed_singleton(inst_key=lambda i:hash(i))):
     '''
     Base class for all config.
     All-caps keys are reserved.
     '''
-    _REGISTRY: ConverterRegistry
+    _REGISTRY: ConverterRegistry = ConverterRegistry()
     "Defines which YAML registry the config belongs to i.e. site/project/element"
     _CONVERTER: type[DataclassConverter] = DataclassConverter
     "Defines how to convert the YAML tag into a Python object"
     YAML_TAG: Optional[str] = None
     "The !<Tag> to represent this document in YAML"
     FILE_NAME: Optional[str] = None
+    "The source for this element, for example the file/line origin"
+    SRC: Optional[str] = None
     """The implicit file name to use when one isn't provided, 
        defaults to YAML_TAG if provided, else class name"""
     def __init_subclass__(cls, *args, **kwargs):
         super().__init_subclass__(*args, **kwargs)
-        dataclass(kw_only=True)(cls)
-        if Config in cls.__bases__:
-            cls._REGISTRY = ConverterRegistry()
+        dataclass(kw_only=True, frozen=True, eq=False, repr=False)(cls)
         cls._REGISTRY.register(cls._CONVERTER, tag=cls.YAML_TAG)(cls)
 
+    def __hash__(self):
+        if self.SRC:
+            # If we know what the source is - i.e. a file on disc, 
+            # the resultant dataclass should always be the same
+            return hash(self.SRC)
+        else:
+            return id(self)
+    
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
+    def iter_config(self) -> Iterable["Config"]:
+        """
+        Yields any sub-config which is used as part of this one.
+
+        Implementation notes:
+            - This function must be implemented when sub-elements are used.
+        """
+        yield from []
+
+    def iter_transforms(self) -> Iterable[Transform]:
+        """
+        Yields any transforms from this element.
+        """
+        yield from []
 
 class Site(Config):
     'Base class for site configuration'
@@ -60,7 +86,7 @@ class Project(Config):
     units: dict[str, str]
 
 
-@unchecked_dataclass(kw_only=True)
+@unchecked_dataclass(kw_only=True, frozen=True)
 class ElementContext:
     'Context object bound on to each element to keep track of where it came from'
     unit: str
@@ -100,6 +126,7 @@ class ElementConverter(DataclassConverter["Element", "parsers.Element"]):
         unit_project_path = self.parser.ctx.host_root / self.parser.project.units[unit]
         unit_scratch_path = self.parser.ctx.host_scratch / self.parser.project.units[unit]
         def dict_callback(node_dict):
+            node_dict['SRC'] = f"{node.start_mark.name}:{node.start_mark.line}:{node.start_mark.column}"
             node_dict['CTX'] = ElementContext(
                 unit=unit,
                 config=Path(node.start_mark.name),
@@ -114,21 +141,7 @@ class Element(Config):
     "Base class for element configuration"
     _CONVERTER = ElementConverter
     CTX: ElementContext
-
-    def iter_elements(self) -> Iterable["Element"]:
-        """
-        Yields any sub-elements which are used as part of this one.
-
-        Implementation notes:
-            - This function must be implemented when sub-elements are used.
-        """
-        yield from []
-
-    def iter_transforms(self) -> Iterable[Transform]:
-        """
-        Yields any transforms from this element.
-        """
-        yield from []
+    SRC: str
 
     def file_interface(self, path):
         """

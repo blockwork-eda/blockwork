@@ -18,7 +18,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from blockwork.tools.tool import ToolActionError
+from ..tools.tool import ToolActionError
 
 from ..context import Context
 from ..foundation import Foundation
