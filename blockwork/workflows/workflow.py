@@ -51,6 +51,9 @@ class Workflow(base.Config):
     from a command line. This feature is useful for composition, for example
     a sim workflow could be run directly on the command line, or used several
     times in configuration and run via a ci workflow.
+
+    If `from_command` is not customised, the workflow will simply take a
+    --target argument which is expected to point to a workflow config file.
     '''
 
     # Tool root locator
@@ -66,7 +69,7 @@ class Workflow(base.Config):
             return click.option('--project', '-p', type=WrapType(str, type=project_type), required=True)
 
         @staticmethod
-        def target(*, project_type=base.Project, target_type=base.Config):
+        def target(*, project_type=base.Project, target_type=None):
             return partial(reduce, lambda f, o: o(f), [
                 click.option('--project', '-p', type=WrapType(str, type=project_type), required=True),
                 click.option('--target', '-t', type=WrapType(str, type=target_type), required=True)
@@ -91,7 +94,7 @@ class Workflow(base.Config):
             def from_command(cls, target, match):
                 return cls(target=target, match=match)
         '''
-        return cls(target=target)
+        return target
     
 
     @classmethod
@@ -112,7 +115,9 @@ class Workflow(base.Config):
 
             if target:
                 target_parser = parsers.Element(ctx, site_config, project_config)
-                target_config = target_parser.parse_target(target.value, target.type)
+                # If target type not provided assume we're pointing to a workflow file itself
+                target_type = target.type or cls
+                target_config = target_parser.parse_target(target.value, target_type)
                 kwargs['target'] = target_config
 
         inst = cls.from_command(*args, **kwargs)

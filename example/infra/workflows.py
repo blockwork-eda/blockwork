@@ -12,14 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Iterable, Optional
-from blockwork.config import base
+from typing import Iterable, Optional, Self
 import click
 from blockwork.build.transform import Transform
 from blockwork.config.base import Config, Element
 from blockwork.workflows import Workflow
 from .transforms.lint import VerilatorLintTransform
-from .config.config import Design, Site, Project
 
 
 
