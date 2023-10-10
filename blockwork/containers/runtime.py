@@ -17,6 +17,7 @@ import functools
 import json
 import logging
 import platform
+import pwd
 import shutil
 import subprocess
 import tempfile
@@ -223,3 +224,14 @@ class Runtime:
             client = DockerClient(f"unix://{sockpath.as_posix()}")
             yield client
             client.close()
+
+    @classmethod
+    def get_uid(cls) -> int:
+        """
+        Determine the UID to use - on a macOS system this should remain fixed
+        to the root user (UID=0), while on a Linux box it should map to the UID
+        of the user running the tool.
+
+        :returns:   The UID to use
+        """
+        return 0 if cls.is_macos() else pwd.getpwnam().pw_uid

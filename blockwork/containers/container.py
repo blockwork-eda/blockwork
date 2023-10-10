@@ -314,8 +314,8 @@ class Container:
                 mounts     =mounts,
                 # Shared network with host
                 network    ="host",
-                # Set the UID to 0
-                user       =0,
+                # Set the UID based on the platform's behaviour
+                user       =Runtime.get_uid(),
                 # Customise the hostname
                 hostname   =self.hostname,
             )
