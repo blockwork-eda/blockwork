@@ -59,12 +59,27 @@ class Workflow(base.Config):
     # Type for Site object
     SITE_TYPE = base.Site
 
+    class Options:
+        'Container for standard workflow options'
+        @staticmethod
+        def project(*, project_type=base.Project):
+            return click.option('--project', '-p', type=WrapType(str, type=project_type), required=True)
+
+        @staticmethod
+        def target(*, project_type=base.Project, target_type=base.Config):
+            return partial(reduce, lambda f, o: o(f), [
+                click.option('--project', '-p', type=WrapType(str, type=project_type), required=True),
+                click.option('--target', '-t', type=WrapType(str, type=target_type), required=True)
+            ])
+
+
     # This init only exists to prevent a typechecking issue
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     @classmethod
-    def from_command(cls, target):
+    @Options.target()
+    def from_command(cls, project, target):
         '''
         Create this workflow object from a command.
 
@@ -78,18 +93,6 @@ class Workflow(base.Config):
         '''
         return cls(target=target)
     
-    class Options:
-        'Container for standard workflow options'
-        @staticmethod
-        def project(*, project_type=base.Project):
-            return click.option('--project', '-p', type=WrapType(str, type=project_type), required=True)
-
-        @staticmethod
-        def target(*, project_type=base.Project, target_type=base.Config):
-            return partial(reduce, lambda f, o: o(f), [
-                click.option('--project', '-p', type=WrapType(str, type=project_type), required=True),
-                click.option('--target', '-t', type=WrapType(str, type=target_type), required=True)
-            ])
 
     @classmethod
     def _run_command(cls, ctx, project=None, target=None, *args, **kwargs):
