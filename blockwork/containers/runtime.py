@@ -16,8 +16,8 @@ import contextlib
 import functools
 import json
 import logging
+import os
 import platform
-import pwd
 import shutil
 import subprocess
 import tempfile
@@ -234,4 +234,4 @@ class Runtime:
 
         :returns:   The UID to use
         """
-        return 0 if cls.is_macos() else pwd.getpwnam().pw_uid
+        return 0 if cls.is_macos() else os.getuid()
