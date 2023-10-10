@@ -241,4 +241,4 @@ class Workflow(base.Config):
             # This is a really common use-case 
             yield target
         else:
-            raise NotImplementedError
+            yield from []
