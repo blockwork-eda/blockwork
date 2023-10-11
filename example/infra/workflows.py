@@ -34,7 +34,7 @@ class Build(Config):
     def iter_config(self) -> Iterable[Config]:
         yield self.target
 
-    def transform_filter(self, transform: Transform) -> bool:
+    def transform_filter(self, transform: Transform, config: Config) -> bool:
         return self.match is None or self.match.lower() in transform.__class__.__name__.lower()
 
 
@@ -64,7 +64,7 @@ class Lint(Config):
         breakpoint()
         return Lint(target=target)
 
-    def transform_filter(self, transform: Transform) -> bool:
+    def transform_filter(self, transform: Transform, config: Config) -> bool:
         return isinstance(transform, VerilatorLintTransform)
     
     def iter_config(self) -> Iterable[Config]:

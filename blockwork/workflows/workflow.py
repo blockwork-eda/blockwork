@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from functools import reduce
+from functools import partial, reduce
 from ..config.base import Config, Project, Site
 import click
 import logging
@@ -125,11 +125,13 @@ class Workflow:
                 if config.config_filter(desc):
                     target_transforms = target_transforms
                 else:
-                    target_transforms = list(filter(config.transform_filter, target_transforms))
+                    transform_filter = partial(config.transform_filter, config=desc)
+                    target_transforms = list(filter(transform_filter, target_transforms))
                 yield desc, transforms, target_transforms
 
         transforms = list(config.iter_transforms())
-        target_transforms = list(filter(config.transform_filter, transforms))
+        transform_filter = partial(config.transform_filter, config=config)
+        target_transforms = list(filter(transform_filter, transforms))
         yield (config, transforms, target_transforms)
 
     def _run(self, ctx, root: Config):

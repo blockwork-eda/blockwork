@@ -86,7 +86,7 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i:hash(i))):
         """
         return False
 
-    def transform_filter(self, transform: Transform):
+    def transform_filter(self, transform: Transform, config: "Config"):
         """
         Filter transforms underneath this which are "interesting".
 
