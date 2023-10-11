@@ -141,7 +141,7 @@ class Workflow:
         dependency_map: dict[Transform, set[Transform]] = {}
         targets = []
 
-        for _config, _is_target, transforms, target_transforms in self.gather(root):
+        for _config, transforms, target_transforms in self.gather(root):
             for transform in transforms:
                 dependency_map[transform] = set()
                 for interface in transform.output_interfaces.values():
