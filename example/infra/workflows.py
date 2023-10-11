@@ -61,7 +61,6 @@ class Lint(Config):
     @Workflow("lint").with_target()
     @staticmethod
     def from_command(ctx, project, target):
-        breakpoint()
         return Lint(target=target)
 
     def transform_filter(self, transform: Transform, config: Config) -> bool:
