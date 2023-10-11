@@ -76,6 +76,25 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i:hash(i))):
         """
         yield from []
 
+    def config_filter(self, config: "Config"):
+        """
+        Filter configs underneath this which are "interesting".
+
+        For uninteresting configs, we use our own transform filter
+        for transforms underneath them, for interesting configs we
+        use theirs.
+        """
+        return False
+
+    def transform_filter(self, transform: Transform):
+        """
+        Filter transforms underneath this which are "interesting".
+
+        Interesting transforms will be the run targets, uninteresting
+        transforms which are dependencies will also get run.
+        """
+        return True
+
 class Site(Config):
     'Base class for site configuration'
     projects: dict[str, str]
