@@ -154,9 +154,10 @@ class Version:
         :returns:   Resolved path
         """
         if self.location.is_relative_to(Tool.HOST_ROOT):
-            return ctx.host_tools / self.location.relative_to(Tool.HOST_ROOT)
+            path = ctx.host_tools / self.location.relative_to(Tool.HOST_ROOT)
         else:
-            return self.location
+            path = self.location
+        return path.absolute()
 
     def get_container_path(self, ctx : Context, path : Optional[Path] = None) -> Path:
         """
