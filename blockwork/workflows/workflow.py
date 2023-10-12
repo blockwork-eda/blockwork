@@ -146,7 +146,7 @@ class Workflow:
         for _config, transforms, target_transforms in self.gather(root):
             for transform in transforms:
                 dependency_map[transform] = set()
-                for interface in transform.output_interfaces.values():
+                for interface in transform.real_output_interfaces:
                     output_interfaces.append(interface)
             targets += target_transforms
             
