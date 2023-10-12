@@ -43,7 +43,7 @@ class Design(base.Element):
     sources: list[str]
     transforms: list[Mako] = field(default_factory=list)
 
-    def iter_elements(self):
+    def iter_config(self):
         yield from self.transforms
 
     def iter_transforms(self) -> Iterable[Transform]:
@@ -57,5 +57,5 @@ class Testbench(base.Element):
     bench_python: str
     bench_make: str
 
-    def iter_elements(self):
+    def iter_config(self):
         yield self.design

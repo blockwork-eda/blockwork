@@ -19,7 +19,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from blockwork.tools.tool import ToolActionError
+from ..tools.tool import ToolActionError
 
 from .common import BwExecCommand, ToolMode
 from ..context import Context

@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ..common.inithooks import InitHooks
+from functools import partial, reduce
+from ..config.base import Config, Project, Site
 import click
 import logging
 from pathlib import Path
-from typing import Iterable, cast
+from typing import Callable, Iterable, Optional, cast
 
 from ..config.scheduler import Scheduler
 from ..config import parsers
-
-from ..context import Context
 
 from ..build.interface import Interface
 
@@ -30,76 +29,127 @@ from ..config import base
 from ..activities.workflow import wf
 
 
-@InitHooks()
 class Workflow:
-    """Base class for workflows"""
+    '''
+    Wrapper for workflow functions.
 
-    # Tool root locator
-    ROOT : Path = Path("/__tool_root__")
+    Workflows are implemented as functions which are run from the command
+    line and that return a Config object. For example::
 
-    # Config types this workflow uses
-    SITE_TYPE = base.Site
-    PROJECT_TYPE = base.Project
-    TARGET_TYPE = base.Element
+        @Workflow("<workflow_name>")
+        @click.option('--match', type=str, required=True)
+        def my_workflow(ctx, match):
+            return Build(match=match)
 
-    def __init__(self, ctx: Context, project: str, target: str, **options) -> None:
-        self.ctx = ctx
+    '''
 
+     # Type for Site object
+    SITE_TYPE = Site
+
+    def __init__(self, name: str):
+        self.name = name
+        self.project_type = None
+        self.target_type = None
+
+    def with_project(self, typ: Optional[type[Project]]=None):
+        'Convenience method to add a --project option'
+        self.project_type = typ or Project
+        return self
+
+    def with_target(self, typ: Optional[type[Config]]=None):
+        'Convenience method to add --project and --target options'
+        self.project_type = self.project_type or Project
+        self.target_type = typ or Config
+        return self
+
+    @classmethod
+    def parse_site(cls, ctx) -> Site:
+        SITE_TYPE = cls.SITE_TYPE
         site_parser = parsers.Site(ctx)
         site_path = ctx.site
-        self.site = site_parser(self.SITE_TYPE).parse(site_path)
+        return site_parser(SITE_TYPE).parse(site_path)
 
-        project_parser = parsers.Project(ctx, self.site)
-        project_path = Path(self.site.projects[project])
-        self.project = project_parser(self.PROJECT_TYPE).parse(project_path)
+    @classmethod
+    def parse_project(cls, ctx, site: Site, project: str, typ: type) -> Project:
+        'Parse a project option using the given site'
+        project_parser = parsers.Project(ctx, site)
+        project_path = Path(site.projects[project])
+        return project_parser(typ).parse(project_path)
 
-        target_parser = parsers.Element(ctx, self.site, self.project)
-        self.target = target_parser.parse_target(target, self.TARGET_TYPE)
+    @classmethod
+    def parse_target(cls, ctx, site: Site, project: Project, target:str, typ: type) -> base.Element:
+        'Parse a target option using the given site and project'
+        target_parser = parsers.Element(ctx, site, project)
+        # If target type not provided assume we're pointing to a workflow file itself
+        return target_parser.parse_target(target, typ)
 
-        self.workflow_options = options
+    def __call__(self, fn: Callable[..., Config]) -> Callable[..., None]:
 
-    @staticmethod
-    def register():
-        def inner(workflow: type["Workflow"]) -> "Workflow":
-            # This registers the workflow as a subcommand with default options
-            workflow = click.pass_obj(workflow)
-            wf_command = click.command(workflow)
-            wf_command = click.option('--project', '-p', type=str, required=True)(wf_command)
-            wf_command = click.option('--target', '-t', type=str, required=True)(wf_command)
-            wf.add_command(wf_command, name=workflow.__name__.lower())
-            return wf_command
-        return inner
+        @click.command()
+        @click.pass_obj
+        def command(ctx, project=None, target=None, *args, **kwargs):
+            site = self.parse_site(ctx)
+            if project:
+                kwargs['project'] = self.parse_project(ctx, site, project, self.project_type)
+                if target:
+                    kwargs['target'] = self.parse_target(ctx, site, kwargs['project'], target, self.target_type)
 
-    def depth_first_elements(self, element: base.Element) -> Iterable[base.Element]:
-        'Recures elements and yields depths first'
-        for sub_element in element.iter_elements():
-            yield from self.depth_first_elements(sub_element)
-        yield element
+            inst = fn(ctx, *args, **kwargs)
+            self._run(ctx, inst)
 
-    # Note this is run as a post-init hook so subclasses can add attributes
-    # after the init by overriding the method but before the run.
-    @InitHooks.post
-    def run(self):
-        """
-        Run every transform from the configuration.
+        option_fns = []
+        if self.project_type:
+            option_fns.append(click.option('--project', '-p', type=str, required=True))
+        if self.target_type:
+            option_fns.append(click.option('--target', '-t', type=str, required=True))
 
-        @ed.kotarski: This is a temporary implementation that I
-                      intend to change soon
-        """
-        # Join interfaces together and get transform dependencies and targets
+        # Apply the additional options
+        command = reduce(lambda f, o: o(f), option_fns, command)            
+
+        # This is a little horrible but this means click options
+        # can be added before or after the workflow decorator
+        command.params += getattr(fn, '__click_params__', [])
+
+        wf.add_command(command, name=self.name)
+        return command
+    
+
+    def gather(self, config: Config) -> Iterable[tuple[Config, list[Transform], list[Transform]]]:
+        '''
+        Iterate over the tree of configs gathering "interesting" transforms.
+        
+        yields [the config, its transforms, its target transforms]
+        '''
+        for child_config in config.iter_config():
+            for desc, transforms, target_transforms in self.gather(child_config):
+                if config.config_filter(desc):
+                    target_transforms = target_transforms
+                else:
+                    transform_filter = partial(config.transform_filter, config=desc)
+                    target_transforms = list(filter(transform_filter, target_transforms))
+                yield desc, transforms, target_transforms
+
+        transforms = list(config.iter_transforms())
+        transform_filter = partial(config.transform_filter, config=config)
+        target_transforms = list(filter(transform_filter, transforms))
+        yield (config, transforms, target_transforms)
+
+    def _run(self, ctx, root: Config):
+        '''
+        Internally called method to run the workflow
+        '''
+        # Join interfaces together and get transform dependencies
         output_interfaces: list[Interface] = []
-        targets: list[Transform] = []
         dependency_map: dict[Transform, set[Transform]] = {}
-        for element in self.depth_first_elements(self.target):
-            for transform in element.iter_transforms():
-                # Use filters to pick out targets
-                if self.transform_filter(transform, element, **self.workflow_options):
-                    targets.append(transform)
-                # Record dependencies
+        targets = []
+
+        for _config, transforms, target_transforms in self.gather(root):
+            for transform in transforms:
                 dependency_map[transform] = set()
                 for interface in transform.output_interfaces.values():
                     output_interfaces.append(interface)
-
+            targets += target_transforms
+            
         # We only need to look at output interfaces since an output must
         # exist in order for a dependency to exist
         for interface in output_interfaces:
@@ -110,13 +160,9 @@ class Workflow:
         # Run everything in order serially
         scheduler = Scheduler(dependency_map, targets=targets)
         while scheduler.incomplete:
-            for element in scheduler.schedulable:
-                scheduler.schedule(element)
+            for transform in scheduler.schedulable:
+                scheduler.schedule(transform)
                 # Note this message is info for now for demonstrative purposes only
-                logging.info("Running transform: %s", element)
-                element.run(self.ctx)
-                scheduler.finish(element)
-
-    def transform_filter(self, transform: Transform, element: base.Element) -> bool:
-        'Return true for transforms that this workflow is interested in'
-        raise NotImplementedError
+                logging.info("Running transform: %s", transform)
+                transform.run(ctx)
+                scheduler.finish(transform)
