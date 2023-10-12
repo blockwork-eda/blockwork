@@ -82,5 +82,9 @@ def install_tools(context : Context, last_run : datetime) -> bool:
                               f"a null invocation")
             logging.debug(f" - {idx}: Installation of {tool_id} succeeded")
             # Touch the install folder to ensure its datetime is updated
-            os.utime(host_loc)
+            try:
+                os.utime(host_loc)
+            except PermissionError as e:
+                logging.debug(f" - Could not update modified time of {host_loc}: {e}")
+                pass
 

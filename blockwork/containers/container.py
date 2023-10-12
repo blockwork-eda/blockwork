@@ -251,9 +251,10 @@ class Container:
         if display:
             xauth_h_path = Path(os.environ.get("XAUTHORITY", "~/.Xauthority")).expanduser()
             xauth_c_path = Path("/root/.Xauthority")
-            logging.debug(f"Binding XAuthority from {xauth_h_path} to {xauth_c_path}")
-            bind_xauth = ContainerBind(xauth_h_path, xauth_c_path, False)
-            mounts.append(bind_xauth.as_configuration())
+            if xauth_h_path.exists():
+                logging.debug(f"Binding XAuthority from {xauth_h_path} to {xauth_c_path}")
+                bind_xauth = ContainerBind(xauth_h_path, xauth_c_path, False)
+                mounts.append(bind_xauth.as_configuration())
             if not Runtime.is_macos() and (x11_path := Path("/tmp/.X11-unix")).exists():
                 logging.debug("Binding /tmp/.X11-unix into container and setting DISPLAY to :0")
                 env["DISPLAY"] = ":0"
@@ -277,8 +278,8 @@ class Container:
             # tmpfs mount implicitly adds 'noexec' preventing binaries executing)
             for implicit_path in ["/tmp", "/root", "/var/log", "/var/cache"]:
                 bind = ContainerBind(
-                    host_path=Path(tmpdir + implicit_path), 
-                    container_path=Path(implicit_path), 
+                    host_path=Path(tmpdir + implicit_path),
+                    container_path=Path(implicit_path),
                     readonly=False
                 )
                 bind.host_path.mkdir(parents=True)
@@ -313,8 +314,8 @@ class Container:
                 mounts     =mounts,
                 # Shared network with host
                 network    ="host",
-                # Set the UID to 0
-                user       =0,
+                # Set the UID based on the platform's behaviour
+                user       =Runtime.get_uid(),
                 # Customise the hostname
                 hostname   =self.hostname,
             )
