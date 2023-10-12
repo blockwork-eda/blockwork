@@ -26,6 +26,9 @@ class ComplexNamespace(Generic[_NamespaceValue]):
        
     def __getattr__(self, name) -> _NamespaceValue:
         return self.ns[name]
+    
+    def __getitem__(self, name) -> _NamespaceValue:
+        return self.ns[name]
 
     def __setattr__(self, name: str, value: _NamespaceValue) -> None:
         if self.RO:

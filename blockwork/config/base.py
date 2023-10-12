@@ -50,6 +50,8 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i:hash(i))):
         dataclass(kw_only=True, frozen=True, eq=False, repr=False)(cls)
         cls._REGISTRY.register(cls._CONVERTER, tag=cls.YAML_TAG)(cls)
 
+    def __init__(self, *args, **kwargs): ...
+
     def __hash__(self):
         if self.SRC:
             # If we know what the source is - i.e. a file on disc, 

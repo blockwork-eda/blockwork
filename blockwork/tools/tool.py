@@ -18,7 +18,7 @@ import logging
 from collections import defaultdict
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 from ..common.registry import RegisteredClass
 from ..common.singleton import Singleton
@@ -453,12 +453,12 @@ class Invocation:
 
     def __init__(self,
                  version     : Version,
-                 execute     : Path,
-                 args        : Optional[List[Union[str, Path]]] = None,
+                 execute     : Union[Path, str],
+                 args        : Optional[Sequence[Union[str, Path]]] = None,
                  workdir     : Optional[Path] = None,
                  display     : bool = False,
                  interactive : bool = False,
-                 binds       : Optional[List[Union[Path, Tuple[Path, Path]]]] = None,
+                 binds       : Optional[Sequence[Union[Path, Tuple[Path, Path]]]] = None,
                  env         : Optional[Dict[str, str]] = None,
                  path        : Optional[Dict[str, List[str]]] = None) -> None:
         self.version     = version
@@ -471,7 +471,7 @@ class Invocation:
         self.env         = env or {}
         self.path        = path or {}
 
-    def map_args_to_container(self, context : Context) -> List[Union[str, Path]]:
+    def map_args_to_container(self, context : Context) -> List[str]:
         """
         Map all of the arguments of the invocation to be relative to the container.
 

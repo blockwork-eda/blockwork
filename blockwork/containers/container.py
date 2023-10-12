@@ -203,7 +203,7 @@ class Container:
             self.__environment[key] = value
 
     def launch(self,
-               *command    : List[str],
+               *command    : str,
                workdir     : Optional[Path]                 = None,
                interactive : bool                           = False,
                display     : bool                           = False,
