@@ -351,7 +351,7 @@ class Container:
                     os.system("cls || clear")
             # Otherwise, track the task
             else:
-                for (stream, line) in frames_iter(socket, False):
+                for (stream, line) in frames_iter(socket, tty=False):
                     print(line.decode("utf-8"), end="")
             # Get the result (carries the status code)
             # NOTE: Podman sometimes drops the connection during 'wait()' leading
