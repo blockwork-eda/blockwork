@@ -24,6 +24,7 @@ import time
 from pathlib import Path
 from threading import Event
 from typing import Dict, List, Optional, Tuple, Union
+from docker.utils.socket import frames_iter
 
 import requests
 
@@ -351,12 +352,8 @@ class Container:
                     os.system("cls || clear")
             # Otherwise, track the task
             else:
-                while True:
-                    line = socket.readline()
-                    if not line:
-                        break
-                    # Output the line, replace bad characters with escape sequences
-                    print(line.decode("utf-8", errors="backslashreplace"), end="")
+                for (stream, line) in frames_iter(socket, tty=False):
+                    print(line.decode("utf-8"), end="")
             # Get the result (carries the status code)
             # NOTE: Podman sometimes drops the connection during 'wait()' leading
             #       to a connection aborted error, so retry the operation until
