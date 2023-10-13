@@ -231,7 +231,7 @@ class Container:
         if not command:
             raise ContainerError("No command provided to execute")
         # Disable interactive if not a terminal
-        interactive &= any(f and f.isatty() for f in (sys.stdout, sys.stderr))
+        interactive &= sys.stdout and sys.stdout.isatty()
         # Pickup default working directory if not set
         workdir = workdir or self.workdir
         # Make sure the local bind paths exist
