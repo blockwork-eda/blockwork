@@ -489,25 +489,25 @@ class Invocation:
         args = []
         binds = []
 
-        if self.host:
-            # Identify all host paths that need to be bound in
-            for arg in self.args:
-                # If this is a string, but appears to be a relative path, convert it
-                if isinstance(arg, str) and (as_path := (Path.cwd() / arg)).exists():
-                    arg = as_path
-                # For path arguments, check they will be accessible in the container
-                if isinstance(arg, Path):
+        # Identify all host paths that need to be bound in
+        for arg in self.args:
+            # If this is a string, but appears to be a relative path, convert it
+            if isinstance(arg, str) and (as_path := (Path.cwd() / arg)).exists():
+                arg = as_path
+            # For path arguments convert to str...
+            if isinstance(arg, Path):
+                if self.host:
+                    # ...and conditionally try binding host paths to container
                     try:
                         c_path = context.map_to_container(arg.absolute().resolve())
-                        args.append(c_path.as_posix())
-                        binds.append((arg, context.map_to_container(arg)))
+                        binds.append((arg, c_path))
+                        arg = c_path
                     except ContextHostPathError:
                         logging.debug(f"Assuming '{arg}' is a container-relative path")
-                        args.append(arg.as_posix())
-
-                # Otherwise, just pass through the argument
-                else:
-                    args.append(arg)
+                args.append(arg.as_posix())
+            # Otherwise, just pass through the argument
+            else:
+                args.append(arg)
 
         # Bind requested files/folders to relative paths
         for entry in chain(self.binds, binds):
