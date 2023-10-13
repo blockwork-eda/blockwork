@@ -211,7 +211,7 @@ class Container:
                show_detach : bool                           = True,
                clear       : bool                           = False,
                env         : Optional[Dict[str, str]]       = None,
-               path        : Optional[Dict[str, List[str]]] = None) -> int:
+               path        : Optional[Dict[str, List[Path]]] = None) -> int:
         """
         Launch a task within the container either interactively (STDIN and STDOUT
         streamed from/to the console) or non-interactively (STDOUT is captured).

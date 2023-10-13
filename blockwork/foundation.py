@@ -108,25 +108,9 @@ class Foundation(Container):
         """
         # Add the tool into the container (also adds dependencies)
         self.add_tool(invocation.version, readonly=readonly)
-        # Bind requested files/folders to relative paths
-        for entry in invocation.binds:
-            if isinstance(entry, Path):
-                h_path = entry
-                h_path = h_path.absolute()
-                c_path = context.map_to_container(h_path)
-            else:
-                h_path, c_path = entry
-                h_path = h_path.absolute()
-            self.bind(h_path, c_path, False)
-        # Identify all host paths that need to be bound in
-        for arg in invocation.args:
-            # If this is a string, but appears to be a relative path, convert it
-            if isinstance(arg, str) and (as_path := (Path.cwd() / arg)).exists():
-                arg = as_path
-            # If this is a path, make it accessible
-            if isinstance(arg, Path) and arg.exists():
-                arg = arg.absolute()
-                self.bind(arg, context.map_to_container(arg), False)
+
+        # Bind files and folders to host and remap path args
+        args = invocation.bind_and_map(context=context, container=self)
         # Resolve the binary
         command = invocation.execute
         if isinstance(command, Path):
@@ -140,7 +124,6 @@ class Foundation(Container):
         except ContextContainerPathError:
             pass
         # Launch
-        args = invocation.map_args_to_container(context)
         logging.debug(f"Launching in container: {command} {' '.join(args)}")
         return self.launch(command,
                            *args,
