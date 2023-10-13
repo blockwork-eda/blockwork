@@ -118,7 +118,7 @@ class Workflow:
         '''
         Iterate over the tree of configs gathering "interesting" transforms.
         
-        yields [the config, its transforms, its target transforms]
+        :return: An iterable of tuples of 'the config', 'its transforms', 'its target transforms'
         '''
         for child_config in config.iter_config():
             for desc, transforms, target_transforms in self.gather(child_config):
