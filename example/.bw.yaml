@@ -9,6 +9,7 @@ tooldefs:
 transforms:
   - infra.transforms.lint
   - infra.transforms.templating
+  - infra.transforms.examples
 workflows:
   - infra.workflows
 config:

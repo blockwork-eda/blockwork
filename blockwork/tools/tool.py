@@ -18,7 +18,7 @@ import logging
 from collections import defaultdict
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, TextIO, Tuple, Union
 
 from ..common.registry import RegisteredClass
 from ..common.singleton import Singleton
@@ -459,15 +459,19 @@ class Invocation:
                  workdir     : Optional[Path] = None,
                  display     : bool = False,
                  interactive : bool = False,
+                 stdout      : Optional[TextIO] = None,
+                 stderr      : Optional[TextIO] = None,
                  binds       : Optional[Sequence[Union[Path, Tuple[Path, Path]]]] = None,
                  env         : Optional[Dict[str, str]] = None,
-                 path        : Optional[Dict[str, List[str]]] = None) -> None:
+                 path        : Optional[dict[str, List[Path]]] = None) -> None:
         self.version     = version
         self.execute     = execute
         self.args        = args or []
         self.workdir     = workdir
         self.display     = display
         self.interactive = interactive or display
+        self.stdout      = stdout
+        self.stderr      = stderr
         self.binds       = binds or []
         self.env         = env or {}
         self.path        = path or {}

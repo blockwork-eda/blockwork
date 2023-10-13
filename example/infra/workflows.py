@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 from typing import Iterable, Optional
+from blockwork.build.interface import FileInterface
 from blockwork.workflows.workflow import Workflow
 import click
 from blockwork.build.transform import Transform
-from blockwork.config.base import Config, Element
+from blockwork.config.base import Config
+from .transforms.examples import CapturedTransform
 from .transforms.lint import VerilatorLintTransform
 
 
@@ -54,6 +57,9 @@ class Test(Config):
     
     def config_filter(self, config: Config):
         return config in self.tests
+    
+    def iter_transforms(self) -> Iterable[Transform]:
+        yield CapturedTransform(output=FileInterface(Path('./captured_stdout')))
 
 class Lint(Config):
     target: Config

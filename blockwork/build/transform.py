@@ -30,7 +30,7 @@ class Transform:
     tools: list[type["Tool"]] = []
     # Interfaces represents the "pretty" view of interfaces
     # with meta-interfaces visible for hierarchical access
-    _interfaces: dict[str, tuple[Direction, Interface]]
+    _interfaces: dict[str, tuple[Direction, bool, Interface]]
     # Flat interfaces represent the raw interfaces with those
     # nested in meta-interfaces unrolled.
     _flat_input_interfaces: list[Interface]
@@ -46,7 +46,7 @@ class Transform:
     @functools.lru_cache()
     def output_interfaces(self):
         interfaces: dict[str, Any] = {}
-        for name, (direction, interface) in self._interfaces.items():
+        for name, (direction, _host, interface) in self._interfaces.items():
             if direction.is_output:
                 interfaces[name] = interface
         return ReadonlyNamespace(**interfaces)
@@ -55,7 +55,7 @@ class Transform:
     @functools.lru_cache()
     def input_interfaces(self):
         interfaces: dict[str, Any] = {}
-        for name, (direction, interface) in self._interfaces.items():
+        for name, (direction, _host, interface) in self._interfaces.items():
             if direction.is_input:
                 interfaces[name] = interface
         return ReadonlyNamespace(**interfaces)
@@ -64,7 +64,7 @@ class Transform:
     @functools.lru_cache()
     def interfaces(self):
         interfaces: dict[str, Any] = {}
-        for name, (_direction, interface) in self._interfaces.items():
+        for name, (direction, _host, interface) in self._interfaces.items():
             interfaces[name] = interface
         return ReadonlyNamespace(**interfaces)
     
@@ -88,15 +88,15 @@ class Transform:
         """
         return f"{self.__class__.__name__}_{id(self)}"
 
-    def _bind_interfaces(self, direction: Direction, **kwargs: Interface):
+    def _bind_interfaces(self, _direction: Direction, _host: bool=False, **kwargs: Interface):
         for name, interface in kwargs.items():
             # Don't allow the same name to be bound twice
             # Though a single call may bind that name to an array of interfaces.
             if name in self._interfaces:
                 raise RuntimeError(f"Interface already bound with name `{name}`.")
 
-            self._interfaces[name] = (direction, interface)
-            interface._bind_transform(self, direction)
+            self._interfaces[name] = (_direction, _host, interface)
+            interface._bind_transform(self, _direction)
 
     def bind_outputs(self, **interface: Interface):
         """
@@ -107,7 +107,19 @@ class Transform:
         may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
-        return self._bind_interfaces(Direction.Output, **interface)
+        return self._bind_interfaces(Direction.Output, False, **interface)
+    
+    def bind_host_outputs(self, **interface: Interface):
+        """
+        Attach interfaces to this transform by name as outputs. The 
+        supplied names can be used to refer the interfaces in `execute`.
+
+        Host outputs are special in that they resolve as paths on 
+        the host within the execute method. This is sometimes useful if
+        an output file needs to be created from the execute method itself 
+        rather than from within a container.
+        """
+        return self._bind_interfaces(Direction.Output, True, **interface)
 
     def bind_inputs(self, **interface: Interface):
         """
@@ -118,7 +130,7 @@ class Transform:
         may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
-        return self._bind_interfaces(Direction.Input, **interface)
+        return self._bind_interfaces(Direction.Input, False, **interface)
 
     def run(self, ctx: "Context"):
         """Run the transform in a container."""
@@ -136,8 +148,11 @@ class Transform:
 
         # Bind interfaces to container
         interface_values: dict[str, Any] = {}
-        for name, (direction, interface) in self._interfaces.items():
-            interface_values[name] = interface.resolve_container(ctx, container, direction)
+        for name, (direction, host, interface) in self._interfaces.items():
+            if host:
+                interface_values[name] = interface.resolve(ctx)
+            else:
+                interface_values[name] = interface.resolve_container(ctx, container, direction)
 
         tools = ReadonlyNamespace(**tool_instances)
         iface = ReadonlyNamespace(**interface_values)

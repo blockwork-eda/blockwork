@@ -23,7 +23,7 @@ import termios
 import tty
 from socket import SocketIO
 from threading import Event, Thread
-from typing import List, Optional, Tuple
+from typing import List, Optional, TextIO, Tuple
 
 @contextlib.contextmanager
 def get_raw_input():
@@ -63,7 +63,7 @@ def get_raw_input():
         termios.tcsetattr(stdin, termios.TCSADRAIN, orig_termios)
         fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fcntl)
 
-def read_stream(socket : SocketIO, e_done : Event) -> Thread:
+def read_stream(socket : SocketIO, stdout: TextIO, e_done : Event) -> Thread:
     """ Wrapped thread method to capture from the container STDOUT """
     def _inner(socket, e_done):
         try:
@@ -79,8 +79,8 @@ def read_stream(socket : SocketIO, e_done : Event) -> Thread:
                     # but otherwise we don't get carriage returns
                     buff = buff.replace(b'\n',b'\r\n')
                     if len(buff) > 0:
-                        sys.stdout.write(buff.decode("utf-8", errors='backslashreplace'))
-                        sys.stdout.flush()
+                        stdout.write(buff.decode("utf-8", errors='backslashreplace'))
+                        stdout.flush()
                     else:
                         break
         except BrokenPipeError:
