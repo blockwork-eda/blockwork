@@ -28,11 +28,19 @@ class Transform:
     Base class for transforms.
     """
     tools: list[type["Tool"]] = []
-    _interfaces: dict[str, tuple[Direction, Interface]] 
+    # Interfaces represents the "pretty" view of interfaces
+    # with meta-interfaces visible for hierarchical access
+    _interfaces: dict[str, tuple[Direction, Interface]]
+    # Flat interfaces represent the raw interfaces with those
+    # nested in meta-interfaces unrolled.
+    _flat_input_interfaces: list[Interface]
+    _flat_output_interfaces: list[Interface]
 
     @InitHooks.pre
     def init_interfaces(self):
         self._interfaces = {}
+        self._flat_input_interfaces = []
+        self._flat_output_interfaces = []
 
     @property
     @functools.lru_cache()
@@ -59,6 +67,16 @@ class Transform:
         for name, (_direction, interface) in self._interfaces.items():
             interfaces[name] = interface
         return ReadonlyNamespace(**interfaces)
+    
+    @property
+    @functools.lru_cache()
+    def real_input_interfaces(self):
+        return self._flat_input_interfaces
+    
+    @property
+    @functools.lru_cache()
+    def real_output_interfaces(self):
+        return self._flat_output_interfaces
 
     def id(self):
         """
