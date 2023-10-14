@@ -476,6 +476,15 @@ class Invocation:
         self.env         = env or {}
         self.path        = path or {}
 
+    def where(self, **kwargs):
+        'Utility method to configure invocation after the fact'
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+            else:
+                raise AttributeError(f'Invocation object has no option `{k}` (tried to set to `{v}`)')
+        return self
+
     def map_args_to_container(self, context : Context) -> List[str]:
         """
         Map all of the arguments of the invocation to be relative to the container.
