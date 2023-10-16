@@ -14,11 +14,14 @@
 
 import functools
 import inspect
+from itertools import chain
 import logging
 from collections import defaultdict
 from enum import StrEnum, auto
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, TextIO, Tuple, Union
+
+from ..containers.container import Container
 
 from ..common.registry import RegisteredClass
 from ..common.singleton import Singleton
@@ -196,7 +199,7 @@ class Tool(RegisteredClass, metaclass=Singleton):
 
     # Placeholders
     vendor   : Optional[str]           = None
-    versions : Optional[List[Version]] = None
+    versions : Optional[Sequence[Version]] = None
 
     def __init__(self) -> None:
         self.vendor = self.vendor.strip() if isinstance(self.vendor, str) else Tool.NO_VENDOR
@@ -444,6 +447,7 @@ class Invocation:
     :param workdir:     Working directory within the container
     :param display:     Whether to forward X11 display (forces interactive mode)
     :param interactive: Whether to attach an interactive shell
+    :param host:        Whether to detect and bind host paths
     :param binds:       Paths to bind into the container from the host. Can be
                         provided as a single path in which case the container
                         path will be inferred, or as a tuple of a host path and
@@ -461,6 +465,7 @@ class Invocation:
                  interactive : bool = False,
                  stdout      : Optional[TextIO] = None,
                  stderr      : Optional[TextIO] = None,
+                 host        : bool = False,
                  binds       : Optional[Sequence[Union[Path, Tuple[Path, Path]]]] = None,
                  env         : Optional[Dict[str, str]] = None,
                  path        : Optional[dict[str, List[Path]]] = None) -> None:
@@ -472,6 +477,7 @@ class Invocation:
         self.interactive = interactive or display
         self.stdout      = stdout
         self.stderr      = stderr
+        self.host        = host
         self.binds       = binds or []
         self.env         = env or {}
         self.path        = path or {}
@@ -485,27 +491,46 @@ class Invocation:
                 raise AttributeError(f'Invocation object has no option `{k}` (tried to set to `{v}`)')
         return self
 
-    def map_args_to_container(self, context : Context) -> List[str]:
+    def bind_and_map(self, context: Context, container: Container):
         """
-        Map all of the arguments of the invocation to be relative to the container.
+        Map host paths to container paths (if applicable) and bind paths to container
 
         :param context: Context object
+        :param container: Container to map to
         :returns:       List of mapped arguments
         """
         args = []
+        binds = []
+
+        # Identify all host paths that need to be bound in
         for arg in self.args:
             # If this is a string, but appears to be a relative path, convert it
             if isinstance(arg, str) and (as_path := (Path.cwd() / arg)).exists():
                 arg = as_path
-            # For path arguments, check they will be accessible in the container
+            # For path arguments convert to str...
             if isinstance(arg, Path):
-                try:
-                    c_path = context.map_to_container(arg.absolute())
-                    args.append(c_path.as_posix())
-                except ContextHostPathError:
-                    logging.debug(f"Assuming '{arg}' is a container-relative path")
-                    args.append(arg.as_posix())
+                if self.host:
+                    # ...and conditionally try binding host paths to container
+                    try:
+                        c_path = context.map_to_container(arg.absolute().resolve())
+                        binds.append((arg, c_path))
+                        arg = c_path
+                    except ContextHostPathError:
+                        logging.debug(f"Assuming '{arg}' is a container-relative path")
+                args.append(arg.as_posix())
             # Otherwise, just pass through the argument
             else:
                 args.append(arg)
+
+        # Bind requested files/folders to relative paths
+        for entry in chain(self.binds, binds):
+            if isinstance(entry, Path):
+                h_path = entry
+                h_path = h_path.absolute()
+                c_path = context.map_to_container(h_path)
+            else:
+                h_path, c_path = entry
+                h_path = h_path.absolute()
+            container.bind(h_path, c_path, False)
+
         return args
