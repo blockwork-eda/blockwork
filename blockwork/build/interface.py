@@ -35,18 +35,32 @@ class InterfaceError(Exception): ...
 _RVALUE = TypeVar("_RVALUE")
 
 class Direction(Enum):
-    Input = auto()
-    Output = auto()
+    '''
+    Used to identify if an interface is acting as an input-to or output-from
+    a container
+    '''
+    INPUT = auto()
+    OUTPUT = auto()
 
     # Note these is_* methods may seem pointless but it
     # prevents the need to import round
     @property
     def is_input(self):
-        return self is Direction.Input
+        return self is Direction.INPUT
 
     @property
     def is_output(self):
-        return self is Direction.Output
+        return self is Direction.OUTPUT
+
+
+class Pipe(Enum):
+    '''
+    Used to control whether an interface is resolved on the host or on the
+    container when passed through to a transform.
+    '''
+    HOST = auto()
+    FLOW = auto()
+
 
 @InitHooks()
 class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (i.__class__, i.key()))):

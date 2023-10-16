@@ -132,4 +132,6 @@ class Foundation(Container):
                            display=invocation.display,
                            show_detach=False,
                            env=invocation.env,
-                           path=invocation.path)
+                           path=invocation.path,
+                           stdout=invocation.stdout,
+                           stderr=invocation.stderr)

@@ -19,7 +19,7 @@ import logging
 from collections import defaultdict
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, TextIO, Tuple, Union
 
 from ..containers.container import Container
 
@@ -463,20 +463,33 @@ class Invocation:
                  workdir     : Optional[Path] = None,
                  display     : bool = False,
                  interactive : bool = False,
+                 stdout      : Optional[TextIO] = None,
+                 stderr      : Optional[TextIO] = None,
                  host        : bool = False,
                  binds       : Optional[Sequence[Union[Path, Tuple[Path, Path]]]] = None,
                  env         : Optional[Dict[str, str]] = None,
-                 path        : Optional[Dict[str, List[str]]] = None) -> None:
+                 path        : Optional[dict[str, List[Path]]] = None) -> None:
         self.version     = version
         self.execute     = execute
         self.args        = args or []
         self.workdir     = workdir
         self.display     = display
         self.interactive = interactive or display
+        self.stdout      = stdout
+        self.stderr      = stderr
         self.host        = host
         self.binds       = binds or []
         self.env         = env or {}
         self.path        = path or {}
+
+    def where(self, **kwargs):
+        'Utility method to configure invocation after the fact'
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+            else:
+                raise AttributeError(f'Invocation object has no option `{k}` (tried to set to `{v}`)')
+        return self
 
     def bind_and_map(self, context: Context, container: Container):
         """

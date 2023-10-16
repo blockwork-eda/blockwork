@@ -23,8 +23,8 @@ import tempfile
 import time
 from pathlib import Path
 from threading import Event
-from typing import Dict, List, Optional, Tuple, Union
-from docker.utils.socket import frames_iter
+from typing import Dict, List, Mapping, Optional, TextIO, Tuple, Union
+import docker.utils.socket as socket_utils
 
 import requests
 
@@ -205,13 +205,15 @@ class Container:
 
     def launch(self,
                *command    : str,
-               workdir     : Optional[Path]                 = None,
-               interactive : bool                           = False,
-               display     : bool                           = False,
-               show_detach : bool                           = True,
-               clear       : bool                           = False,
-               env         : Optional[Dict[str, str]]       = None,
-               path        : Optional[Dict[str, List[Path]]] = None) -> int:
+               workdir     : Optional[Path]                     = None,
+               interactive : bool                               = False,
+               display     : bool                               = False,
+               show_detach : bool                               = True,
+               clear       : bool                               = False,
+               env         : Optional[dict[str, str]]           = None,
+               path        : Optional[Mapping[str, list[Path]]] = None,
+               stdout      : Optional[TextIO]                   = None,
+               stderr      : Optional[TextIO]                   = None) -> int:
         """
         Launch a task within the container either interactively (STDIN and STDOUT
         streamed from/to the console) or non-interactively (STDOUT is captured).
@@ -225,13 +227,19 @@ class Container:
         :param clear:       Whether to clear the screen after the command completes
         :param env:         Additional environment variables
         :param path:        Additional path variables to extend
+        :param stdout:      Replacement file to send stdout to
+        :param stderr:      Replacement file to send stderr to
         :returns:           Exit code of the executed process
         """
         # Check for a command
         if not command:
             raise ContainerError("No command provided to execute")
+        stdout = stdout or sys.stdout
+        stderr = stderr or sys.stderr
         # Disable interactive if not a terminal
-        interactive &= sys.stdout and sys.stdout.isatty()
+        # Note we check stdout rather than stdin because when piping out to
+        # a file, stdin still reports as tty, but stdout does not.
+        interactive &= stdout and stdout.isatty()
         # Pickup default working directory if not set
         workdir = workdir or self.workdir
         # Make sure the local bind paths exist
@@ -343,7 +351,7 @@ class Container:
                     print(">>> Use CTRL+P to detach from container <<<")
                 # Start monitoring for STDIN and STDOUT
                 t_write = write_stream(socket, e_done)
-                t_read  = read_stream(socket, e_done)
+                t_read  = read_stream(socket, stdout, e_done)
                 e_done.wait()
                 t_read.join()
                 t_write.join()
@@ -352,8 +360,16 @@ class Container:
                     os.system("cls || clear")
             # Otherwise, track the task
             else:
-                for (stream, line) in frames_iter(socket, tty=False):
-                    print(line.decode("utf-8"), end="")
+                for (stream, b_line) in socket_utils.frames_iter(socket, tty=False):
+                    line = b_line.decode("utf-8")
+                    if stream == socket_utils.STDOUT:
+                        stdout.write(line)
+                    elif stream == socket_utils.STDERR:
+                        stderr.write(line)
+                    else:
+                        raise RuntimeError(f"Unexpected stream `{stream}` for line `{line}`")
+                stdout.flush()
+                stderr.flush()
             # Get the result (carries the status code)
             # NOTE: Podman sometimes drops the connection during 'wait()' leading
             #       to a connection aborted error, so retry the operation until
