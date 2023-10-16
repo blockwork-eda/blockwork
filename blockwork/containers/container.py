@@ -210,8 +210,8 @@ class Container:
                display     : bool                               = False,
                show_detach : bool                               = True,
                clear       : bool                               = False,
-               env         : Optional[Dict[str, str]]           = None,
-               path        : Optional[Mapping[str, List[Path]]] = None,
+               env         : Optional[dict[str, str]]           = None,
+               path        : Optional[Mapping[str, list[Path]]] = None,
                stdout      : Optional[TextIO]                   = None,
                stderr      : Optional[TextIO]                   = None) -> int:
         """
@@ -227,6 +227,8 @@ class Container:
         :param clear:       Whether to clear the screen after the command completes
         :param env:         Additional environment variables
         :param path:        Additional path variables to extend
+        :param stdout:      Replacement file to send stdout to
+        :param stderr:      Replacement file to send stderr to
         :returns:           Exit code of the executed process
         """
         # Check for a command

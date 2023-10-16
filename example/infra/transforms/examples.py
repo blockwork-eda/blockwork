@@ -30,7 +30,7 @@ class CapturedTransform(Transform):
         self.bind_host_outputs(output=output)
 
     def execute(self, ctx: Context, tools: ReadonlyNamespace[Version], iface: ReadonlyNamespace[Any]):
-        with iface.output.open(mode='w') as stdout:
+        with iface.output.open(mode="w", encoding="utf-8") as stdout:
             inv = tools.pythonsite.get_action("run")(ctx, "-c", "print('hello interface')")
             inv.stdout = stdout
             yield inv
