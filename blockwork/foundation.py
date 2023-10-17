@@ -110,7 +110,8 @@ class Foundation(Container):
         self.add_tool(invocation.version, readonly=readonly)
 
         # Bind files and folders to host and remap path args
-        args = invocation.bind_and_map(context=context, container=self)
+        args = self.bind_and_map_args(context, args=invocation.args, host_okay=invocation.host)
+        self.bind_many(context, binds=invocation.binds)
         # Resolve the binary
         command = invocation.execute
         if isinstance(command, Path):
