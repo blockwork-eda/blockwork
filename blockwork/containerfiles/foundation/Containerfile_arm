@@ -6,5 +6,6 @@ RUN \
     dnf install -y epel-release && \
     dnf install -y which htop nano gtk2 gtk3 gtk3-devel wget xz cpio iputils xterm \
                    gcc perl bzip2 bzip2-devel tcl tcl-devel tk-devel libnsl \
-                   openssl-devel diffutils libedit-devel readline-devel && \
+                   openssl-devel diffutils libedit-devel readline-devel \
+                   numactl-devel && \
     ln -s /usr/lib64/libbz2.so.1 /usr/lib64/libbz2.so.1.0
