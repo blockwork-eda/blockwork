@@ -181,10 +181,15 @@ class Container:
             if isinstance(arg, Path):
                 if host_okay:
                     # ...and conditionally try binding host paths to container
+                    # try our best with paths that look like directories or files
+                    if arg.suffix:
+                        h_path, h_name = arg.parent, arg.name
+                    else:
+                        h_path, h_name = arg, ''
                     try:
-                        c_path = context.map_to_container(arg.absolute().resolve())
-                        binds.append((arg, c_path))
-                        arg = c_path
+                        c_path = context.map_to_container(h_path.absolute().resolve())
+                        binds.append((h_path, c_path))
+                        arg = c_path / h_name
                     except ContextHostPathError:
                         logging.debug(f"Assuming '{arg}' is a container-relative path")
                 mapped_args.append(arg.as_posix())
