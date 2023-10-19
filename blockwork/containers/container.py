@@ -182,12 +182,13 @@ class Container:
                 if host_okay:
                     # ...and conditionally try binding host paths to container
                     # try our best with paths that look like directories or files
+                    arg = arg.absolute().resolve()
                     if arg.suffix:
                         h_path, h_name = arg.parent, arg.name
                     else:
                         h_path, h_name = arg, ''
                     try:
-                        c_path = context.map_to_container(h_path.absolute().resolve())
+                        c_path = context.map_to_container(h_path)
                         binds.append((h_path, c_path))
                         arg = c_path / h_name
                     except ContextHostPathError:
@@ -198,7 +199,6 @@ class Container:
                 mapped_args.append(arg)
 
         for h_path, c_path in binds:
-            h_path = h_path.absolute()
             self.bind(h_path, c_path, False)
 
         return mapped_args
