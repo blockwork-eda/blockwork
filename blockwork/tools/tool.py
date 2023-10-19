@@ -14,18 +14,14 @@
 
 import functools
 import inspect
-from itertools import chain
-import logging
 from collections import defaultdict
 from enum import StrEnum, auto
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, TextIO, Tuple, Union
 
-from ..containers.container import Container
-
 from ..common.registry import RegisteredClass
 from ..common.singleton import Singleton
-from ..context import Context, ContextHostPathError
+from ..context import Context
 
 
 class ToolMode(StrEnum):
@@ -490,47 +486,3 @@ class Invocation:
             else:
                 raise AttributeError(f'Invocation object has no option `{k}` (tried to set to `{v}`)')
         return self
-
-    def bind_and_map(self, context: Context, container: Container):
-        """
-        Map host paths to container paths (if applicable) and bind paths to container
-
-        :param context: Context object
-        :param container: Container to map to
-        :returns:       List of mapped arguments
-        """
-        args = []
-        binds = []
-
-        # Identify all host paths that need to be bound in
-        for arg in self.args:
-            # If this is a string, but appears to be a relative path, convert it
-            if isinstance(arg, str) and (as_path := (Path.cwd() / arg)).exists():
-                arg = as_path
-            # For path arguments convert to str...
-            if isinstance(arg, Path):
-                if self.host:
-                    # ...and conditionally try binding host paths to container
-                    try:
-                        c_path = context.map_to_container(arg.absolute().resolve())
-                        binds.append((arg, c_path))
-                        arg = c_path
-                    except ContextHostPathError:
-                        logging.debug(f"Assuming '{arg}' is a container-relative path")
-                args.append(arg.as_posix())
-            # Otherwise, just pass through the argument
-            else:
-                args.append(arg)
-
-        # Bind requested files/folders to relative paths
-        for entry in chain(self.binds, binds):
-            if isinstance(entry, Path):
-                h_path = entry
-                h_path = h_path.absolute()
-                c_path = context.map_to_container(h_path)
-            else:
-                h_path, c_path = entry
-                h_path = h_path.absolute()
-            container.bind(h_path, c_path, False)
-
-        return args

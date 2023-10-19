@@ -23,7 +23,8 @@ import tempfile
 import time
 from pathlib import Path
 from threading import Event
-from typing import Dict, List, Mapping, Optional, TextIO, Tuple, Union
+from typing import Dict, List, Mapping, Optional, Sequence, TextIO, Tuple, Union
+from ..context import Context, ContextHostPathError
 import docker.utils.socket as socket_utils
 
 import requests
@@ -135,6 +136,73 @@ class Container:
         :returns:           Mapped path within the container
         """
         return self.bind(host, container, readonly=True)
+    
+    def bind_many(self, context: Context, binds: Sequence[Union[Path, Tuple[Path, Path]]], readonly: bool = False):
+        """
+        Bind a list bind mappings or single paths (which will be mapped
+        automatically). See `bind`.
+
+        :param context:    Context object
+        :param binds:      Path on the host
+        :param readonly:   Whether to bind as readonly (default: False)
+        """
+        for entry in binds:
+            if isinstance(entry, Path):
+                h_path = entry
+                h_path = h_path.absolute()
+                c_path = context.map_to_container(h_path)
+            else:
+                h_path, c_path = entry
+                h_path = h_path.absolute()
+            self.bind(h_path, c_path, readonly=readonly)
+
+    def bind_and_map_args(self, 
+                          context: Context,
+                          args: Sequence[Union[str, Path]],
+                          host_okay: bool=True) -> Sequence[str]:
+        """
+        Map host paths to container paths (if applicable) and bind paths to 
+        the container.
+
+        :param context:     Context object
+        :param args:        Arguments to map
+        :param host_okay:   Whether to map arguments from host paths
+        :returns:           List of mapped arguments
+        """
+        mapped_args = []
+        binds = []
+
+        # Identify all host paths that need to be bound in
+        for arg in args:
+            # If this is a string, but appears to be a path, convert it
+            if isinstance(arg, str) and (arg.startswith('/') or arg.startswith('./') or arg.startswith('../')):
+                arg = Path.cwd() / arg
+            # For path arguments convert to str...
+            if isinstance(arg, Path):
+                if host_okay:
+                    # ...and conditionally try binding host paths to container
+                    # try our best with paths that look like directories or files
+                    arg = arg.absolute().resolve()
+                    if arg.suffix:
+                        h_path, h_name = arg.parent, arg.name
+                    else:
+                        h_path, h_name = arg, ''
+                    try:
+                        c_path = context.map_to_container(h_path)
+                        binds.append((h_path, c_path))
+                        arg = c_path / h_name
+                    except ContextHostPathError:
+                        logging.debug(f"Assuming '{arg}' is a container-relative path")
+                mapped_args.append(arg.as_posix())
+            # Otherwise, just pass through the argument
+            else:
+                mapped_args.append(arg)
+
+        for h_path, c_path in binds:
+            self.bind(h_path, c_path, False)
+
+        return mapped_args
+    
 
     def set_env(self, key : str, value : str) -> None:
         """

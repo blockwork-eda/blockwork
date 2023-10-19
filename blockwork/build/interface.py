@@ -14,7 +14,10 @@
 
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Callable, Generic, Hashable, Iterable, Optional, TypeVar, TYPE_CHECKING
+import shlex
+from typing import Any, Callable, Generic, Hashable, Iterable, Optional, Sequence, TypeVar, TYPE_CHECKING
+
+from blockwork.context import Context
 
 from ..common.complexnamespaces import ReadonlyNamespace
 
@@ -199,6 +202,11 @@ class MetaInterface(Interface[_RVALUE]):
               `map` method which isn't lazy is provided on this class. 
         '''
         raise NotImplementedError
+
+class ArgsInterface(Interface[str]):
+    'Takes a list of arguments and maps them into the container'
+    def resolve_container(self, ctx: Context, container: Container, direction: Direction) -> Sequence[str]:
+        return shlex.join(container.bind_and_map_args(ctx, args=self.resolve(ctx)))
 
 
 class ListInterface(MetaInterface):
