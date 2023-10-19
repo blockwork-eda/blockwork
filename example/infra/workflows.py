@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
+import shlex
 from typing import Any, Iterable, Optional
 from blockwork.build.interface import ArgsInterface, FileInterface
 from blockwork.common.checkeddataclasses import field
@@ -99,6 +100,6 @@ class Cat(Config):
                           .bind_execute(lambda c, t, i: [
                               Invocation(version=t.pythonsite, 
                                          execute="cat", 
-                                         args=i.args)]))
+                                         args=shlex.split(i.args))]))
     
 
