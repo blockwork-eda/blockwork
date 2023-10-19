@@ -14,6 +14,7 @@
 
 from enum import Enum, auto
 from pathlib import Path
+import shlex
 from typing import Any, Callable, Generic, Hashable, Iterable, Optional, Sequence, TypeVar, TYPE_CHECKING
 
 from blockwork.context import Context
@@ -202,11 +203,10 @@ class MetaInterface(Interface[_RVALUE]):
         '''
         raise NotImplementedError
 
-class ArgsInterface(Interface[Sequence[str]]):
+class ArgsInterface(Interface[str]):
     'Takes a list of arguments and maps them into the container'
     def resolve_container(self, ctx: Context, container: Container, direction: Direction) -> Sequence[str]:
-        return container.bind_and_map_args(ctx, args=self.resolve(ctx))
-
+        return shlex.join(container.bind_and_map_args(ctx, args=self.resolve(ctx)))
 
 class ListInterface(MetaInterface):
     'List of other interfaces'
