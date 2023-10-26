@@ -14,6 +14,7 @@
 
 from enum import Enum, auto
 from functools import cache
+import hashlib
 from pathlib import Path
 import shlex
 from typing import Any, Callable, Generic, Hashable, Iterable, Optional, Sequence, TypeVar, TYPE_CHECKING
@@ -95,14 +96,23 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         # Wrapped here since if they are overriden they still
         # must be cached.
         self.resolve = cache(self.resolve)
-        self.hash = cache(self.hash)
+        self._hash = cache(self._hash)
         self.get_hashsource = cache(self.get_hashsource)
 
     def get_hashsource(self, ctx):
         if self.input_transform:
             return self.input_transform.get_hashsource(ctx)
         else:
-            return self.hash(self.resolve(ctx))
+            return self._hash(ctx)
+        
+    def serialize(self, ctx: "Context") -> Iterable[str]:
+        raise NotImplementedError
+
+    def _hash(self, ctx: "Context"):
+        md5 = hashlib.md5(type(self).__name__.encode('utf8'))
+        for part in self.serialize(ctx):
+            md5.update(part.encode('utf8'))
+        return md5.hexdigest()
 
     def key(self) -> Hashable:
         """
@@ -151,9 +161,6 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         """
         return self.value
 
-    def hash(self, value: _RVALUE) -> str:
-        raise NotImplementedError
-
     def resolve(self, ctx: "Context") -> _RVALUE:
         """
         Resolve this interface to the value that will be passed through to the transform.
@@ -170,7 +177,7 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         else:
             return self.resolve_input(ctx)
 
-    def resolve_container(self, ctx: "Context", container: Container, direction: Direction, value: _RVALUE) -> _RVALUE:
+    def resolve_container(self, ctx: "Context", container: Container, direction: Direction) -> _RVALUE:
         """
         Resolve the value for a container, and return the value that should
         appear in the transforms execute method.
@@ -179,7 +186,7 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         Usually this is expected to internally call the standard `resolve` 
         method (the default implementation simply returns the value from resolve).
         """
-        return value
+        return self.resolve(ctx)
 
 class MetaInterface(Interface[_RVALUE]):
     '''
@@ -207,8 +214,11 @@ class MetaInterface(Interface[_RVALUE]):
     def resolve(self, ctx) -> _RVALUE:
         return self.resolve_meta(lambda v: v.resolve(ctx))
     
-    def resolve_container(self, ctx, container, direction: Direction, value: _RVALUE) -> _RVALUE:
-        return self.resolve_meta(lambda v: v.resolve_container(ctx, container, direction, v.resolve(ctx)))
+    def resolve_container(self, ctx, container, direction: Direction) -> _RVALUE:
+        return self.resolve_meta(lambda v: v.resolve_container(ctx, container, direction))
+    
+    def serialize(self, ctx) -> Iterable[str]:
+        raise RuntimeError('Metainterfaces should not be being serialized (should be transparent)')
     
     @staticmethod
     def map(fn, iterable):
@@ -228,8 +238,8 @@ class MetaInterface(Interface[_RVALUE]):
 
 class ArgsInterface(Interface[str]):
     'Takes a list of arguments and maps them into the container'
-    def resolve_container(self, ctx: Context, container: Container, direction: Direction, value: Sequence[str]) -> Sequence[str]:
-        return shlex.join(container.bind_and_map_args(ctx, args=value))
+    def resolve_container(self, ctx: Context, container: Container, direction: Direction) -> Sequence[str]:
+        return shlex.join(container.bind_and_map_args(ctx, args=self.resolve(ctx)))
 
 class ListInterface(MetaInterface):
     'List of other interfaces'
@@ -247,13 +257,13 @@ class DictInterface(MetaInterface):
     def resolve_meta(self, fn):
         return ReadonlyNamespace(**{k: fn(v) for k, v in self.interfaces.items()})
 
-
 class FileInterface(Interface[Path]):
-    def resolve_container(self, ctx: "Context", container: Container, direction: Direction, value: Path):
+    def resolve_container(self, ctx: "Context", container: Container, direction: Direction):
+        value = self.resolve(ctx)
         container_path = ctx.map_to_container(value)
         readonly = direction.is_input
         container.bind(value.parent, container_path.parent, readonly=readonly)
         return container_path
 
-    def hash(self, value: Path):
-        return Cache.hash_content(value)
+    def serialize(self, ctx: "Context") -> Iterable[str]:
+        yield Cache.hash_content(self.resolve(ctx))

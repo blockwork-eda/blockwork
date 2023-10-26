@@ -214,11 +214,12 @@ class Transform:
         # Bind interfaces to container
         interface_values: dict[str, Any] = {}
         for name, (direction, pipe, interface) in self._interfaces.items():
-            value = interface.resolve(ctx)
 
-            if not pipe is Pipe.HOST:
+            if pipe is Pipe.HOST:
+                value = interface.resolve(ctx)
+            else:
                 # Further resolve to container value
-                value = interface.resolve_container(ctx, container, direction, value)
+                value = interface.resolve_container(ctx, container, direction)
 
             interface_values[name] = value
 
