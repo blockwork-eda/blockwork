@@ -38,13 +38,15 @@ class Scheduler(Generic[_Schedulable]):
     '''
     def __init__(self, 
                  dependency_map: dict[_Schedulable, set[_Schedulable]], 
-                 targets: Optional[Iterable[_Schedulable]]=None):
+                 targets: Optional[Iterable[_Schedulable]]=None,
+                 reverse: bool=False):
         '''
         :param dependency_map: A map between items and the items that they depend on.
                                This must be dense, containing empty values for items
                                with no dependencies.
         :param targets: The target items, only (recursive) dependencies of these items
                         will be scheduled. If None, all items will be scheduled.
+        :param reverse: Schedule in reverse order - as if the dependency map is flipped.
         '''
         if targets is None:
             # Assume any item in the dependency map needs to be built
@@ -79,6 +81,9 @@ class Scheduler(Generic[_Schedulable]):
                 self._dependency_map[dependant] |= dependencies
             for dependency in dependencies:
                 self._dependent_map[dependency].add(dependant)
+
+        if reverse:
+            self._dependency_map, self._dependent_map = self._dependent_map, self._dependency_map
 
         self._remaining = set(self._all)
         self._unscheduled = set(self._all)
