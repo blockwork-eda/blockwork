@@ -1,5 +1,5 @@
 from pathlib import Path
-from shutil import copy
+from shutil import copy, copytree
 from typing import Optional
 from blockwork.build.caching import Cache
 from blockwork.context import Context
@@ -29,7 +29,13 @@ class BasicFileCache(Cache):
             return None
 
     def store_item(self, content_hash: str, frm: Path) -> bool:
-        copy(frm, self.content_store / content_hash)
+        to = self.content_store / content_hash
+        if to.exists():
+            return False
+        if frm.is_dir():
+            copytree(frm, to)
+        else:
+            copy(frm, to)
         return True
 
     def drop_item(self, content_hash: str) -> bool:
@@ -38,8 +44,12 @@ class BasicFileCache(Cache):
 
     def fetch_item(self, content_hash: str, to: Path) -> bool:
         to.parent.mkdir(exist_ok=True, parents=True)
+        frm = self.content_store / content_hash
         try:
-            copy(self.content_store / content_hash, to)
+            if frm.is_dir():
+                copytree(frm, to)
+            else:
+                copy(frm, to)
         except FileNotFoundError:
             return False
         return True
