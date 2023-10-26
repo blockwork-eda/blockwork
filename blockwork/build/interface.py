@@ -17,6 +17,7 @@ from functools import cache
 import hashlib
 from pathlib import Path
 import shlex
+import types
 from typing import Any, Callable, Generic, Hashable, Iterable, Optional, Sequence, TypeVar, TYPE_CHECKING
 from .caching import Cache
 
@@ -106,6 +107,12 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
             return self._hash(ctx)
         
     def serialize(self, ctx: "Context") -> Iterable[str]:
+        if type(self) is Interface:
+            # For some types we can just go ahead and serialize
+            if isinstance(self.value, (str, int, float, types.NoneType)):
+                yield type(self.value).__name__
+                yield str(self.value)
+                return
         raise NotImplementedError
 
     def _hash(self, ctx: "Context"):
