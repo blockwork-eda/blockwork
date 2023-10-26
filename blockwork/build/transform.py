@@ -185,6 +185,18 @@ class Transform:
             md5.update(iface.get_hashsource(ctx).encode('utf8'))
         return md5.hexdigest()
 
+    def bind_host_inputs(self, **interface: Interface):
+        """
+        Attach interfaces to this transform by name as inputs. The 
+        supplied names can be used to refer the interfaces in `execute`.
+
+        Host inputs are special in that they resolve as paths on 
+        the host within the execute method. This is sometimes useful for
+        transforms which execute on the host itself - or need to log host
+        paths.
+        """
+        return self._bind_interfaces(Direction.INPUT, Pipe.HOST, **interface)
+
     def run(self, ctx: "Context"):
         """Run the transform in a container."""
         # Create  a container
