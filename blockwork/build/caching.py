@@ -35,7 +35,7 @@ Stages:
 
   During-run:
     - Go through transforms in dependency order as usual
-    - Skip transforms marked as fetchrd or skipped
+    - Skip transforms marked as fetched or skipped
     - Push output interfaces to all caches that allow it
 
 Future improvements:
@@ -77,7 +77,7 @@ class Cache(ABC):
         return content_hash.hexdigest()
 
     @staticmethod
-    def store_all(ctx: Context, key_hash: str, frm: Path) -> bool:
+    def store_to_any(ctx: Context, key_hash: str, frm: Path) -> bool:
         'Store to every cache that will accept the content'
         stored_somewhere = False
         for cache in ctx.caches:
@@ -86,7 +86,7 @@ class Cache(ABC):
         return stored_somewhere
 
     @staticmethod
-    def fetch_any(ctx: Context, key_hash: str, to: Path) -> bool:
+    def fetch_from_any(ctx: Context, key_hash: str, to: Path) -> bool:
         'Pull from the first cache that has the item'
         for cache in ctx.caches:
             if cache.fetch(key_hash, to):
@@ -102,7 +102,7 @@ class Cache(ABC):
         
         for idx, iface in enumerate(transform._flat_output_interfaces):
             hashkey = f"{iface.get_hashsource(ctx)}-{idx}"
-            if not Cache.fetch_any(ctx, hashkey, iface.resolve(ctx)):
+            if not Cache.fetch_from_any(ctx, hashkey, iface.resolve(ctx)):
                 return False
         return True
         
@@ -119,7 +119,7 @@ class Cache(ABC):
 
         for idx, iface in enumerate(transform._flat_output_interfaces):
             hashkey = f"{iface.get_hashsource(ctx)}-{idx}"
-            if not Cache.store_all(ctx, hashkey, iface.resolve(ctx)):
+            if not Cache.store_to_any(ctx, hashkey, iface.resolve(ctx)):
                 return False
         return True
 

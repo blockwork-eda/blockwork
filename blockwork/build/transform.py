@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import hashlib
 from typing import TYPE_CHECKING, Any, Iterable
 
 from ..common.inithooks import InitHooks

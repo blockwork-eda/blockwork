@@ -198,12 +198,12 @@ class Workflow:
             for transform in cache_scheduler.schedulable:
                 cache_scheduler.schedule(transform)
                 if transform not in targets:
-                    if not (dependent_map[transform] - skipped_transforms):
+                    if not (dependent_map[transform] - skipped_transforms or
+                            dependent_map[transform] - fetched_transforms):
                         skipped_transforms.add(transform)
                     elif Cache.fetch_transform(ctx, transform):
                         logging.info("Fetched transform from cache: %s", transform)
                         fetched_transforms.add(transform)
-                        skipped_transforms.add(transform)
                 cache_scheduler.finish(transform)
 
         # Run everything in order, skipping cached entries, and pushing to the cache when possible
@@ -229,5 +229,5 @@ class Workflow:
             run=run_transforms,
             stored=stored_transforms,
             fetched=fetched_transforms,
-            skipped=(skipped_transforms-fetched_transforms)
+            skipped=skipped_transforms
         )
