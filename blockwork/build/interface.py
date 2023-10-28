@@ -101,6 +101,12 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         self.get_hashsource = cache(self.get_hashsource)
 
     def get_hashsource(self, ctx):
+        '''
+        Get a computed hash for this interface based on the hash of its input
+        or the hash of its own value if it is a static input.
+
+        Note: Although not decorated, this method is always cached via 
+        '''
         if self.input_transform:
             return self.input_transform.get_hashsource(ctx)
         else:

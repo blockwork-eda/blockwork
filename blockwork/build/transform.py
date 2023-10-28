@@ -180,6 +180,12 @@ class Transform:
         return self
     
     def get_hashsource(self, ctx: "Context") -> str:
+        '''
+        Get a computed hash for this transform based on the
+        hashes of inputs.
+
+        Note: Although not decorated, this method is always cached via init.
+        '''
         md5 = hashlib.md5(type(self).__name__.encode('utf8'))
         for iface in self._flat_input_interfaces:
             md5.update(iface.get_hashsource(ctx).encode('utf8'))
