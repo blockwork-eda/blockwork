@@ -47,7 +47,7 @@ class Element(Parser):
         Parse a target config file based on the target unit, path within that 
         unit and expected type
 
-        :param target_spec: The target specified as `<unit>.<path>` or `<path>` 
+        :param target_spec: The target specified as `<unit>:<path>` or `<path>` 
                             where path is the path within the unit to the yaml,
                             not including the extension. The <unit> component
                             is inferred where possible.
