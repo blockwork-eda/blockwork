@@ -234,9 +234,30 @@ class DictInterface(MetaInterface):
 
 
 class FileInterface(Interface[Path]):
+    def __init__(self, value: str | Path) -> None:
+        self.value = Path(value)
+
     def resolve_container(self, ctx: "Context", container: Container, direction: Direction):
         host_path = self.resolve(ctx)
         container_path = ctx.map_to_container(host_path)
         readonly = direction.is_input
         container.bind(host_path.parent, container_path.parent, readonly=readonly)
         return container_path
+
+class SplitFileInterface(FileInterface):
+    """
+    File interface where input and output path resolve differently, but with a common key
+    """
+    def __init__(self, input_path: str | Path, output_path: str | Path, key: Hashable) -> None:
+        self._input_path = Path(input_path)
+        self._output_path = Path(output_path)
+        self._key = key
+
+    def key(self):
+        return self._key
+    
+    def resolve_output(self, ctx: "Context"):
+        return self._output_path
+    
+    def resolve_input(self, ctx: "Context"):
+        return self._input_path
