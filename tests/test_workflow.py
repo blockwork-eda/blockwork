@@ -185,8 +185,12 @@ class TestC:
         class ConfigB(Config):
             def iter_transforms(self) -> Iterable[Transform]:
                 test_iface = Interface('test')
-                yield TransformB().bind_inputs(test_ip=test_iface)
-                yield TransformA().bind_outputs(test_op=test_iface)
+                b = TransformB()
+                b.bind_inputs(test_ip=test_iface)
+                a = TransformA()
+                a.bind_outputs(test_op=test_iface)
+                yield b
+                yield a
 
         match_transform_tree(workflow.get_transform_tree(ConfigB()), (
             set([TransformA, TransformB]), {
@@ -199,8 +203,9 @@ class TestC:
         test_iface = Interface('test')
         class ConfigC(Config):
             def iter_transforms(self) -> Iterable[Transform]:
-                yield TransformA().bind_outputs(test_op=test_iface)
-        
+                a = TransformA()
+                a.bind_outputs(test_op=test_iface)
+                yield a
         class ConfigD(Config):
             child: ConfigC
 
@@ -208,7 +213,9 @@ class TestC:
                 yield self.child
 
             def iter_transforms(self) -> Iterable[Transform]:
-                yield TransformB().bind_inputs(test_ip=test_iface)
+                b = TransformB()
+                b.bind_inputs(test_ip=test_iface)
+                yield b
 
         match_transform_tree(workflow.get_transform_tree(ConfigD(child=ConfigC())), (
             [TransformA, TransformB], {
@@ -233,8 +240,12 @@ class TestC:
         class ConfigA(Config):
             def iter_transforms(self) -> Iterable[Transform]:
                 test_iface = Interface(Path('xyztestpath'))
-                yield TransformB().bind_inputs(test_ip=test_iface)
-                yield TransformA().bind_outputs(test_op=test_iface)
+                b = TransformB()
+                b.bind_inputs(test_ip=test_iface)
+                yield b
+                a = TransformA()
+                a.bind_outputs(test_op=test_iface)
+                yield a
             
             def transform_filter(self, transform: Transform, config: Config):
                 return isinstance(transform, TransformB)
