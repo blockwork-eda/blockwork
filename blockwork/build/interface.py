@@ -99,6 +99,13 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         """
         return id(self)
 
+    def __deepcopy__(self, _memo):
+        """
+        Interfaces are singletons based on the key that absolutely must not be
+        copied.
+        """
+        return self
+
     def _bind_transform(self, transform: "Transform", direction: Direction):
         """
         Binds this interface to a transform with direction and name.
