@@ -17,6 +17,7 @@ from functools import cache
 import hashlib
 from pathlib import Path
 import shlex
+import types
 from typing import Any, Callable, Generic, Hashable, Iterable, Optional, Sequence, TypeVar, TYPE_CHECKING
 from .caching import Cache
 
@@ -252,7 +253,6 @@ class ArgsInterface(Interface[str]):
     'Takes a list of arguments and maps them into the container'
     def resolve_container(self, ctx: Context, container: Container, direction: Direction) -> Sequence[str]:
         return shlex.join(container.bind_and_map_args(ctx, args=self.resolve(ctx)))
-
 
 class ListInterface(MetaInterface):
     'List of other interfaces'
