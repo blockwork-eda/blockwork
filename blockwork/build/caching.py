@@ -1,0 +1,159 @@
+# Copyright 2023, Blockwork, github.com/intuity/blockwork
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+'''
+This module contains the fundamentals required for the implementation of
+caching mechanisms. See the example project's cache for a simple working
+example.
+
+The cache scheme stores files using the hash of its content as a key, and
+additionally stores a many-to-one map of a hashkey which is computable
+before anything is run to that content hash.
+
+Stages:
+  Initial:
+    - Hash the content of static input interfaces
+    - Use these to compute transform hashkeys for nodes with no dependencies
+    - Use input interface names along with the hashkeys of transforms that 
+        output them to get the transform hashkeys for nodes with dependencies
+
+  Pre-run:
+    - Go through the transforms in reverse order
+    - Try and pull all output interfaces from caches - if successful mark that
+        transform as fetched.
+    - If all dependents of a transform are fetched, mark a transform as skipped
+
+  During-run:
+    - Go through transforms in dependency order as usual
+    - Skip transforms marked as fetched or skipped
+    - Push output interfaces to all caches that allow it
+
+Future improvements:
+  - Pass through information such as tags, file-size, and time-to-create 
+    through to caches so they can make intelligent decisions on what to cache.
+
+'''
+
+from abc import ABC, abstractmethod
+import hashlib
+import os
+from pathlib import Path
+from typing import Optional, TYPE_CHECKING
+if TYPE_CHECKING:
+    from blockwork.build.transform import Transform
+from ..context import Context
+
+# Switch to never pull or push from the cache, but to instead compare the 
+# hash with existing cache entries.
+# This will become a command option later...
+CACHE_CONSISTENCY_MODE = False
+
+class Cache(ABC):
+    @staticmethod
+    def hash_content(path: Path) -> str:
+        '''
+        Hash the content of a file or directory. This needs to be consistent
+        across caching schemes so consistency checks can be performed.
+        '''
+        if not path.exists():
+            raise RuntimeError
+        if path.is_dir():
+            content_hash = hashlib.md5('<dir>'.encode('utf8'))
+            for item in sorted(os.listdir(path)):
+                content_hash.update((item + Cache.hash_content(path / item)).encode('utf8'))
+        else:
+            with path.open('rb') as f:
+                content_hash = hashlib.file_digest(f, 'md5')
+        return content_hash.hexdigest()
+
+    @staticmethod
+    def store_to_any(ctx: Context, key_hash: str, frm: Path) -> bool:
+        'Store to every cache that will accept the content'
+        stored_somewhere = False
+        for cache in ctx.caches:
+            if cache.store(key_hash, frm):
+                stored_somewhere = True
+        return stored_somewhere
+
+    @staticmethod
+    def fetch_from_any(ctx: Context, key_hash: str, to: Path) -> bool:
+        'Pull from the first cache that has the item'
+        for cache in ctx.caches:
+            if cache.fetch(key_hash, to):
+                return True
+            to.unlink(missing_ok=True)
+        return False
+    
+    @staticmethod
+    def fetch_transform(ctx: Context, transform: "Transform") -> bool:
+        'Fetch all the output interfaces for a transform'
+        if CACHE_CONSISTENCY_MODE:
+            return False
+        
+        for idx, iface in enumerate(transform._flat_output_interfaces):
+            hashkey = f"{iface.get_hashsource(ctx)}-{idx}"
+            if not Cache.fetch_from_any(ctx, hashkey, iface.resolve(ctx)):
+                return False
+        return True
+        
+    @staticmethod
+    def store_transform(ctx: Context, transform: "Transform") -> bool:
+        'Store all the output interfaces for a transform'
+        if CACHE_CONSISTENCY_MODE:
+            for idx, iface in enumerate(transform._flat_output_interfaces):
+                hashkey = f"{iface.get_hashsource(ctx)}-{idx}"
+                content_hash = Cache.hash_content(iface.resolve(ctx))
+                for cache in ctx.caches:
+                    assert content_hash == cache.fetch_hash(hashkey)
+            return False
+
+        for idx, iface in enumerate(transform._flat_output_interfaces):
+            hashkey = f"{iface.get_hashsource(ctx)}-{idx}"
+            if not Cache.store_to_any(ctx, hashkey, iface.resolve(ctx)):
+                return False
+        return True
+
+    def store(self, key_hash: str, frm: Path) -> bool:
+        'Store a single file/directory'
+        content_hash = Cache.hash_content(frm)
+        if self.store_item(content_hash, frm):
+            if self.store_hash(key_hash, content_hash):
+                return True
+            self.drop_item(content_hash)
+        return False
+
+    def fetch(self, key_hash: str, to: Path) -> bool:
+        'Fetch a single file/directory'
+        if (content_hash:=self.fetch_hash(key_hash)) is not None:
+            if self.fetch_item(content_hash, to):
+                return True
+        to.unlink(missing_ok=True)
+        return False
+
+    @abstractmethod
+    def store_hash(self, key_hash: str, content_hash: str) -> bool: ...
+
+    @abstractmethod
+    def drop_hash(self, key_hash: str) -> bool: ...
+
+    @abstractmethod
+    def fetch_hash(self, key_hash: str) -> Optional[str]: ...
+
+    @abstractmethod
+    def store_item(self, content_hash: str, frm: Path) -> bool: ...
+
+    @abstractmethod
+    def drop_item(self, content_hash: str) -> bool: ...
+
+    @abstractmethod
+    def fetch_item(self, content_hash: str, to: Path) -> bool: ...

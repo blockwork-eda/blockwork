@@ -13,6 +13,12 @@
 # limitations under the License.
 
 from functools import partial, reduce
+from types import SimpleNamespace
+
+from ..build.caching import Cache
+
+from ..context import Context
+
 from ..config.base import Config, Project, Site
 import click
 import logging
@@ -95,7 +101,7 @@ class Workflow:
                     kwargs['target'] = self.parse_target(ctx, site, kwargs['project'], target, self.target_type)
 
             inst = fn(ctx, *args, **kwargs)
-            self._run(ctx, inst)
+            self._run(ctx, *self.get_transform_tree(inst))
 
         option_fns = []
         if self.project_type:
@@ -134,21 +140,27 @@ class Workflow:
         target_transforms = list(filter(transform_filter, transforms))
         yield (config, transforms, target_transforms)
 
-    def _run(self, ctx, root: Config):
+    def get_transform_tree(self, root: Config) -> tuple[set[Transform], 
+                                                        dict[Transform, set[Transform]], 
+                                                        dict[Transform, set[Transform]]]:
         '''
-        Internally called method to run the workflow
+        Gather transform dependency data.
+
+        :return: Tuple of 'the targets', 'the dependency tree', 'the depenent tree (inverted dependency tree)'
         '''
         # Join interfaces together and get transform dependencies
         output_interfaces: list[Interface] = []
         dependency_map: dict[Transform, set[Transform]] = {}
-        targets = []
+        dependent_map: dict[Transform, set[Transform]] = {}
+        targets: set[Transform] = set()
 
         for _config, transforms, target_transforms in self.gather(root):
             for transform in transforms:
                 dependency_map[transform] = set()
+                dependent_map[transform] = set()
                 for interface in transform.real_output_interfaces:
                     output_interfaces.append(interface)
-            targets += target_transforms
+            targets.update(target_transforms)
             
         # We only need to look at output interfaces since an output must
         # exist in order for a dependency to exist
@@ -156,13 +168,66 @@ class Workflow:
             input_transform = cast(Transform, interface.input_transform)
             for output_transform in interface.output_transforms:
                 dependency_map[output_transform].add(input_transform)
+                dependent_map[input_transform].add(output_transform)
+        
+        return targets, dependency_map, dependent_map
+    
+    def _run(self,
+             ctx: Context,
+             targets: set[Transform],
+             dependency_map: dict[Transform, set[Transform]],
+             dependent_map: dict[Transform, set[Transform]]):
+        '''
+        Run the workflow from transform dependency data.
+        '''
 
-        # Run everything in order serially
-        scheduler = Scheduler(dependency_map, targets=targets)
-        while scheduler.incomplete:
-            for transform in scheduler.schedulable:
-                scheduler.schedule(transform)
-                # Note this message is info for now for demonstrative purposes only
-                logging.info("Running transform: %s", transform)
-                transform.run(ctx)
-                scheduler.finish(transform)
+        # Record the transforms we pulled from the cache
+        fetched_transforms: set[Transform] = set()
+        # Record the transforms that don't need to be run since they were were
+        # pulled from the cahce or only transforms pulled from the cache 
+        # depend on them.
+        skipped_transforms: set[Transform] = set()
+        # Record the transforms we actually ran
+        run_transforms: set[Transform] = set()
+        # And those that made it into the cache
+        stored_transforms: set[Transform] = set()
+
+        # Run in reverse order, pulling from the cache if items exits
+        cache_scheduler = Scheduler(dependency_map, targets=targets, reverse=True)
+        while cache_scheduler.incomplete:
+            for transform in cache_scheduler.schedulable:
+                cache_scheduler.schedule(transform)
+                if transform not in targets:
+                    if not (dependent_map[transform] - skipped_transforms or
+                            dependent_map[transform] - fetched_transforms):
+                        skipped_transforms.add(transform)
+                    elif Cache.fetch_transform(ctx, transform):
+                        logging.info("Fetched transform from cache: %s", transform)
+                        fetched_transforms.add(transform)
+                cache_scheduler.finish(transform)
+
+        # Run everything in order, skipping cached entries, and pushing to the cache when possible
+        run_scheduler = Scheduler(dependency_map, targets=targets)
+        while run_scheduler.incomplete:
+            for transform in run_scheduler.schedulable:
+                run_scheduler.schedule(transform)
+                if transform in fetched_transforms:
+                    logging.info("Skipped cached transform: %s", transform)
+                elif transform in skipped_transforms:
+                    logging.info("Skipped transform (due to cached dependents): %s", transform)
+                else:
+                    logging.info("Running transform: %s", transform)
+                    transform.run(ctx)
+                    run_transforms.add(transform)
+                    if Cache.store_transform(ctx, transform):
+                        stored_transforms.add(transform)
+                        logging.info("Stored transform to cache: %s", transform)
+                run_scheduler.finish(transform)
+
+        # This is primarily returned for unit-testing
+        return SimpleNamespace(
+            run=run_transforms,
+            stored=stored_transforms,
+            fetched=fetched_transforms,
+            skipped=skipped_transforms
+        )

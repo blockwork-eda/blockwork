@@ -12,24 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional
 from ..common.checkeddataclasses import dataclass, field
 
 @dataclass
 class Blockwork:
     project      : str
-    site         : str                 = "./site.yaml"
-    root         : str                 = field(default="/project")
-    scratch      : str                 = field(default="/scratch")
-    tools        : str                 = field(default="/tools")
-    host_scratch : str                 = "../{project}.scratch"
-    host_state   : str                 = "../{project}.state"
-    host_tools   : str                 = "../{project}.tools"
-    config       : Optional[List[str]] = field(default_factory=list)
-    bootstrap    : Optional[List[str]] = field(default_factory=list)
-    tooldefs     : Optional[List[str]] = field(default_factory=list)
-    transforms   : Optional[List[str]] = field(default_factory=list)
-    workflows    : Optional[List[str]] = field(default_factory=list)
+    site         : str       = "./site.yaml"
+    root         : str       = field(default="/project")
+    scratch      : str       = field(default="/scratch")
+    tools        : str       = field(default="/tools")
+    host_scratch : str       = "../{project}.scratch"
+    host_state   : str       = "../{project}.state"
+    host_tools   : str       = "../{project}.tools"
+    config       : list[str] = field(default_factory=list)
+    bootstrap    : list[str] = field(default_factory=list)
+    tooldefs     : list[str] = field(default_factory=list)
+    transforms   : list[str] = field(default_factory=list)
+    workflows    : list[str] = field(default_factory=list)
+    caches       : list[str] = field(default_factory=list)
+    'Caches in order of fetch preference (fastest should be first)'
 
     @root.check
     @scratch.check
