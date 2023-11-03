@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from functools import partial, reduce
+from functools import cache, partial, reduce
 from types import SimpleNamespace
 
 from ..build.caching import Cache
@@ -106,11 +106,14 @@ class Workflow:
         wf.add_command(command, name=self.name)
         return command
     
-
+    @cache
     def gather(self, config: Config) -> Iterable[tuple[Config, list[Transform], list[Transform]]]:
         '''
         Iterate over the tree of configs gathering "interesting" transforms.
         
+        Note it is functionally required that this is cached as we must only 
+        process each config once.
+
         :return: An iterable of tuples of 'the config', 'its transforms', 'its target transforms'
         '''
         for child_config in config.iter_config():
