@@ -140,15 +140,15 @@ class ProjectApi(ConfigApiBase["Project"]):
 
 class TargetApi(ConfigApiBase["Config"]):
     def __init__(self, api: ConfigApi, spec: str, typ: "type[Config]") -> None:
-        self.unit = None if api._target is None else api._target.unit
+        self._context_unit = None if api._target is None else api._target.unit
         self.api = api.fork(target=self)
         self.unit, self.target = self.split_spec(spec)
         self.path = self.find_config(self.unit, self.target, typ)
         with self.api:
             self._config = typ.parser.parse(self.path)
 
-        self._project_path = self.api.ctx.host_root / self.api.project.config.units[self.unit]
-        self._scratch_path = self.api.ctx.host_scratch / self.api.project.config.units[self.unit]
+        self.project_path = self.api.ctx.host_root / self.api.project.config.units[self.unit]
+        self.scratch_path = self.api.ctx.host_scratch / self.api.ctx.timestamp / self.api.project.config.units[self.unit]
 
     def split_spec(self, spec: str):
         """
@@ -174,8 +174,8 @@ class TargetApi(ConfigApiBase["Config"]):
 
         # If given empty unit, infer here.
         if unit == '':
-            if self.unit is not None:
-                unit = self.unit
+            if self._context_unit is not None:
+                unit = self._context_unit
             else:
                 raise RuntimeError(f'Require implicit unit for `{spec}`, but not in unit context!')
         return unit, target
@@ -207,8 +207,8 @@ class TargetApi(ConfigApiBase["Config"]):
         return config_path
 
     def file_interface(self, path: str | Path):
-        return SplitFileInterface(input_path=self._project_path / path,
-                                  output_path=self._scratch_path / path,
+        return SplitFileInterface(input_path=self.project_path / path,
+                                  output_path=self.scratch_path / path,
                                   key=(self.unit, path))
 
 class NodeApi:

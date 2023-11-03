@@ -20,6 +20,7 @@ from enum import StrEnum, auto
 from pathlib import Path
 import sys
 from typing import Optional, TYPE_CHECKING
+from datetime import datetime
 
 if TYPE_CHECKING:
     from .build.caching import Cache
@@ -66,6 +67,7 @@ class Context:
         self.__file      = cfg_file
         self.__host_root = self.locate_root(root or Path.cwd())
         self.__host_arch = HostArchitecture.identify()
+        self.__timestamp = datetime.now().strftime('D%Y%m%dT%H%M%S')
 
     @property
     def host_architecture(self) -> HostArchitecture:
@@ -204,6 +206,10 @@ class Context:
     @functools.lru_cache()
     def state(self) -> State:
         return State(self.host_state)
+    
+    @property
+    def timestamp(self) -> str:
+        return self.__timestamp
 
     def map_to_container(self, h_path : Path) -> Path:
         """
