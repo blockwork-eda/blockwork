@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import hashlib
 from typing import TYPE_CHECKING, Any, Iterable
 
 from ..common.inithooks import InitHooks
@@ -41,6 +42,9 @@ class Transform:
         self._interfaces = {}
         self._flat_input_interfaces = []
         self._flat_output_interfaces = []
+        # Wrapped here since if they are overriden they still
+        # must be cached.
+        self.get_hashsource = functools.cache(self.get_hashsource)
 
     @property
     @functools.lru_cache()
@@ -87,6 +91,12 @@ class Transform:
                       same value each time.
         """
         return f"{self.__class__.__name__}_{id(self)}"
+
+    def get_hashsource(self, ctx: "Context") -> str:
+        md5 = hashlib.md5(type(self).__name__.encode('utf8'))
+        for iface in self._flat_input_interfaces:
+            md5.update(iface.get_hashsource(ctx).encode('utf8'))
+        return md5.hexdigest()
 
     def _bind_interfaces(self, _direction: Direction, _pipe: Pipe, **kwargs: Interface):
         for name, interface in kwargs.items():
@@ -161,10 +171,14 @@ class Transform:
         # Bind interfaces to container
         interface_values: dict[str, Any] = {}
         for name, (direction, pipe, interface) in self._interfaces.items():
+
             if pipe is Pipe.HOST:
-                interface_values[name] = interface.resolve(ctx)
+                value = interface.resolve(ctx)
             else:
-                interface_values[name] = interface.resolve_container(ctx, container, direction)
+                # Further resolve to container value
+                value = interface.resolve_container(ctx, container, direction)
+
+            interface_values[name] = value
 
         tools = ReadonlyNamespace(**tool_instances)
         iface = ReadonlyNamespace(**interface_values)

@@ -13,12 +13,18 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Iterable, Optional
-from blockwork.build.interface import FileInterface
+import shlex
+from typing import Any, Iterable, Optional
+from blockwork.build.interface import ArgsInterface, FileInterface
+from blockwork.common.checkeddataclasses import field
+from blockwork.common.complexnamespaces import ReadonlyNamespace
+from blockwork.context import Context
+from blockwork.tools.tool import Invocation, Version
 from blockwork.workflows.workflow import Workflow
 import click
 from blockwork.build.transform import Transform
 from blockwork.config.base import Config
+from .tools.misc import PythonSite
 from .transforms.examples import CapturedTransform
 from .transforms.lint import VerilatorLintTransform
 
@@ -74,3 +80,24 @@ class Lint(Config):
     
     def iter_config(self) -> Iterable[Config]:
         yield self.target
+
+
+class Cat(Config):
+    """
+    This example shows an anonymous transform and the arg interface.
+    """
+    args: list[str] = field(default_factory=list)
+
+    @Workflow("cat")
+    @click.argument("args", nargs=-1, type=click.UNPROCESSED)
+    @staticmethod
+    def from_command(ctx, args):
+        return Cat(args=list(args))
+    
+    def iter_transforms(self) -> Iterable[Transform]:
+        yield (Transform().bind_tools(PythonSite)
+                          .bind_inputs(args=ArgsInterface(self.args))
+                          .bind_execute(lambda c, t, i: [
+                              Invocation(version=t.pythonsite, 
+                                         execute="cat", 
+                                         args=shlex.split(i.args))]))

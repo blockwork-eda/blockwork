@@ -12,6 +12,8 @@ transforms:
   - infra.transforms.examples
 workflows:
   - infra.workflows
+caches:
+  - infra.caches.BasicFileCache
 config:
   - infra.config.config
 

@@ -13,11 +13,16 @@
 # limitations under the License.
 
 import functools
+import importlib
 import logging
 import platform
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Optional
+import sys
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .build.caching import Cache
 
 from .config import Blockwork
 from .state import State
@@ -180,6 +185,23 @@ class Context:
 
     @property
     @functools.lru_cache()
+    def caches(self) -> list["Cache"]:
+        'Import and initialise the caches from config'
+
+        if self.host_root.absolute().as_posix() not in sys.path:
+            sys.path.append(self.host_root.absolute().as_posix())
+
+        caches = []
+        for cache in self.config.caches:
+            module_path, class_name = cache.rsplit('.', 1)
+            module = importlib.import_module(module_path)
+            Cache = getattr(module, class_name)
+            caches.append(Cache(self))
+
+        return caches
+
+    @property
+    @functools.lru_cache()
     def state(self) -> State:
         return State(self.host_state)
 
@@ -195,6 +217,8 @@ class Context:
             if h_path.is_relative_to(rel_host):
                 c_path = rel_cont / h_path.relative_to(rel_host)
                 break
+            elif not h_path.is_absolute():
+                raise ContextHostPathError(f"Path {h_path} is required to be absolute.")
         else:
             raise ContextHostPathError(f"Path {h_path} is not within the project "
                                        f"working directory {self.host_root} or "

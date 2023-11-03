@@ -34,9 +34,10 @@ from .common import scopes
 
 @scopes.scope
 @dataclasses.dataclass
-class Verbosity:
+class DebugScope:
     VERBOSE: bool = False
     VERBOSE_LOCALS: bool = False
+    POSTMORTEM: bool = False
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,16 +74,23 @@ logging.basicConfig(
               type=str,
               default=None,
               help="Override the host architecture")
+@click.option("--pdb",
+              is_flag=True,
+              default=False,
+              help="Enable PDB post-mortem debugging on any exception")
 def blockwork(ctx,
               cwd : str,
               verbose : bool,
               verbose_locals : bool,
               quiet : bool,
+              pdb : bool,
               runtime : Optional[str] = None,
               arch : Optional[str] = None) -> None:
+    # Setup post-mortem debug
+    DebugScope.current.POSTMORTEM = pdb
     # Setup the verbosity
-    Verbosity.current.VERBOSE = verbose
-    Verbosity.current.VERBOSE_LOCALS = verbose and verbose_locals
+    DebugScope.current.VERBOSE = verbose
+    DebugScope.current.VERBOSE_LOCALS = verbose and verbose_locals
     if verbose:
         logging.info("Setting logging verbosity to DEBUG")
         logging.getLogger().setLevel(logging.DEBUG)
@@ -107,17 +115,23 @@ for activity in activities:
     blockwork.add_command(activity)
 
 def main():
-    with Verbosity(VERBOSE=True, VERBOSE_LOCALS=True) as v:
+    with DebugScope(VERBOSE=True, VERBOSE_LOCALS=True, POSTMORTEM=False) as v:
         try:
             blockwork(auto_envvar_prefix="BW")
             sys.exit(0)
         except Exception as e:
+            # Log the exception
             if type(e) is not Exception:
                 logging.error(f"{type(e).__name__}: {e}")
             else:
                 logging.error(str(e))
             if v.VERBOSE:
                 Console().print_exception(show_locals=v.VERBOSE_LOCALS)
+            # Enter PDB post-mortem debugging if required
+            if v.POSTMORTEM:
+                import pdb
+                pdb.post_mortem()
+            # Exit with failure
             sys.exit(1)
 
 if __name__ == "__main__":
