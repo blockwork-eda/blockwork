@@ -27,18 +27,18 @@ class Site(base.Site):
 class Project(base.Project):
     pass
 
-class Mako(base.Element):
+class Mako(base.Config):
     template: str
     output: str
 
     def iter_transforms(self):
         yield MakoTransform(
-            template=self.file_interface(self.template),
-            output=self.file_interface(self.output)
+            template=self.api.file_interface(self.template),
+            output=self.api.file_interface(self.output)
         )
 
 
-class Design(base.Element):
+class Design(base.Config):
     top: str
     sources: list[str]
     transforms: list[Mako] = field(default_factory=list)
@@ -47,12 +47,12 @@ class Design(base.Element):
         yield from self.transforms
 
     def iter_transforms(self) -> Iterable[Transform]:
-        idesign = DesignInterface(sources=map(self.file_interface, self.sources),
+        idesign = DesignInterface(sources=map(self.api.file_interface, self.sources),
                                   headers=[])
         yield VerilatorLintTransform(idesign)
 
 
-class Testbench(base.Element):
+class Testbench(base.Config):
     design: Design
     bench_python: str
     bench_make: str

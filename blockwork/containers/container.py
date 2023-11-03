@@ -118,8 +118,12 @@ class Container:
                 return
             # Otherwise if a match or a parent, fail
             elif c_match or container in bind.container_path.parents:
-                raise ContainerError(f"Cannot bind {host} to {container} due to"
-                                     f"collision with existing bind from {bind.host_path}")
+                e_str = (f"Cannot bind {host} to {container} "
+                         f"(as {'readonly' if readonly else 'writable'}) "
+                          "due to collision with existing "
+                         f"bind {bind.host_path} to {bind.container_path} "
+                         f"(as {'readonly' if bind.readonly else 'writable'})")
+                raise ContainerError(e_str)
         if mkdir and not host.exists():
             host.mkdir(parents=True)
         self.__binds.append(ContainerBind(host, container, readonly))

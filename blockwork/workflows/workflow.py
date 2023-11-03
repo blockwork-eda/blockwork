@@ -20,18 +20,17 @@ from ..build.caching import Cache
 from ..context import Context
 
 from ..config.base import Config, Project, Site
+from ..config.api import ConfigApi
 import click
 import logging
 from pathlib import Path
 from typing import Callable, Iterable, Optional, cast
 
 from ..config.scheduler import Scheduler
-from ..config import parsers
 
 from ..build.interface import Interface
 
 from ..build.transform import Transform
-from ..config import base
 from ..activities.workflow import wf
 
 
@@ -69,38 +68,26 @@ class Workflow:
         return self
 
     @classmethod
-    def parse_site(cls, ctx) -> Site:
-        SITE_TYPE = cls.SITE_TYPE
-        site_parser = parsers.Site(ctx)
-        site_path = ctx.site
-        return site_parser(SITE_TYPE).parse(site_path)
-
-    @classmethod
-    def parse_project(cls, ctx, site: Site, project: str, typ: type) -> Project:
-        'Parse a project option using the given site'
-        project_parser = parsers.Project(ctx, site)
-        project_path = Path(site.projects[project])
-        return project_parser(typ).parse(project_path)
-
-    @classmethod
-    def parse_target(cls, ctx, site: Site, project: Project, target:str, typ: type) -> base.Element:
-        'Parse a target option using the given site and project'
-        target_parser = parsers.Element(ctx, site, project)
-        # If target type not provided assume we're pointing to a workflow file itself
-        return target_parser.parse_target(target, typ)
+    def parse(cls, typ, path: Path):
+        return Config.parser(typ).parse(path)
 
     def __call__(self, fn: Callable[..., Config]) -> Callable[..., None]:
 
         @click.command()
         @click.pass_obj
         def command(ctx, project=None, target=None, *args, **kwargs):
-            site = self.parse_site(ctx)
-            if project:
-                kwargs['project'] = self.parse_project(ctx, site, project, self.project_type)
-                if target:
-                    kwargs['target'] = self.parse_target(ctx, site, kwargs['project'], target, self.target_type)
 
-            inst = fn(ctx, *args, **kwargs)
+            site_api = ConfigApi(ctx).with_site(ctx.site, self.SITE_TYPE)
+
+            if project:
+                project_api = site_api.with_project(project, self.project_type)
+                kwargs['project'] = project_api.project.config
+                if target:
+                    target_api = project_api.with_target(target, self.target_type)
+                    kwargs['target'] = target_api.target.config
+
+            with site_api:
+                inst = fn(ctx, *args, **kwargs)
             self._run(ctx, *self.get_transform_tree(inst))
 
         option_fns = []

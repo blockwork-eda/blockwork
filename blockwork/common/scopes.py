@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Generic, ParamSpec, TypeVar
+from typing import Callable, Generic, ParamSpec, Self, TypeVar
 
 
 class ScopeError(RuntimeError):
@@ -34,6 +34,40 @@ class _ScopeWrap(Generic[_ScopedData]):
     @classmethod
     @property
     def current(cls) -> _ScopedData:
+        try:
+            return cls._stack[-1]
+        except IndexError as e:
+            raise ScopeError from e
+
+class Scope:
+    """
+    Mixin class to provide scoping via a context manager 
+    stack for data that may otherwise end up global. See example::
+
+        @dataclass
+        class Verbosity(Scope):
+            VERBOSE: bool
+
+        def do_something():
+            if Verbosity.current().VERBOSE:
+                ...
+            else
+                ...
+            
+        with Verbosity(VERBOSE=True):
+            do_something()
+    """
+    _stack: list[Self] = []
+    def __enter__(self):
+        self._stack.append(self)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._stack.pop()
+
+    @classmethod
+    @property
+    def current(cls) -> Self:
         try:
             return cls._stack[-1]
         except IndexError as e:

@@ -271,12 +271,34 @@ class DictInterface(MetaInterface):
         return ReadonlyNamespace(**{k: fn(v) for k, v in self.interfaces.items()})
 
 class FileInterface(Interface[Path]):
+    def __init__(self, value: str | Path) -> None:
+        self.value = Path(value)
+
     def resolve_container(self, ctx: "Context", container: Container, direction: Direction):
         value = self.resolve(ctx)
         container_path = ctx.map_to_container(value)
         readonly = direction.is_input
         container.bind(value.parent, container_path.parent, readonly=readonly)
         return container_path
-
+    
     def serialize(self, ctx: "Context") -> Iterable[str]:
         yield Cache.hash_content(self.resolve(ctx))
+
+
+class SplitFileInterface(FileInterface):
+    """
+    File interface where input and output path resolve differently, but with a common key
+    """
+    def __init__(self, input_path: str | Path, output_path: str | Path, key: Hashable) -> None:
+        self._input_path = Path(input_path)
+        self._output_path = Path(output_path)
+        self._key = key
+
+    def key(self):
+        return self._key
+    
+    def resolve_output(self, ctx: "Context"):
+        return self._output_path
+    
+    def resolve_input(self, ctx: "Context"):
+        return self._input_path
