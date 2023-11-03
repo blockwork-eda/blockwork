@@ -66,7 +66,7 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i:hash(i))):
     def __init__(self, *args, **kwargs): ...
 
     def __hash__(self):
-        return self.api.uid() or id(self)
+        return self.api.node_id() or id(self)
     
     def __eq__(self, other):
         return hash(self) == hash(other)

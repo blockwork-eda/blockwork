@@ -1,9 +1,11 @@
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Iterable, Optional
 import pytest
 from blockwork.build.caching import Cache
 from blockwork.build.interface import Interface
 from blockwork.build.transform import Transform
+from blockwork.config.api import ConfigApi
 
 from blockwork.config.base import Config
 from blockwork.workflows.workflow import Workflow
@@ -93,7 +95,7 @@ def match_results(results, run, stored, fetched, skipped):
 
 
 class TestC:
-
+    @ConfigApi(SimpleNamespace())
     def test_gather(self):
         workflow = Workflow('test')
 
@@ -166,6 +168,7 @@ class TestC:
             (ConfigE, [], [])
         ])
 
+    @ConfigApi(SimpleNamespace())
     def test_transform_tree(self):
         workflow = Workflow('test')
 
@@ -224,6 +227,7 @@ class TestC:
             }
         ))
 
+    @ConfigApi(SimpleNamespace())
     def test_run(self):
         workflow = Workflow('test')
         class ctx:

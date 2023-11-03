@@ -2,10 +2,13 @@ from abc import ABC
 from pathlib import Path
 from typing import TYPE_CHECKING, Generic, Optional, TypeVar
 import yaml
+
+
 from ..common.scopes import Scope
 
 if TYPE_CHECKING:
     from .base import Project, Config, Site
+    from ..context import Context
 
 from ..build.interface import FileInterface, SplitFileInterface
 
@@ -20,7 +23,7 @@ class ConfigApi(Scope):
     Intended to be created using just ctx and extended with the with_* methods.
     '''
     def __init__(self,
-                 ctx,
+                 ctx: "Context",
                  site: Optional["SiteApi"]=None,
                  project: Optional["ProjectApi"]=None,
                  target: Optional["TargetApi"]=None,
@@ -32,13 +35,18 @@ class ConfigApi(Scope):
         self._target = target
         self._node = node
 
-    def uid(self):
+    def __call__(self, fn):
+        'Allow to be used as a decorator'
+        def decorated(*args, **kwargs):
+            with self:
+                return fn(*args, **kwargs)
+        return decorated
+
+    def node_id(self) -> int | None:
         'The unique id for the node'
         if self._node:
-            v = hash(self.node.pos)
-        else:
-            v = id(self)
-        return v
+            return hash(self.node.pos)
+        return None
     
     class FORK_UNSET: ...
 
@@ -46,7 +54,7 @@ class ConfigApi(Scope):
               site: "type[FORK_UNSET] | SiteApi | None"=FORK_UNSET,
               project: "type[FORK_UNSET] | ProjectApi | None"=FORK_UNSET,
               target: "type[FORK_UNSET] | TargetApi | None"=FORK_UNSET,
-              node: "type[FORK_UNSET] | yaml.Node | None"=FORK_UNSET):
+              node: "type[FORK_UNSET] | NodeApi | None"=FORK_UNSET):
         'Create a new api object from this one'
         forked_site = self._site if site is self.FORK_UNSET else site
         forked_project = self._project if project is self.FORK_UNSET else project
@@ -73,7 +81,7 @@ class ConfigApi(Scope):
     def with_target(self, spec: str, typ: "type[Config]"):
         'Extend with a target api'
         return TargetApi(self, spec, typ).api
-    
+
     @property
     def site(self):
         if self._site is None:
@@ -205,6 +213,6 @@ class TargetApi(ConfigApiBase["Config"]):
 
 class NodeApi:
     def __init__(self, api: ConfigApi, node: yaml.Node) -> None:
-        self.api = api.fork(node=node)
+        self.api = api.fork(node=self)
         self.node = node
         self.pos = f"{Path(node.start_mark.name).absolute()}:{node.start_mark.line}:{node.start_mark.column}"
