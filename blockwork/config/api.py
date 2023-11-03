@@ -148,7 +148,9 @@ class TargetApi(ConfigApiBase["Config"]):
             self._config = typ.parser.parse(self.path)
 
         self.project_path = self.api.ctx.host_root / self.api.project.config.units[self.unit]
-        self.scratch_path = self.api.ctx.host_scratch / self.api.ctx.timestamp / self.api.project.config.units[self.unit]
+        self.scratch_path = (self.api.ctx.host_scratch / 
+                             self.api.ctx.timestamp / 
+                             self.api.project.config.units[self.unit])
 
     def split_spec(self, spec: str):
         """
