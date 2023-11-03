@@ -66,7 +66,7 @@ class Cache(ABC):
         across caching schemes so consistency checks can be performed.
         '''
         if not path.exists():
-            raise RuntimeError
+            raise RuntimeError(f"Tried to hash a path that does not exist `{path}`")
         if path.is_dir():
             content_hash = hashlib.md5('<dir>'.encode('utf8'))
             for item in sorted(os.listdir(path)):
