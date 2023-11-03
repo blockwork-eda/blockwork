@@ -101,5 +101,3 @@ class Cat(Config):
                               Invocation(version=t.pythonsite, 
                                          execute="cat", 
                                          args=shlex.split(i.args))]))
-    
-
