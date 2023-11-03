@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import functools
+from typing import TYPE_CHECKING, Any, Iterable, Protocol, Self
 import hashlib
-from typing import TYPE_CHECKING, Any, Iterable
 
 from ..common.inithooks import InitHooks
 from ..build.interface import Interface, Direction, Pipe
@@ -23,11 +23,33 @@ if TYPE_CHECKING:
     from ..context import Context
 from ..common.complexnamespaces import ReadonlyNamespace
 
+
+class Execute(Protocol):
+    'Interface for the execute method'
+    def __call__(self,
+                 ctx  : "Context",
+                 tools: ReadonlyNamespace["Version"],
+                 iface: ReadonlyNamespace[Any],
+                 /) -> Iterable["Invocation"]: ...
+
+
 @InitHooks()
 class Transform:
     """
     Base class for transforms.
+
+    The bind_* methods return the transform object and can thusly be chained,
+    together they allow for anonymous transforms, for example::
+
+        yield (Transform().bind_tools(PythonSite)
+                          .bind_inputs(args=ArgsInterface(self.args))
+                          .bind_execute(lambda c, t, i: [
+                              Invocation(version=t.pythonsite, 
+                                         execute="cat", 
+                                         args=i.args)]))
+
     """
+    # Tools registered to the class
     tools: list[type["Tool"]] = []
     # Interfaces represents the "pretty" view of interfaces
     # with meta-interfaces visible for hierarchical access
@@ -40,6 +62,7 @@ class Transform:
     @InitHooks.pre
     def init_interfaces(self):
         self._interfaces = {}
+        self._tools = list(self.tools)
         self._flat_input_interfaces = []
         self._flat_output_interfaces = []
         # Wrapped here since if they are overriden they still
@@ -108,7 +131,7 @@ class Transform:
             self._interfaces[name] = (_direction, _pipe, interface)
             interface._bind_transform(self, _direction)
 
-    def bind_outputs(self, **interface: Interface):
+    def bind_outputs(self, **interface: Interface) -> Self:
         """
         Attach interfaces to this transform by name as outputs. The 
         supplied names can be used to refer the interfaces in `execute`.
@@ -117,9 +140,10 @@ class Transform:
         may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
-        return self._bind_interfaces(Direction.OUTPUT, Pipe.FLOW, **interface)
+        self._bind_interfaces(Direction.OUTPUT, Pipe.FLOW, **interface)
+        return self
     
-    def bind_host_outputs(self, **interface: Interface):
+    def bind_host_outputs(self, **interface: Interface) -> Self:
         """
         Attach interfaces to this transform by name as outputs. The 
         supplied names can be used to refer the interfaces in `execute`.
@@ -129,9 +153,10 @@ class Transform:
         an output file needs to be created from the execute method itself 
         rather than from within a container.
         """
-        return self._bind_interfaces(Direction.OUTPUT, Pipe.HOST, **interface)
+        self._bind_interfaces(Direction.OUTPUT, Pipe.HOST, **interface)
+        return self
 
-    def bind_inputs(self, **interface: Interface):
+    def bind_inputs(self, **interface: Interface) -> Self:
         """
         Attach interfaces to this transform by name as inputs. The 
         supplied names can be used to refer the interfaces in `execute`.
@@ -140,7 +165,25 @@ class Transform:
         may be supplied. Resolved values will be passed through to the execute
         method accordingly as a single value or array of values.
         """
-        return self._bind_interfaces(Direction.INPUT, Pipe.FLOW, **interface)
+        self._bind_interfaces(Direction.INPUT, Pipe.FLOW, **interface)
+        return self
+    
+    def bind_tools(self, *tools: type["Tool"]) -> Self:
+        """
+        Attach additional tools to the instance - typically only used if 
+        a transform is used anonymously.
+        """
+        self._tools += tools
+        return self
+    
+    def bind_execute(self, 
+                     execute: Execute) -> Self:
+        """
+        Attach an alternative execute method to the instance - typically only
+        used if a transform is used anonymously.
+        """
+        self.execute = execute
+        return self
 
     def bind_host_inputs(self, **interface: Interface):
         """
@@ -163,7 +206,7 @@ class Transform:
 
         # Bind tools to container
         tool_instances: dict[str, Version] = {}
-        for tool_def in self.tools:
+        for tool_def in self._tools:
             tool = tool_def()
             tool_instances[tool.name] = tool.default
             container.add_tool(tool)
@@ -187,10 +230,11 @@ class Transform:
             if exit_code:=container.invoke(ctx, invocation) != 0:
                 raise RuntimeError(f"Invocation `{invocation}` failed with exit code `{exit_code}`.")
 
+    
     def execute(self,
              ctx  : "Context",
              tools: ReadonlyNamespace["Version"],
-             iface: ReadonlyNamespace[Any]) -> Iterable["Invocation"]:
+             iface: ReadonlyNamespace[Any], /) -> Iterable["Invocation"]:
         """
         Execute method to be implemented in subclasses.
         """
