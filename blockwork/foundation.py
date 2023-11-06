@@ -107,14 +107,19 @@ class Foundation(Container):
         :returns:           Exit code from the executed process
         """
         # Add the tool into the container (also adds dependencies)
-        self.add_tool(invocation.version, readonly=readonly)
+        if invocation.version:
+            # DO NOT LAND
+            self.add_tool(invocation.version, readonly=readonly)
 
         # Bind files and folders to host and remap path args
         args = self.bind_and_map_args(context, args=invocation.args, host_okay=invocation.host)
         self.bind_many(context, binds=invocation.binds)
         # Resolve the binary
         command = invocation.execute
-        if isinstance(command, Path):
+        if not invocation.version:
+            # DO NOT LAND
+            pass
+        elif isinstance(command, Path):
             command = invocation.version.get_container_path(self.__context, command).as_posix()
         # Determine and create (if required) the working directory
         c_workdir = invocation.workdir or context.container_root

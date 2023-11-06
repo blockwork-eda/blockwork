@@ -453,7 +453,8 @@ class Invocation:
     """
 
     def __init__(self,
-                 version     : Version,
+                 version     : Version | None,
+                # DO NOT LAND
                  execute     : Union[Path, str],
                  args        : Optional[Sequence[Union[str, Path]]] = None,
                  workdir     : Optional[Path] = None,

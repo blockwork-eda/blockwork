@@ -13,18 +13,17 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 from blockwork.build import Interface, Transform
 from blockwork.common.complexnamespaces import ReadonlyNamespace
 from blockwork.context import Context
-from blockwork.tools.tool import Version
+from blockwork.tools.tool import Invocation, Version
 from infra.tools.misc import PythonSite
 
 class MakoTransform(Transform):
     tools = [PythonSite]
 
     def __init__(self, template: Interface[Path], output: Interface[Path]):
-        super().__init__()
         self.bind_inputs(template=template)
         self.bind_outputs(output=output)
 
@@ -35,3 +34,17 @@ class MakoTransform(Transform):
         cmd += "fh.flush();"
         cmd += "fh.close()"
         yield tools.pythonsite.get_action("run")(ctx, "-c", cmd)
+
+class BashTransform(Transform):
+    def __init__(self, script: Interface[str], workdir: Interface[Path]):
+        self.bind_inputs(script=script)
+        self.bind_outputs(workdir=workdir)
+
+    def execute(self, ctx: Context, tools: ReadonlyNamespace[Version], iface: ReadonlyNamespace[Any]) -> Iterable[Invocation]:
+        yield Invocation(
+            version=None,
+            execute="bash",
+            args=["-c", iface.script],
+            workdir=iface.workdir
+        )
+    

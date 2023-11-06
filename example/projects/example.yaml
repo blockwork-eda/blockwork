@@ -2,3 +2,5 @@
 units:
   top: design/top
   bench: bench
+  tools/pythonsite: tools/pythonsite
+  tools/python: tools/python

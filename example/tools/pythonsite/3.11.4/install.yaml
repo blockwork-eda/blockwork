@@ -1,0 +1,5 @@
+!Tool
+script: !Template
+  text: python3 -m pip --no-cache-dir install -r {reqs}
+  path_fields:
+    reqs: ./pythonsite.txt

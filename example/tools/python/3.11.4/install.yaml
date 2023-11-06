@@ -1,0 +1,8 @@
+!Tool
+script: !Template
+  text: !FileContent
+    path: ./install_template.txt
+  path_fields:
+    tool_dir: ./python
+  text_fields:
+    vernum: "3.11.4"

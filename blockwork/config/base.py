@@ -44,7 +44,6 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i:hash(i))):
     All-caps keys are reserved.
     '''
     "Defines which YAML registry the config belongs to i.e. site/project/element"
-    # _CONVERTER: type[DataclassConverter] = DataclassConverter
     _CONVERTER = ConfigConverter
     "Defines how to convert the YAML tag into a Python object"
     YAML_TAG: Optional[str] = None

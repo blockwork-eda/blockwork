@@ -284,6 +284,8 @@ class FileInterface(Interface[Path]):
     def serialize(self, ctx: "Context") -> Iterable[str]:
         yield Cache.hash_content(self.resolve(ctx))
 
+    def to_content_interface(self):
+        return FileContentInterface(self)
 
 class SplitFileInterface(FileInterface):
     """
@@ -302,3 +304,35 @@ class SplitFileInterface(FileInterface):
     
     def resolve_input(self, ctx: "Context"):
         return self._input_path
+    
+class FileContentInterface(MetaInterface):
+    def __init__(self, path: FileInterface | str | Path):
+        self._file = path if isinstance(path, FileInterface) else FileInterface(path)
+
+    def resolve_meta(self, fn):
+        return fn(self._file)
+
+    def resolve(self, ctx) -> Any:
+        path = super().resolve(ctx)
+        with path.open(encoding='utf8') as f:
+            return f.read()
+    
+    def resolve_container(self, ctx, container, direction: Direction) -> Any:
+        return self.resolve(ctx)
+
+class TemplateInterface(MetaInterface):
+    def __init__(self, text: Interface[str], fields: DictInterface):
+        self._text = text
+        self._fields = fields
+    
+    def resolve_meta(self, fn):
+        return fn(self._text), fn(self._fields)
+    
+    def resolve(self, ctx) -> Any:
+        text, fields = super().resolve(ctx)
+        breakpoint()
+        return text.format(**fields.ns)
+    
+    def resolve_container(self, ctx, container, direction: Direction) -> Any:
+        text, fields = super().resolve_container(ctx, container, direction)
+        return text.format(**fields.ns)

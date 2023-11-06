@@ -13,12 +13,13 @@
 # limitations under the License.
 
 from typing import Iterable
+
+from blockwork.build.interface import DictInterface, Interface, TemplateInterface
 from blockwork.build.transform import Transform
 from blockwork.common.checkeddataclasses import field
 from blockwork.config import base
 from ..transforms.lint import DesignInterface, VerilatorLintTransform
-from ..transforms.templating import MakoTransform
-
+from ..transforms.templating import BashTransform, MakoTransform
 
 class Site(base.Site):
     pass
@@ -59,3 +60,50 @@ class Testbench(base.Config):
 
     def iter_config(self):
         yield self.design
+
+class FileContent(base.Config):
+    path: str
+    def to_str_interface(self):
+        return self.api.file_interface(self.path).to_content_interface()
+
+class ConfigMetaType(type):
+    typ: type
+    method: str
+    def __instancecheck__(self, instance):
+        if isinstance(instance, self.typ):
+            return True
+        return hasattr(instance, self.method)
+
+
+class ConfigType(metaclass=ConfigMetaType):
+    def __new__(cls, value) -> Interface:
+        if isinstance(value, cls.typ):
+            return Interface(value)
+        else:
+            return getattr(value, cls.method)()
+
+
+class ConfigStr(ConfigType):
+    typ = str
+    method = 'to_str_interface'
+
+
+class Template(base.Config):
+    text: ConfigStr
+    path_fields: dict[str, str]
+    text_fields: dict[str, str]
+
+    def to_str_interface(self):
+        fields = {k:Interface(v) for k,v in self.text_fields.items()}
+        fields.update({k:self.api.file_interface(v) for k,v in self.path_fields.items()})
+        text = ConfigStr(self.text)
+        return TemplateInterface(text=text, fields=DictInterface(fields))
+
+
+class Tool(base.Config):
+    script: ConfigStr
+
+    def iter_transforms(self) -> Iterable[Transform]:
+        script = ConfigStr(self.script)
+        yield BashTransform(script=script, workdir=self.api.file_interface('./tool'))
+
