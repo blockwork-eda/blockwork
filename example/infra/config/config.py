@@ -17,6 +17,7 @@ from typing import Iterable
 from blockwork.build.interface import DictInterface, Interface, TemplateInterface
 from blockwork.build.transform import Transform
 from blockwork.common.checkeddataclasses import field
+from blockwork.common.like import Like
 from blockwork.config import base
 from ..transforms.lint import DesignInterface, VerilatorLintTransform
 from ..transforms.templating import BashTransform, MakoTransform
@@ -37,7 +38,6 @@ class Mako(base.Config):
             template=self.api.file_interface(self.template),
             output=self.api.file_interface(self.output)
         )
-
 
 class Design(base.Config):
     top: str
@@ -63,29 +63,13 @@ class Testbench(base.Config):
 
 class FileContent(base.Config):
     path: str
-    def to_str_interface(self):
-        return self.api.file_interface(self.path).to_content_interface()
 
-class ConfigMetaType(type):
-    typ: type
-    method: str
-    def __instancecheck__(self, instance):
-        if isinstance(instance, self.typ):
-            return True
-        return hasattr(instance, self.method)
+ConfigStr = Like[Interface[str]]
 
+@ConfigStr.converter(FileContent)
+def converter(fc: FileContent) -> Interface[str]:
+    return fc.api.file_interface(fc.path).to_content_interface()
 
-class ConfigType(metaclass=ConfigMetaType):
-    def __new__(cls, value) -> Interface:
-        if isinstance(value, cls.typ):
-            return Interface(value)
-        else:
-            return getattr(value, cls.method)()
-
-
-class ConfigStr(ConfigType):
-    typ = str
-    method = 'to_str_interface'
 
 
 class Template(base.Config):
@@ -93,12 +77,12 @@ class Template(base.Config):
     path_fields: dict[str, str]
     text_fields: dict[str, str]
 
-    def to_str_interface(self):
-        fields = {k:Interface(v) for k,v in self.text_fields.items()}
-        fields.update({k:self.api.file_interface(v) for k,v in self.path_fields.items()})
-        text = ConfigStr(self.text)
-        return TemplateInterface(text=text, fields=DictInterface(fields))
-
+@ConfigStr.converter(Template)
+def converter(template: Template) -> Interface[str]:
+    fields = {k:Interface(v) for k,v in template.text_fields.items()}
+    fields.update({k:template.api.file_interface(v) for k,v in template.path_fields.items()})
+    text = ConfigStr(template.text)
+    return TemplateInterface(text=text, fields=DictInterface(fields))
 
 class Tool(base.Config):
     script: ConfigStr

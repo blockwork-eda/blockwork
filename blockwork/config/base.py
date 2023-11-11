@@ -43,18 +43,17 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i:hash(i))):
     Base class for all config.
     All-caps keys are reserved.
     '''
-    "Defines which YAML registry the config belongs to i.e. site/project/element"
     _CONVERTER = ConfigConverter
     "Defines how to convert the YAML tag into a Python object"
     YAML_TAG: Optional[str] = None
     "The !<Tag> to represent this document in YAML"
     FILE_NAME: Optional[str] = None
-    "The api object for this config"
-    api: ConfigApi
-    "The parser for this config"
-    parser: Parser = Parser()
     """The implicit file name to use when one isn't provided, 
        defaults to YAML_TAG if provided, else class name"""
+    api: ConfigApi
+    "The api object for this config"
+    parser: Parser = Parser()
+    "The parser for this config"
     def __init_subclass__(cls, *args, **kwargs):
         super().__init_subclass__(*args, **kwargs)
         cls.api = field(default_factory=lambda: ConfigApi.current)
