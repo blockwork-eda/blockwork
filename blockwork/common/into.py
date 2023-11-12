@@ -14,10 +14,10 @@
 
 from typing import Any, Callable, Generic, TypeVar
 
-_LikeType = TypeVar("_LikeType")
+_IntoType = TypeVar("_IntoType")
 _FrmType = TypeVar("_FrmType")
 _ToType = TypeVar("_ToType")
-class LikeMetaType(type):
+class IntoMetaType(type):
     _converters: dict[tuple[Any, Any], Callable[[Any], Any]] = {}
 
     def __instancecheck__(cls, inst):
@@ -33,28 +33,28 @@ class LikeMetaType(type):
         key = (inst.__class__, cls.typ)
         return key in cls._converters
 
-    def __getitem__(self, typ: _LikeType) -> "Like[_LikeType]":
+    def __getitem__(self, typ: _IntoType) -> "Into[_IntoType]":
         """
-        We use this to make Like behave like a generic, while getting the
+        We use this to make Into behave like a generic, while getting the
         type information as a value. If we don't do this we can't retrieve 
         the type information when we get to __instancecheck__.
         """
         # if not isinstance(typ, type):
-            # raise RuntimeError(f"Like can only be used for types, but got {typ}")
-        return type("LikeType", (Like,), {"typ": typ})
+            # raise RuntimeError(f"Into can only be used for types, but got {typ}")
+        return type("IntoType", (Into,), {"typ": typ})
 
     def converter(self, frm: _FrmType, to:_ToType | None = None)\
             -> Callable[[Callable[[_FrmType], _ToType]], Callable[[_FrmType], _ToType]]:
         """
         Register a converter from one type to another. Allows casting using
-        `Like[to_type](from_type)`.
+        `Into[to_type](from_type)`.
         """
         if to is None:
             if self.typ is None:
                 raise RuntimeError(
                     "Can't infer conversion type, either call using "
-                    "`@Like[<to_type>]converter(<from_type>)` or using "
-                    "`@Like.converter(<from_type>, <to_type>)`"
+                    "`@Into[<to_type>]converter(<from_type>)` or using "
+                    "`@Into.converter(<from_type>, <to_type>)`"
                 )
             to = self.typ
         def inner(fn: Callable[[_FrmType], _ToType]) -> Callable[[_FrmType], _ToType]:
@@ -62,22 +62,22 @@ class LikeMetaType(type):
             return fn
         return inner
 
-class Like(Generic[_LikeType], metaclass=LikeMetaType):
+class Into(Generic[_IntoType], metaclass=IntoMetaType):
     """
     Use to create flexible type checked interfaces where values can
     be coerced so long as a converter has been registered. See example::
 
-        @Like[str].converter(int)
+        @Into[str].converter(int)
         def int_to_str(num):
             return str(num)
         
-        assert Like[str](4) == str(4)
-        assert isinstance(4, Like[str])
-        assert isinstance('hi', Like[str])
+        assert Into[str](4) == str(4)
+        assert isinstance(4, Into[str])
+        assert isinstance('hi', Into[str])
     """
-    typ: _LikeType = None
+    typ: _IntoType = None
 
-    def __new__(cls, inst) -> _LikeType: 
+    def __new__(cls, inst) -> _IntoType: 
         """
         Cast the argument to the type it's like.
         """

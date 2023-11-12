@@ -17,7 +17,7 @@ from typing import Iterable
 from blockwork.build.interface import DictInterface, Interface, TemplateInterface
 from blockwork.build.transform import Transform
 from blockwork.common.checkeddataclasses import field
-from blockwork.common.like import Like
+from blockwork.common.into import Into
 from blockwork.config import base
 from ..transforms.lint import DesignInterface, VerilatorLintTransform
 from ..transforms.templating import BashTransform, MakoTransform
@@ -64,7 +64,7 @@ class Testbench(base.Config):
 class FileContent(base.Config):
     path: str
 
-ConfigStr = Like[Interface[str]]
+ConfigStr = Into[Interface[str]]
 
 @ConfigStr.converter(FileContent)
 def converter(fc: FileContent) -> Interface[str]:
