@@ -66,8 +66,10 @@ class Cache(ABC):
         across caching schemes so consistency checks can be performed.
         '''
         if not path.exists():
-            raise RuntimeError(f"Tried to hash a path that does not exist `{path}`")
-        if path.is_dir():
+            assert path.is_symlink(), f"Tried to hash a path that does not exist `{path}`"
+            # Symlinks might point to a path that doesn't exist and that's ok
+            content_hash = hashlib.md5(f'<symlink to {path.resolve()}>'.encode('utf8'))
+        elif path.is_dir():
             content_hash = hashlib.md5('<dir>'.encode('utf8'))
             for item in sorted(os.listdir(path)):
                 content_hash.update((item + Cache.hash_content(path / item)).encode('utf8'))
