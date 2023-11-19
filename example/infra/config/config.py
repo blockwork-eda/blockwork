@@ -14,11 +14,12 @@
 
 from typing import Iterable
 
-from blockwork.build.interface import DictInterface, Interface, TemplateInterface
+from blockwork.build.interface import DictInterface, Interface, MetaInterface, TemplateInterface
 from blockwork.build.transform import Transform
 from blockwork.common.checkeddataclasses import field
 from blockwork.common.into import Into
 from blockwork.config import base
+from blockwork.config.base import Config
 from ..transforms.lint import DesignInterface, VerilatorLintTransform
 from ..transforms.templating import BashTransform, MakoTransform
 
@@ -61,6 +62,9 @@ class Testbench(base.Config):
     def iter_config(self):
         yield self.design
 
+
+
+
 class FileContent(base.Config):
     path: str
 
@@ -70,24 +74,57 @@ ConfigStr = Into[Interface[str]]
 def converter(fc: FileContent) -> Interface[str]:
     return fc.api.file_interface(fc.path).to_content_interface()
 
-
+@ConfigStr.converter(str)
+def converter(text: str) -> Interface[str]:
+    return Interface(text)
 
 class Template(base.Config):
-    text: ConfigStr
-    path_fields: dict[str, str]
-    text_fields: dict[str, str]
+    template: ConfigStr
+    text_in: dict[str, str] = field(default_factory=dict)
+    files_in: dict[str, str] = field(default_factory=dict)
+    dirs_in: dict[str, str] = field(default_factory=dict)
+    files_out: dict[str, str] = field(default_factory=dict)
+    dirs_out: dict[str, str] = field(default_factory=dict)
 
 @ConfigStr.converter(Template)
-def converter(template: Template) -> Interface[str]:
-    fields = {k:Interface(v) for k,v in template.text_fields.items()}
-    fields.update({k:template.api.file_interface(v) for k,v in template.path_fields.items()})
-    text = ConfigStr(template.text)
-    return TemplateInterface(text=text, fields=DictInterface(fields))
+def converter(cfg: Template) -> Interface[str]:
+    in_fields = {}
+    out_fields = {}
+    in_fields.update({k:Interface(v) for k,v in cfg.text_in.items()})
+    in_fields.update({k:cfg.api.file_interface(v) for k,v in cfg.files_in.items()})
+    in_fields.update({k:cfg.api.file_interface(v, is_dir=True) for k,v in cfg.dirs_in.items()})
+    out_fields.update({k:cfg.api.file_interface(v) for k,v in cfg.files_out.items()})
+    out_fields.update({k:cfg.api.file_interface(v, is_dir=True) for k,v in cfg.dirs_out.items()})
+    return TemplateInterface(template=ConfigStr(cfg.template), 
+                             in_fields=DictInterface(in_fields),
+                             out_fields=DictInterface(out_fields))
+
+
+
+
+class Command(base.Config):
+    command: ConfigStr
+    workdir: str = './workdir'
+    tools: list[str] = field(default_factory=list)
+    def iter_transforms(self) -> Iterable[Transform]:
+        command = ConfigStr(self.command)
+        yield BashTransform(command=command,
+                            workdir=self.api.file_interface(self.workdir, is_dir=True),
+                            tools=self.tools)
+
 
 class Tool(base.Config):
-    script: ConfigStr
+    # script: ConfigStr
+    # workdir: str | None = './tool'
+    commands: list[Command] = field(default_factory=list)
 
-    def iter_transforms(self) -> Iterable[Transform]:
-        script = ConfigStr(self.script)
-        yield BashTransform(script=script, workdir=self.api.file_interface('./tool'))
+    def iter_config(self) -> Iterable[Config]:
+        yield from self.commands
+        # return super().iter_config()
+    # outputs: dict[str, str] = field(default_factory=dict)
+    # def iter_transforms(self) -> Iterable[Transform]:
+    #     script = ConfigStr(self.script)
+    #     workdir = self.api.file_interface(self.workdir)
+    #     # op = DictInterface({k:self.api.file_interface(v) for k,v in self.outputs.items()})
+    #     yield BashTransform(script=script, workdir=workdir)
 

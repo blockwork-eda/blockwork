@@ -1,8 +1,33 @@
 !Tool
-script: !Template
-  text: !FileContent
-    path: ./install_template.txt
-  path_fields:
-    tool_dir: ./python
-  text_fields:
-    vernum: "3.11.4"
+commands:
+  - !Command
+    workdir: ./download
+    command: !Template
+      template: |
+        wget --quiet https://www.python.org/ftp/python/{vernum}/Python-{vernum}.tgz
+        tar -xf Python-{vernum}.tgz
+        mv Python-{vernum}/* .
+      text_in:
+        vernum: "3.11.4"
+  - !Command
+    workdir: ./install
+    command: !Template
+      template: |
+        {download_dir}/configure --enable-optimizations --with-ensurepip=install --enable-shared --prefix={prefix_dir}
+        make -j4
+        make install
+      dirs_in:
+        download_dir: ./download
+      dirs_out:
+        prefix_dir: ./prefix
+# env:
+#   PATH:
+#     - !Template
+#       template: {prefix}/bin
+#       dirs_in:
+#         prefix: ./prefix
+#   LD_LIBRARY_PATH:
+#     - !Template
+#       template: {prefix}/lib
+#       dirs_in:
+#         prefix: ./prefix

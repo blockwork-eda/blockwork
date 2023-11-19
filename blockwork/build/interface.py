@@ -271,14 +271,18 @@ class DictInterface(MetaInterface):
         return ReadonlyNamespace(**{k: fn(v) for k, v in self.interfaces.items()})
 
 class FileInterface(Interface[Path]):
-    def __init__(self, value: str | Path) -> None:
-        self.value = Path(value)
+    def __init__(self, value: str | Path, is_dir=False) -> None:
+        self._value = Path(value)
+        self._is_dir = is_dir
 
     def resolve_container(self, ctx: "Context", container: Container, direction: Direction):
         value = self.resolve(ctx)
         container_path = ctx.map_to_container(value)
         readonly = direction.is_input
-        container.bind(value.parent, container_path.parent, readonly=readonly)
+        if self._is_dir:
+            container.bind(value, container_path, readonly=readonly)
+        else:
+            container.bind(value.parent, container_path.parent, readonly=readonly)
         return container_path
     
     def serialize(self, ctx: "Context") -> Iterable[str]:
@@ -291,10 +295,11 @@ class SplitFileInterface(FileInterface):
     """
     File interface where input and output path resolve differently, but with a common key
     """
-    def __init__(self, input_path: str | Path, output_path: str | Path, key: Hashable) -> None:
+    def __init__(self, input_path: str | Path, output_path: str | Path, key: Hashable, is_dir=False) -> None:
         self._input_path = Path(input_path)
         self._output_path = Path(output_path)
         self._key = key
+        self._is_dir = is_dir
 
     def key(self):
         return self._key
@@ -320,19 +325,36 @@ class FileContentInterface(MetaInterface):
     def resolve_container(self, ctx, container, direction: Direction) -> Any:
         return self.resolve(ctx)
 
-class TemplateInterface(MetaInterface):
-    def __init__(self, text: Interface[str], fields: DictInterface):
-        self._text = text
-        self._fields = fields
-    
+class BiInterface(MetaInterface):
+    def __init__(self, input_interface: Interface, output_interface: Interface):
+        self._input_interface = input_interface
+        self._output_interface = output_interface
+
     def resolve_meta(self, fn):
-        return fn(self._text), fn(self._fields)
+        return fn(self._inputs), fn(self._outputs)
     
-    def resolve(self, ctx) -> Any:
-        text, fields = super().resolve(ctx)
-        breakpoint()
-        return text.format(**fields.ns)
+    def _bind_transform(self, transform: "Transform", direction: Direction):
+        self._input_interface._bind_transform(transform, Direction.INPUT)
+        self._output_interface._bind_transform(transform, Direction.OUTPUT)
     
     def resolve_container(self, ctx, container, direction: Direction) -> Any:
-        text, fields = super().resolve_container(ctx, container, direction)
-        return text.format(**fields.ns)
+        return (
+            self._input_interface.resolve_container(ctx, container, Direction.INPUT),
+            self._output_interface.resolve_container(ctx, container, Direction.OUTPUT)
+        )
+
+class TemplateInterface(MetaInterface):
+    def __init__(self, template: Interface[str], in_fields: DictInterface, out_fields: DictInterface):
+        self._template = template
+        self._fields = BiInterface(in_fields, out_fields)
+    
+    def resolve_meta(self, fn):
+        return fn(self._template), fn(self._fields)
+    
+    def resolve(self, ctx) -> Any:
+        template, (in_fields, out_fields) = super().resolve(ctx)
+        return template.format(**in_fields.ns, **out_fields)
+    
+    def resolve_container(self, ctx, container, direction: Direction) -> Any:
+        template, (in_fields, out_fields) = super().resolve_container(ctx, container, direction)
+        return template.format(**in_fields.ns, **out_fields)

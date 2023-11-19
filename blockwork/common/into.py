@@ -87,4 +87,6 @@ class Into(Generic[_IntoType], metaclass=IntoMetaType):
         except TypeError:
             pass
         key = (inst.__class__, cls.typ)
-        return cls._converters[key](inst)
+        if key in cls._converters:
+            return cls._converters[key](inst)
+        raise TypeError(f"No converter registered for `{inst.__class__}` into `{cls.typ}`")

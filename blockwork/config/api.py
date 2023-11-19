@@ -106,9 +106,9 @@ class ConfigApi(Scope):
             raise ApiAccessError("node")
         return self._node
     
-    def file_interface(self, path: str|Path):
+    def file_interface(self, path: str|Path, is_dir=False):
         if self._target:
-            return self._target.file_interface(path)
+            return self._target.file_interface(path, is_dir=is_dir)
         return FileInterface(path)
 
 ConfigType = TypeVar('ConfigType')
@@ -208,10 +208,11 @@ class TargetApi(ConfigApiBase["Config"]):
             raise RuntimeError(f'Config not found for {unit}:{target} at either `{directory_path}` or `{file_path}`')
         return config_path
 
-    def file_interface(self, path: str | Path):
+    def file_interface(self, path: str | Path, is_dir=False):
         return SplitFileInterface(input_path=self.project_path / path,
                                   output_path=self.scratch_path / path,
-                                  key=(self.unit, path))
+                                  key=(self.unit, path),
+                                  is_dir=is_dir)
 
 class NodeApi:
     def __init__(self, api: ConfigApi, node: yaml.Node) -> None:

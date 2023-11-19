@@ -6,6 +6,21 @@ from blockwork.context import Context
 
 from .compilers import GCC
 
+Tool.register()
+class Bash(Tool):
+    versions = (
+        Version(
+            location=Tool.HOST_ROOT / "bash" / "1.0",
+            version="1.0",
+            default=True
+        ),
+    )
+
+    @Tool.action("Bash", default=True)
+    def run_command(self, ctx: Context, version: Version, command: str) -> Invocation:
+        return Invocation(version=version, execute="bash", args=["-c", command])
+
+
 @Tool.register()
 class Python(Tool):
     versions = [

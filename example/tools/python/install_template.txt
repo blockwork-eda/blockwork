@@ -1,7 +1,8 @@
+prefix_dir=$PWD
 wget --quiet https://www.python.org/ftp/python/{vernum}/Python-{vernum}.tgz
 tar -xf Python-{vernum}.tgz
 cd Python-{vernum}
-./configure --enable-optimizations --with-ensurepip=install --enable-shared --prefix={tool_dir}
+./configure --enable-optimizations --with-ensurepip=install --enable-shared --prefix=$prefix_dir
 make -j4
 make install
 cd ..

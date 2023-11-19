@@ -119,6 +119,7 @@ class Transform:
         md5 = hashlib.md5(type(self).__name__.encode('utf8'))
         for iface in self._flat_input_interfaces:
             md5.update(iface.get_hashsource(ctx).encode('utf8'))
+        print(self, md5.hexdigest())
         return md5.hexdigest()
 
     def _bind_interfaces(self, _direction: Direction, _pipe: Pipe, **kwargs: Interface):

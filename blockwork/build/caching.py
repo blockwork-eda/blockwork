@@ -114,7 +114,8 @@ class Cache(ABC):
                 hashkey = f"{iface.get_hashsource(ctx)}-{idx}"
                 content_hash = Cache.hash_content(iface.resolve(ctx))
                 for cache in ctx.caches:
-                    assert content_hash == cache.fetch_hash(hashkey)
+                    if (stored_hash:=cache.fetch_hash(hashkey)) is not None:
+                        assert content_hash == stored_hash
             return False
 
         for idx, iface in enumerate(transform._flat_output_interfaces):

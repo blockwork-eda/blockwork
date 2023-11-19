@@ -13,12 +13,13 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 from blockwork.build import Interface, Transform
+from blockwork.tools import Tool
 from blockwork.common.complexnamespaces import ReadonlyNamespace
 from blockwork.context import Context
 from blockwork.tools.tool import Invocation, Version
-from infra.tools.misc import PythonSite
+from infra.tools.misc import Bash, PythonSite
 
 class MakoTransform(Transform):
     tools = [PythonSite]
@@ -36,15 +37,15 @@ class MakoTransform(Transform):
         yield tools.pythonsite.get_action("run")(ctx, "-c", cmd)
 
 class BashTransform(Transform):
-    def __init__(self, script: Interface[str], workdir: Interface[Path]):
-        self.bind_inputs(script=script)
+    tools = [Bash]
+    def __init__(self, command: Interface[str], workdir: Interface[Path], tools: Optional[list[str]]=None):
+        self.bind_inputs(command=command)
         self.bind_outputs(workdir=workdir)
+        if tools:
+            self.bind_tools(*[type(Tool.get(tool).tool) for tool in tools])
 
     def execute(self, ctx: Context, tools: ReadonlyNamespace[Version], iface: ReadonlyNamespace[Any]) -> Iterable[Invocation]:
-        yield Invocation(
-            version=None,
-            execute="bash",
-            args=["-c", iface.script],
-            workdir=iface.workdir
-        )
-    
+        yield tools.bash.get_action('run_command')(
+            ctx,
+            iface.command
+        ).where(workdir=iface.workdir)
