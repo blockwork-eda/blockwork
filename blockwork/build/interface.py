@@ -275,7 +275,7 @@ class FileInterface(Interface[Path]):
         self.value = Path(value)
 
     def resolve_container(self, ctx: "Context", container: Container, direction: Direction):
-        value = self.resolve(ctx)
+        value = self.resolve(ctx).resolve()
         container_path = ctx.map_to_container(value)
         readonly = direction.is_input
         container.bind(value.parent, container_path.parent, readonly=readonly)
