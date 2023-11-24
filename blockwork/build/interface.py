@@ -78,7 +78,7 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
     method which should be overriden in subclasses.
 
     The resolve_* methods can be overriden to control the interface value
-    that transforms see. 
+    that transforms see.
 
     The base Interface takes a single value that resolves as itself, with
     a unique key so it'll never link transforms together. This can be used
@@ -105,13 +105,13 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         Get a computed hash for this interface based on the hash of its input
         or the hash of its own value if it is a static input.
 
-        Note: Although not decorated, this method is always cached via 
+        Note: Although not decorated, this method is always cached via
         '''
         if self.input_transform:
             return self.input_transform.get_hashsource(ctx)
         else:
             return self._hash(ctx)
-        
+
     def serialize(self, ctx: "Context") -> Iterable[str]:
         if type(self) is Interface:
             # For some types we can just go ahead and serialize
@@ -166,10 +166,10 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         See `resolve` for further details.
         """
         return self.value
-    
+
     def resolve_input(self, ctx: "Context") -> _RVALUE:
         """
-        Resolve this interface as an input value to pass through to the transform. 
+        Resolve this interface as an input value to pass through to the transform.
         See `resolve` for further details.
         """
         return self.value
@@ -179,7 +179,7 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         Resolve this interface to the value that will be passed through to the transform.
         This will internally call:
             - this interfaces `resolve_output` method if this interface is an output
-            - this interfaces `resolve_input` method if this interface is an 
+            - this interfaces `resolve_input` method if this interface is an
               unconnected input.
 
         Note: If the associated transform uses containers, then the `resolve_container`
@@ -195,8 +195,8 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
         Resolve the value for a container, and return the value that should
         appear in the transforms execute method.
 
-        This gives an an opportunity to bind required container paths etc. 
-        Usually this is expected to internally call the standard `resolve` 
+        This gives an an opportunity to bind required container paths etc.
+        Usually this is expected to internally call the standard `resolve`
         method (the default implementation simply returns the value from resolve).
         """
         return self.resolve(ctx)
@@ -207,8 +207,8 @@ class MetaInterface(Interface[_RVALUE]):
     into this one. For example::
 
         class DesignInterface(MetaInterface):
-        
-            def __init__(self, sources: list[FileInterface], 
+
+            def __init__(self, sources: list[FileInterface],
                                headers: list[FileInterface]) -> None:
                 self.sources = sources
                 self.headers = headers
@@ -226,13 +226,13 @@ class MetaInterface(Interface[_RVALUE]):
 
     def resolve(self, ctx) -> _RVALUE:
         return self.resolve_meta(lambda v: v.resolve(ctx))
-    
+
     def resolve_container(self, ctx, container, direction: Direction) -> _RVALUE:
         return self.resolve_meta(lambda v: v.resolve_container(ctx, container, direction))
-    
+
     def serialize(self, ctx) -> Iterable[str]:
         raise RuntimeError('Metainterfaces should not be being serialized (should be transparent)')
-    
+
     @staticmethod
     def map(fn, iterable):
         return list(map(fn, iterable))
@@ -241,11 +241,11 @@ class MetaInterface(Interface[_RVALUE]):
         '''
         This is expected to return the resolved structure where the resolver `fn`
         argument will take an interface and return the correct resolved value
-        based on context. 
+        based on context.
 
         Note: Lazy iteration using map (or similar) will not work since we rely
               on all interfaces being processed in stages. For convenience a
-              `map` method which isn't lazy is provided on this class. 
+              `map` method which isn't lazy is provided on this class.
         '''
         raise NotImplementedError
 
@@ -261,7 +261,7 @@ class ListInterface(MetaInterface):
 
     def resolve_meta(self, fn):
         return self.map(fn, self.items)
-    
+
 class DictInterface(MetaInterface):
     'Dict of other interfaces'
     def __init__(self, mapping: dict[str, Interface] | None = None, **interfaces: Interface):
@@ -278,9 +278,9 @@ class FileInterface(Interface[Path]):
         value = self.resolve(ctx)
         container_path = ctx.map_to_container(value)
         readonly = direction.is_input
-        container.bind(value.parent, container_path.parent, readonly=readonly)
+        container.bind(value.parent, container_path.parent, readonly=readonly, mkdir=True)
         return container_path
-    
+
     def serialize(self, ctx: "Context") -> Iterable[str]:
         yield Cache.hash_content(self.resolve(ctx))
 
@@ -296,9 +296,9 @@ class SplitFileInterface(FileInterface):
 
     def key(self):
         return self._key
-    
+
     def resolve_output(self, ctx: "Context"):
         return self._output_path
-    
+
     def resolve_input(self, ctx: "Context"):
         return self._input_path
