@@ -115,7 +115,7 @@ class Container:
             c_match = bind.container_path == container
             # If exact match, silently allow
             if c_match and bind.host_path.samefile(host) and (bind.readonly == readonly):
-                return
+                return container
             # Otherwise if a match or a parent, fail
             elif c_match or container in bind.container_path.parents:
                 e_str = (f"Cannot bind {host} to {container} "
@@ -140,7 +140,7 @@ class Container:
         :returns:           Mapped path within the container
         """
         return self.bind(host, container, readonly=True)
-    
+
     def bind_many(self, context: Context, binds: Sequence[Union[Path, Tuple[Path, Path]]], readonly: bool = False):
         """
         Bind a list bind mappings or single paths (which will be mapped
@@ -160,12 +160,12 @@ class Container:
                 h_path = h_path.absolute()
             self.bind(h_path, c_path, readonly=readonly)
 
-    def bind_and_map_args(self, 
+    def bind_and_map_args(self,
                           context: Context,
                           args: Sequence[Union[str, Path]],
                           host_okay: bool=True) -> Sequence[str]:
         """
-        Map host paths to container paths (if applicable) and bind paths to 
+        Map host paths to container paths (if applicable) and bind paths to
         the container.
 
         :param context:     Context object
@@ -206,7 +206,7 @@ class Container:
             self.bind(h_path, c_path, False)
 
         return mapped_args
-    
+
 
     def set_env(self, key : str, value : str) -> None:
         """
