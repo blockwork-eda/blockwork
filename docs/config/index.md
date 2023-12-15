@@ -116,7 +116,7 @@ configuration.
 We further wrap the dataclass converter for use with block configuration. All
 block configuration must subclass the Config class which is created by this
 converter and has additional functionality beyond a dataclass, see 
-<!-- TODO REF --> for more details of the Config class.
+<-- TODO CONFIG REF --> for more details of the Config class.
 
 The config converter:
  - allows elements to either be specified in place as a mapping (as with the 
@@ -125,7 +125,7 @@ The config converter:
  - wraps the config creation with a context dependent api scope through which
    various context dependent functionality can be accessed, for example,
    resolving a file relative to the current block. See the [Scopes](#scopes) 
-   utility for more details on scopes and <!-- TODO API REF --> for more details 
+   utility for more details on scopes and <-- TODO API REF --> for more details 
    on config API.
 
 
@@ -136,4 +136,4 @@ and provide access to the top of the stack. This is particularly useful when
 you have data that you cannot or do not wish to pass down through layers of
 function calls. An example of where it's used in Blockwork is to pass verbosity
 configuration through to logging functions. We also use it to create the 
-`api` property on Config elements, see <!-- TODO API REF --> and <!-- TODO Config REF -->.
+`api` property on Config elements, see <-- TODO API REF --> and <-- TODO Config REF -->.
