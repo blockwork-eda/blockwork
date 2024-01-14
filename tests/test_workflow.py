@@ -95,7 +95,7 @@ def match_results(results, run, stored, fetched, skipped):
 
 
 class TestC:
-    @ConfigApi(SimpleNamespace())
+    @ConfigApi(ctx=SimpleNamespace())
     def test_gather(self):
         workflow = Workflow('test')
 
@@ -168,7 +168,7 @@ class TestC:
             (ConfigE, [], [])
         ])
 
-    @ConfigApi(SimpleNamespace())
+    @ConfigApi(ctx=SimpleNamespace())
     def test_transform_tree(self):
         workflow = Workflow('test')
 
@@ -227,7 +227,7 @@ class TestC:
             }
         ))
 
-    @ConfigApi(SimpleNamespace())
+    @ConfigApi(ctx=SimpleNamespace())
     def test_run(self):
         workflow = Workflow('test')
         class ctx:

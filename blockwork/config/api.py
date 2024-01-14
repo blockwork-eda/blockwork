@@ -1,10 +1,10 @@
 from abc import ABC
 from pathlib import Path
-from typing import TYPE_CHECKING, Generic, Optional, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 import yaml
 
 
-from ..common.scopes import Scope
+from ..common.scopedapi import ScopedApi
 
 if TYPE_CHECKING:
     from .base import Project, Config, Site
@@ -16,56 +16,24 @@ class ApiAccessError(Exception):
     def __init__(self, api: str):
         super().__init__(f"Tried to access unavailable api `{api}` try creating a fork using `with_{api}(...)`")
 
-class ConfigApi(Scope):
+class ConfigApi(ScopedApi):
     '''
     Api for configuration objects to access wider information.
     
     Intended to be created using just ctx and extended with the with_* methods.
     '''
-    def __init__(self,
-                 ctx: "Context",
-                 site: Optional["SiteApi"]=None,
-                 project: Optional["ProjectApi"]=None,
-                 target: Optional["TargetApi"]=None,
-                 node: Optional["NodeApi"]=None
-                 ) -> None:
-        self.ctx = ctx
-        self._site = site
-        self._project = project
-        self._target = target
-        self._node = node
-
-    def __call__(self, fn):
-        'Allow to be used as a decorator'
-        def decorated(*args, **kwargs):
-            with self:
-                return fn(*args, **kwargs)
-        return decorated
+    ctx: "Context"
+    site: "SiteApi"
+    project: "ProjectApi"
+    target: "TargetApi"
+    node: "NodeApi"
 
     def node_id(self) -> int | None:
         'The unique id for the node'
-        if self._node:
-            return hash(self.node.pos)
+        if (node := self.get('node', None)):
+            return hash(node.pos)
         return None
-    
-    class FORK_UNSET: ...
-
-    def fork(self,
-              site: "type[FORK_UNSET] | SiteApi | None"=FORK_UNSET,
-              project: "type[FORK_UNSET] | ProjectApi | None"=FORK_UNSET,
-              target: "type[FORK_UNSET] | TargetApi | None"=FORK_UNSET,
-              node: "type[FORK_UNSET] | NodeApi | None"=FORK_UNSET):
-        'Create a new api object from this one'
-        forked_site = self._site if site is self.FORK_UNSET else site
-        forked_project = self._project if project is self.FORK_UNSET else project
-        forked_target = self._target if target is self.FORK_UNSET else target
-        forked_node = self._node if node is self.FORK_UNSET else node
-        return ConfigApi(ctx=self.ctx, 
-                         site=forked_site,
-                         project=forked_project,
-                         target=forked_target,
-                         node=forked_node)
-        
+            
     def with_site(self, path, typ):
         'Extend with a site api'
         return SiteApi(self, path, typ).api
@@ -82,33 +50,9 @@ class ConfigApi(Scope):
         'Extend with a target api'
         return TargetApi(self, spec, typ).api
 
-    @property
-    def site(self):
-        if self._site is None:
-            raise ApiAccessError("site")
-        return self._site
-
-    @property
-    def project(self):
-        if self._project is None:
-            raise ApiAccessError("project")
-        return self._project
-
-    @property
-    def target(self):
-        if self._target is None:
-            raise ApiAccessError("target")
-        return self._target
-    
-    @property
-    def node(self):
-        if self._node is None:
-            raise ApiAccessError("node")
-        return self._node
-    
     def file_interface(self, path: str|Path):
-        if self._target:
-            return self._target.file_interface(path)
+        if 'target' in self:
+            return self.target.file_interface(path)
         return FileInterface(path)
 
 ConfigType = TypeVar('ConfigType')
@@ -140,7 +84,7 @@ class ProjectApi(ConfigApiBase["Project"]):
 
 class TargetApi(ConfigApiBase["Config"]):
     def __init__(self, api: ConfigApi, spec: str, typ: "type[Config]") -> None:
-        self._context_unit = None if api._target is None else api._target.unit
+        self._context_unit = api.target.unit if 'target' in api else None
         self.api = api.fork(target=self)
         self.unit, self.target = self.split_spec(spec)
         self.path = self.find_config(self.unit, self.target, typ)

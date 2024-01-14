@@ -77,7 +77,7 @@ class Workflow:
         @click.pass_obj
         def command(ctx, project=None, target=None, *args, **kwargs):
 
-            site_api = ConfigApi(ctx).with_site(ctx.site, self.SITE_TYPE)
+            site_api = ConfigApi(ctx=ctx).with_site(ctx.site, self.SITE_TYPE)
 
             if project:
                 project_api = site_api.with_project(project, self.project_type)
