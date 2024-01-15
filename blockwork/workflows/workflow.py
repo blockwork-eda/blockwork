@@ -12,8 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import logging
+import os
+from datetime import datetime
+from itertools import count
 from functools import cache, partial, reduce
 from types import SimpleNamespace
+
+from gator.specs import Job, JobArray, JobGroup, Spec
+from gator.launch_progress import launch
 
 from ..build.caching import Cache
 
@@ -97,7 +105,7 @@ class Workflow:
             option_fns.append(click.option('--target', '-t', type=str, required=True))
 
         # Apply the additional options
-        command = reduce(lambda f, o: o(f), option_fns, command)            
+        command = reduce(lambda f, o: o(f), option_fns, command)
 
         # This is a little horrible but this means click options
         # can be added before or after the workflow decorator
@@ -105,13 +113,13 @@ class Workflow:
 
         wf.add_command(command, name=self.name)
         return command
-    
+
     @cache
     def gather(self, config: Config) -> Iterable[tuple[Config, list[Transform], list[Transform]]]:
         '''
         Iterate over the tree of configs gathering "interesting" transforms.
-        
-        Note it is functionally required that this is cached as we must only 
+
+        Note it is functionally required that this is cached as we must only
         process each config once.
 
         :return: An iterable of tuples of 'the config', 'its transforms', 'its target transforms'
@@ -130,8 +138,8 @@ class Workflow:
         target_transforms = list(filter(transform_filter, transforms))
         yield (config, transforms, target_transforms)
 
-    def get_transform_tree(self, root: Config) -> tuple[set[Transform], 
-                                                        dict[Transform, set[Transform]], 
+    def get_transform_tree(self, root: Config) -> tuple[set[Transform],
+                                                        dict[Transform, set[Transform]],
                                                         dict[Transform, set[Transform]]]:
         '''
         Gather transform dependency data.
@@ -151,7 +159,7 @@ class Workflow:
                 for interface in transform.real_output_interfaces:
                     output_interfaces.append(interface)
             targets.update(target_transforms)
-            
+
         # We only need to look at output interfaces since an output must
         # exist in order for a dependency to exist
         for interface in output_interfaces:
@@ -159,9 +167,9 @@ class Workflow:
             for output_transform in interface.output_transforms:
                 dependency_map[output_transform].add(input_transform)
                 dependent_map[input_transform].add(output_transform)
-        
+
         return targets, dependency_map, dependent_map
-    
+
     def _run(self,
              ctx: Context,
              targets: set[Transform],
@@ -174,7 +182,7 @@ class Workflow:
         # Record the transforms we pulled from the cache
         fetched_transforms: set[Transform] = set()
         # Record the transforms that don't need to be run since they were were
-        # pulled from the cahce or only transforms pulled from the cache 
+        # pulled from the cahce or only transforms pulled from the cache
         # depend on them.
         skipped_transforms: set[Transform] = set()
         # Record the transforms we actually ran
@@ -198,6 +206,46 @@ class Workflow:
 
         # Run everything in order, skipping cached entries, and pushing to the cache when possible
         run_scheduler = Scheduler(dependency_map, targets=targets)
+
+        # Form a Gator job graph
+        jgroup = JobGroup("bw_top", env=dict(os.environ))
+        nxt_id = count()
+
+        while run_scheduler.incomplete:
+            arr_id = next(nxt_id)
+            jarray = JobArray(f"bwa_{arr_id}",
+                             on_pass=[f"bwa_{arr_id-1}"] if arr_id > 0 else [])
+            jgroup.jobs.append(jarray)
+            for idx, transform in enumerate(run_scheduler.schedulable):
+                run_scheduler.schedule(transform)
+                if transform in fetched_transforms:
+                    logging.info("Skipped cached transform: %s", transform)
+                elif transform in skipped_transforms:
+                    logging.info("Skipped transform (due to cached dependents): %s", transform)
+                else:
+                    logging.info("Running transform: %s", transform)
+                    job = Job(id=f"bwa_{arr_id}_{idx}_{type(transform).__name__}",
+                              cwd=ctx.host_root.as_posix(),
+                              command="bw",
+                              args=["info"])
+                    jarray.jobs.append(job)
+                    # NOTE: Not actually launching the job here
+                    run_transforms.add(transform)
+                run_scheduler.finish(transform)
+
+        # Launch Gator job graph
+        logging.getLogger("websockets").setLevel(logging.CRITICAL)
+        asyncio.run(launch(spec=jgroup,
+                           tracking=ctx.host_scratch / "gator" / datetime.now().isoformat()))
+        breakpoint()
+
+
+        # Cache transforms that were run
+        for transform in run_transforms:
+            if Cache.store_transform(ctx, transform):
+                stored_transforms.add(transform)
+                logging.info("Stored transform to cache: %s", transform)
+
         while run_scheduler.incomplete:
             for transform in run_scheduler.schedulable:
                 run_scheduler.schedule(transform)
