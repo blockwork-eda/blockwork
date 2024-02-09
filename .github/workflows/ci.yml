@@ -51,7 +51,7 @@ jobs:
 
   deploy_docs:
     runs-on: ubuntu-latest
-    if: ${{ ! github.event.issue.pull_request }}
+    if: ${{ github.event_name != 'pull_request' }}
     timeout-minutes: 15
     needs: build_docs
     steps:
