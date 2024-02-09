@@ -48,7 +48,7 @@ def keyed_singleton(
         raise RuntimeError("Must specify arg_key or inst_key (but not both)")
 
     class FactoriedSingleton(type):
-        INSTANCES: ClassVar[str, Self] = {}
+        INSTANCES: ClassVar[dict[str, Self]] = {}
 
         def __call__(cls, *args, **kwds):
             if inst_key:

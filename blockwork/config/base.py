@@ -61,6 +61,13 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i: hash(i))):
     def __init_subclass__(cls, *args, **kwargs):
         super().__init_subclass__(*args, **kwargs)
         cls.api = field(default_factory=lambda: ConfigApi.current)
+        # Ensure that even if no annotations existed before, that the class is
+        # well behaved as this caused a bug under Python 3.11.7
+        if not hasattr(cls, "__annotations__"):
+            cls.__annotations__ = {}
+        if "__annotations__" not in cls.__dict__:
+            setattr(cls, "__annotations__", cls.__annotations__)  # noqa: B010
+        # Force an annotation for 'api'
         cls.__annotations__["api"] = ConfigApi
         dataclass(kw_only=True, frozen=True, eq=False, repr=False)(cls)
         cls.parser.register(cls._CONVERTER, tag=cls.YAML_TAG)(cls)

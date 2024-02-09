@@ -260,7 +260,7 @@ class TestC:
         workflow = Workflow("test")
 
         class Ctx:
-            caches: ClassVar[list[DummyCache]] = [DummyCache()]
+            caches: ClassVar[list[Cache]] = [DummyCache()]
 
         class DummyTransform(Transform):
             def run(self, *args, **kwargs):
