@@ -1,9 +1,8 @@
-name: Unit Tests and Documentation
+name: CI
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
+  push:
     branches: [ "main" ]
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
@@ -24,17 +23,9 @@ jobs:
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+    - uses: ./.github/composites/setup
       with:
         python-version: 3.11
-    - name: Install Poetry
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install poetry poethepoet
-    - name: Setup environment
-      run: |
-        poetry install --with dev
     - name: Run Ruff formatting check
       run: poetry run ruff format --check .
     - name: Run Ruff linting check
@@ -47,17 +38,9 @@ jobs:
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+    - uses: ./.github/composites/setup
       with:
         python-version: 3.11
-    - name: Install Poetry
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install poetry poethepoet
-    - name: Setup environment
-      run: |
-        poetry install --with dev
     - name: Build documentation
       run: |
         poe docs
@@ -86,21 +69,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+    - uses: ./.github/composites/setup
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install Poetry
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install poetry poethepoet
-    - name: Setup environment
-      run: |
-        poetry install --with dev
     - name: Run tests
       timeout-minutes: 5
-      run: |
-        poe test
+      run: poe test
     - name: Archive code coverage results
       uses: actions/upload-artifact@v3
       with:
