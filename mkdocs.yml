@@ -7,7 +7,11 @@ theme:
   palette:
     scheme: slate
     primary: indigo
+  features:
+    - search.suggest
+    - search.highlight
 plugins:
+  - search
   - mkdocstrings:
       handlers:
         python:
