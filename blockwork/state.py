@@ -16,7 +16,8 @@ import atexit
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any
+
 
 class StateError(Exception):
     pass
@@ -32,21 +33,21 @@ class StateNamespace:
     :param path:    Path to the JSON file where data is serialised
     """
 
-    def __init__(self, name : str, path : Path) -> None:
-        self.__name    = name
-        self.__path    = path
-        self.__data    = {}
+    def __init__(self, name: str, path: Path) -> None:
+        self.__name = name
+        self.__path = path
+        self.__data = {}
         self.__altered = False
         self.load()
 
     def load(self) -> None:
-        """ Load state from disk if the file exists """
+        """Load state from disk if the file exists"""
         if self.__path.exists():
             with self.__path.open("r", encoding="utf-8") as fh:
                 self.__data = json.load(fh)
 
     def store(self) -> None:
-        """ Write out state to disk if any values have been changed """
+        """Write out state to disk if any values have been changed"""
         # Check the alterations flag, return immediately if nothing has changed
         if not self.__altered:
             return
@@ -63,13 +64,13 @@ class StateNamespace:
         except Exception:
             return self.get(name)
 
-    def __setattr__(self, name: str, value: Union[str, int, float, bool]) -> None:
+    def __setattr__(self, name: str, value: str | int | float | bool) -> None:
         if name in ("get", "set") or name.startswith("_"):
             super().__setattr__(name, value)
         else:
             self.set(name, value)
 
-    def get(self, name: str, default: Any = None) -> Union[str, int, float, bool, None]:
+    def get(self, name: str, default: Any = None) -> str | int | float | bool | None:
         """
         Retrieve a value from the stored data, returning a default value if the
         key has not been set.
@@ -80,7 +81,7 @@ class StateNamespace:
         """
         return self.__data.get(name, default)
 
-    def set(self, name: str, value: Union[str, int, float, bool]) -> None:
+    def set(self, name: str, value: str | int | float | bool) -> None:
         """
         Set a value into the stored data, this must be of a primitive type such
         as string, integer, float, or boolean (so that it can be serialised)
@@ -88,10 +89,10 @@ class StateNamespace:
         :param name:    Name of the attribute to set
         :param value:   Value to set
         """
-        if not isinstance(value, (str, int, float, bool)):
+        if not isinstance(value, str | int | float | bool):
             raise StateError(f"Value of type {type(value).__name__} is not supported")
         if not self.__altered:
-            self.__altered = (value != self.__data.get(name, None))
+            self.__altered = value != self.__data.get(name, None)
         self.__data[name] = value
 
 
@@ -102,14 +103,14 @@ class State:
     :param location:    Absolute path to the state folder
     """
 
-    def __init__(self, location : Path) -> None:
+    def __init__(self, location: Path) -> None:
         self.__location = location
-        self.__files : Dict[str, StateNamespace] = {}
+        self.__files: dict[str, StateNamespace] = {}
         # When the program exits, ensure all modifications are saved to disk
         atexit.register(self.save_all)
 
     def save_all(self) -> None:
-        """ Iterate through all open state objects and store any modifications """
+        """Iterate through all open state objects and store any modifications"""
         self.__location.mkdir(parents=True, exist_ok=True)
         for file in self.__files.values():
             file.store()

@@ -15,7 +15,7 @@
 import click
 
 
-@click.group(name='wf')
+@click.group(name="wf")
 def wf() -> None:
     """
     Workflow argument group.

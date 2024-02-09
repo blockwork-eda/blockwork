@@ -35,9 +35,12 @@ jobs:
     - name: Setup environment
       run: |
         poetry install --with dev
-    - name: Run lint
-      run: |
-        poe lint
+    - name: Run Ruff formatting check
+      run: poetry run ruff format --check .
+    - name: Run Ruff linting check
+      run: poetry run ruff check .
+    - name: Run precommit checks
+      run: poetry run pre-commit run --all-files
 
   build_docs:
     runs-on: ubuntu-latest

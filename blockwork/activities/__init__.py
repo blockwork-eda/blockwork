@@ -14,8 +14,8 @@
 
 # Expose activities
 from .bootstrap import bootstrap
-from .info import info
 from .exec import exec
+from .info import info
 from .shell import shell
 from .tools import tool, tools
 from .workflow import wf

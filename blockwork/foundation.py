@@ -14,22 +14,25 @@
 
 import logging
 from pathlib import Path
-from typing import Optional, Type, Union
 
 from .containers import Container
 from .context import Context, ContextContainerPathError
 from .tools import Invocation, Tool, Version
 
+
 class FoundationError(Exception):
     pass
 
-class Foundation(Container):
-    """ Standard baseline container for Blockwork """
 
-    def __init__(self, context : Context, **kwargs) -> None:
-        super().__init__(image=f"foundation_{context.host_architecture}",
-                         workdir=context.container_root,
-                         **kwargs)
+class Foundation(Container):
+    """Standard baseline container for Blockwork"""
+
+    def __init__(self, context: Context, **kwargs) -> None:
+        super().__init__(
+            image=f"foundation_{context.host_architecture}",
+            workdir=context.container_root,
+            **kwargs,
+        )
         self.__context = context
         self.__tools = {}
         self.bind(self.__context.host_scratch, self.__context.container_scratch)
@@ -46,18 +49,18 @@ class Foundation(Container):
         self.set_env("BW_TOOLS", context.container_tools.as_posix())
         self.set_env("BW_PROJECT", context.config.project)
 
-    def add_input(self, path : Path, name : Optional[str] = None) -> None:
+    def add_input(self, path: Path, name: str | None = None) -> None:
         self.bind_readonly(path, Path("/input") / (name or path.name))
 
-    def add_tool(self, tool : Union[Type[Tool], Tool, Version], readonly : bool = True) -> None:
+    def add_tool(self, tool: type[Tool] | Tool | Version, readonly: bool = True) -> None:
         # If class has been provided, create an instance
-        if not isinstance(tool, (Tool, Version)):
+        if not isinstance(tool, Tool | Version):
             if not issubclass(tool, Tool):
                 raise Foundation("Tool definitions must inherit from the Tool class")
             tool = tool()
         # Grab the default
         tool_ver = tool if isinstance(tool, Version) else tool.default
-        tool     = tool_ver.tool
+        tool = tool_ver.tool
         # Check tool is not already registered
         if tool.base_id in self.__tools:
             if self.__tools[tool.base_id] is tool_ver:
@@ -67,10 +70,14 @@ class Foundation(Container):
         for req in tool_ver.requires:
             req_ver = req.tool().get_version(req.version)
             if req_ver is None:
-                raise FoundationError(f"Could not resolve version {req.version} for {req.tool.base_id}")
+                raise FoundationError(
+                    f"Could not resolve version {req.version} for {req.tool.base_id}"
+                )
             elif req.tool.base_id in self.__tools:
                 if (rv := req_ver.version) != (xv := self.__tools[req.base_id].version):
-                    raise FoundationError(f"Version clash for tool '{req.tool.base_id}': {rv} != {xv}")
+                    raise FoundationError(
+                        f"Version clash for tool '{req.tool.base_id}': {rv} != {xv}"
+                    )
             else:
                 self.add_tool(req_ver, readonly=readonly)
         # Register tool and bind in the base folder
@@ -91,12 +98,11 @@ class Foundation(Container):
         # Append to $PATH
         for key, paths in tool_ver.paths.items():
             for path in paths:
-                self.prepend_env_path(key, tool_ver.get_container_path(self.__context, path).as_posix())
+                self.prepend_env_path(
+                    key, tool_ver.get_container_path(self.__context, path).as_posix()
+                )
 
-    def invoke(self,
-               context : Context,
-               invocation : Invocation,
-               readonly : bool = True) -> int:
+    def invoke(self, context: Context, invocation: Invocation, readonly: bool = True) -> int:
         """
         Evaluate a tool invocation by binding the required tools and setting up
         the environment as per the request.
@@ -126,13 +132,15 @@ class Foundation(Container):
             pass
         # Launch
         logging.debug(f"Launching in container: {command} {' '.join(args)}")
-        return self.launch(command,
-                           *args,
-                           workdir=invocation.workdir or context.container_root,
-                           interactive=invocation.interactive,
-                           display=invocation.display,
-                           show_detach=False,
-                           env=invocation.env,
-                           path=invocation.path,
-                           stdout=invocation.stdout,
-                           stderr=invocation.stderr)
+        return self.launch(
+            command,
+            *args,
+            workdir=invocation.workdir or context.container_root,
+            interactive=invocation.interactive,
+            display=invocation.display,
+            show_detach=False,
+            env=invocation.env,
+            path=invocation.path,
+            stdout=invocation.stdout,
+            stderr=invocation.stderr,
+        )

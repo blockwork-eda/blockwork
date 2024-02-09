@@ -21,16 +21,17 @@ import shutil
 import sys
 import tempfile
 import time
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from threading import Event
-from typing import Dict, List, Mapping, Optional, Sequence, TextIO, Tuple, Union
-from ..context import Context, ContextHostPathError
-import docker.utils.socket as socket_utils
+from typing import TextIO
 
+import docker.utils.socket as socket_utils
 import requests
 
+from ..context import Context, ContextHostPathError
+from .common import forwarding_host, read_stream, write_stream
 from .runtime import Runtime
-from .common import read_stream, write_stream, forwarding_host
 
 
 class ContainerError(Exception):
@@ -39,17 +40,18 @@ class ContainerError(Exception):
 
 @dataclasses.dataclass
 class ContainerBind:
-    """ Describes a bind to apply to the container """
-    host_path      : Path
-    container_path : Path
-    readonly       : bool
+    """Describes a bind to apply to the container"""
 
-    def as_configuration(self) -> Dict[str, Union[str, bool]]:
+    host_path: Path
+    container_path: Path
+    readonly: bool
+
+    def as_configuration(self) -> dict[str, str | bool]:
         return {
-            "type"    : "bind",
-            "source"  : self.host_path.as_posix(),
-            "target"  : self.container_path.as_posix(),
-            "readonly": self.readonly
+            "type": "bind",
+            "source": self.host_path.as_posix(),
+            "target": self.container_path.as_posix(),
+            "readonly": self.readonly,
         }
 
 
@@ -66,11 +68,13 @@ class Container:
 
     LAUNCH_ID = itertools.count()
 
-    def __init__(self,
-                 image       : str,
-                 workdir     : Path = Path("/"),
-                 environment : Optional[Dict[str, str]] = None,
-                 hostname    : Optional[str] = None) -> None:
+    def __init__(
+        self,
+        image: str,
+        workdir: Path = Path("/"),
+        environment: dict[str, str] | None = None,
+        hostname: str | None = None,
+    ) -> None:
         # Store initialisation parameters
         self.image = image
         self.workdir = workdir
@@ -78,22 +82,24 @@ class Container:
         # Configuration
         type_name = type(self).__name__.lower()
         issued_id = next(Container.LAUNCH_ID)
-        self.__id : str = f"bw_{os.getpid()}_{type_name}_{issued_id}"
-        self.__binds : List[ContainerBind] = []
-        self.__environment : Dict[str, str] = {}
+        self.__id: str = f"bw_{os.getpid()}_{type_name}_{issued_id}"
+        self.__binds: list[ContainerBind] = []
+        self.__environment: dict[str, str] = {}
         if isinstance(environment, dict):
             self.__environment.update(environment)
 
     @property
     def id(self):
-        """ Return the ID of the container """
+        """Return the ID of the container"""
         return self.__id
 
-    def bind(self,
-             host      : Path,
-             container : Optional[Path] = None,
-             readonly  : bool           = False,
-             mkdir     : bool           = False) -> Path:
+    def bind(
+        self,
+        host: Path,
+        container: Path | None = None,
+        readonly: bool = False,
+        mkdir: bool = False,
+    ) -> Path:
         """
         Bind a folder with read-write access from the host into the container at
         a given path, if the container path is not given then it uses the final
@@ -108,7 +114,7 @@ class Container:
         if not container:
             container = Path("/") / host.name
         # Ensure paths are fully resolved
-        host      = host.resolve()
+        host = host.resolve()
         container = container.resolve()
         # Check for duplicate bind inside the container
         for bind in self.__binds:
@@ -118,18 +124,20 @@ class Container:
                 return container
             # Otherwise if a match or a parent, fail
             elif c_match or container in bind.container_path.parents:
-                e_str = (f"Cannot bind {host} to {container} "
-                         f"(as {'readonly' if readonly else 'writable'}) "
-                          "due to collision with existing "
-                         f"bind {bind.host_path} to {bind.container_path} "
-                         f"(as {'readonly' if bind.readonly else 'writable'})")
+                e_str = (
+                    f"Cannot bind {host} to {container} "
+                    f"(as {'readonly' if readonly else 'writable'}) "
+                    "due to collision with existing "
+                    f"bind {bind.host_path} to {bind.container_path} "
+                    f"(as {'readonly' if bind.readonly else 'writable'})"
+                )
                 raise ContainerError(e_str)
         if mkdir and not host.exists():
             host.mkdir(parents=True)
         self.__binds.append(ContainerBind(host, container, readonly))
         return container
 
-    def bind_readonly(self, host : Path, container : Optional[Path] = None) -> Path:
+    def bind_readonly(self, host: Path, container: Path | None = None) -> Path:
         """
         Bind a folder with read-only access from the host into the container at
         a given path, if the container path is not given then it uses the final
@@ -141,7 +149,12 @@ class Container:
         """
         return self.bind(host, container, readonly=True)
 
-    def bind_many(self, context: Context, binds: Sequence[Union[Path, Tuple[Path, Path]]], readonly: bool = False):
+    def bind_many(
+        self,
+        context: Context,
+        binds: Sequence[Path | tuple[Path, Path]],
+        readonly: bool = False,
+    ):
         """
         Bind a list bind mappings or single paths (which will be mapped
         automatically). See `bind`.
@@ -160,10 +173,9 @@ class Container:
                 h_path = h_path.absolute()
             self.bind(h_path, c_path, readonly=readonly)
 
-    def bind_and_map_args(self,
-                          context: Context,
-                          args: Sequence[Union[str, Path]],
-                          host_okay: bool=True) -> Sequence[str]:
+    def bind_and_map_args(
+        self, context: Context, args: Sequence[str | Path], host_okay: bool = True
+    ) -> Sequence[str]:
         """
         Map host paths to container paths (if applicable) and bind paths to
         the container.
@@ -179,7 +191,9 @@ class Container:
         # Identify all host paths that need to be bound in
         for arg in args:
             # If this is a string, but appears to be a path, convert it
-            if isinstance(arg, str) and (arg.startswith('/') or arg.startswith('./') or arg.startswith('../')):
+            if isinstance(arg, str) and (
+                arg.startswith("/") or arg.startswith("./") or arg.startswith("../")
+            ):
                 arg = Path.cwd() / arg
             # For path arguments convert to str...
             if isinstance(arg, Path):
@@ -190,7 +204,7 @@ class Container:
                     if arg.suffix:
                         h_path, h_name = arg.parent, arg.name
                     else:
-                        h_path, h_name = arg, ''
+                        h_path, h_name = arg, ""
                     try:
                         c_path = context.map_to_container(h_path)
                         binds.append((h_path, c_path))
@@ -207,8 +221,7 @@ class Container:
 
         return mapped_args
 
-
-    def set_env(self, key : str, value : str) -> None:
+    def set_env(self, key: str, value: str) -> None:
         """
         Set an environment variable within the container.
 
@@ -217,7 +230,7 @@ class Container:
         """
         self.__environment[str(key)] = str(value)
 
-    def append_env_path(self, key : str, value : str) -> None:
+    def append_env_path(self, key: str, value: str) -> None:
         """
         Append to a path variable within the environment
 
@@ -229,7 +242,7 @@ class Container:
         else:
             self.__environment[key] = str(value).strip()
 
-    def prepend_env_path(self, key : str, value : str) -> None:
+    def prepend_env_path(self, key: str, value: str) -> None:
         """
         Prepend to a path variable within the environment
 
@@ -241,7 +254,7 @@ class Container:
         else:
             self.__environment[key] = str(value).strip()
 
-    def has_env(self, key : str) -> bool:
+    def has_env(self, key: str) -> bool:
         """
         Check if an environment variable has been set for the container.
 
@@ -250,7 +263,7 @@ class Container:
         """
         return key in self.__environment
 
-    def get_env(self, key : str) -> Union[str, None]:
+    def get_env(self, key: str) -> str | None:
         """
         Get the value of an environment variable within the container.
 
@@ -259,7 +272,7 @@ class Container:
         """
         return self.__environment.get(key, None)
 
-    def overlay_env(self, env : Dict[str, str], strict : bool = False) -> None:
+    def overlay_env(self, env: dict[str, str], strict: bool = False) -> None:
         """
         Overlay a set of environment variables onto the current set, if strict
         is set then any collision with an existing key will be flagged.
@@ -275,17 +288,19 @@ class Container:
                 )
             self.__environment[key] = value
 
-    def launch(self,
-               *command    : str,
-               workdir     : Optional[Path]                     = None,
-               interactive : bool                               = False,
-               display     : bool                               = False,
-               show_detach : bool                               = True,
-               clear       : bool                               = False,
-               env         : Optional[dict[str, str]]           = None,
-               path        : Optional[Mapping[str, list[Path]]] = None,
-               stdout      : Optional[TextIO]                   = None,
-               stderr      : Optional[TextIO]                   = None) -> int:
+    def launch(
+        self,
+        *command: str,
+        workdir: Path | None = None,
+        interactive: bool = False,
+        display: bool = False,
+        show_detach: bool = True,
+        clear: bool = False,
+        env: dict[str, str] | None = None,
+        path: Mapping[str, list[Path]] | None = None,
+        stdout: TextIO | None = None,
+        stderr: TextIO | None = None,
+    ) -> int:
         """
         Launch a task within the container either interactively (STDIN and STDOUT
         streamed from/to the console) or non-interactively (STDOUT is captured).
@@ -347,21 +362,21 @@ class Container:
         # Expose terminal dimensions
         tsize = shutil.get_terminal_size()
         logging.debug(f"Setting terminal to {tsize.columns}x{tsize.lines}")
-        env["LINES"]   = str(tsize.lines)
+        env["LINES"] = str(tsize.lines)
         env["COLUMNS"] = str(tsize.columns)
-        env["TERM"]    = "xterm-256color"
+        env["TERM"] = "xterm-256color"
         # Set TMP and TMPDIR environment variables
-        env["TMP"]    = "/tmp"
+        env["TMP"] = "/tmp"
         env["TMPDIR"] = "/tmp"
         # Get access to container within a context manager
-        with Runtime.get_client() as client,tempfile.TemporaryDirectory(prefix=self.id) as tmpdir:
+        with Runtime.get_client() as client, tempfile.TemporaryDirectory(prefix=self.id) as tmpdir:
             # Provide mounts for '/tmp' and other paths (using a
             # tmpfs mount implicitly adds 'noexec' preventing binaries executing)
             for implicit_path in ["/tmp", "/root", "/var/log", "/var/cache"]:
                 bind = ContainerBind(
                     host_path=Path(tmpdir + implicit_path),
                     container_path=Path(implicit_path),
-                    readonly=False
+                    readonly=False,
                 )
                 bind.host_path.mkdir(parents=True)
                 mounts.append(bind.as_configuration())
@@ -374,46 +389,53 @@ class Container:
             logging.debug(f"Creating container '{self.__id}' with image '{self.image}'")
             container = client.containers.create(
                 # Give the container an identifiable name
-                name       =self.__id,
+                name=self.__id,
                 # Set the image the container should launch
-                image      =self.image,
+                image=self.image,
                 # Set the initial command
-                command    =command,
+                command=command,
                 # Set the initial working directory
                 working_dir=workdir.as_posix(),
                 # Launch as detached so that a container handle is returned
-                detach     =True,
+                detach=True,
                 # Attach a TTY to the process running in the container
-                tty        =interactive,
+                tty=interactive,
                 # Hold STDIN open even when nothing is attached
-                stdin_open =interactive,
+                stdin_open=interactive,
                 # Mark the root filesystem as readonly
-                read_only  =True,
+                read_only=True,
                 # Setup environment variables
                 environment=env,
                 # Setup folders to bind in
-                mounts     =mounts,
+                mounts=mounts,
                 # Shared network with host
-                network    ="host",
+                network="host",
                 # Set the UID based on the platform's behaviour
-                user       =Runtime.get_uid(),
+                user=Runtime.get_uid(),
                 # Customise the hostname
-                hostname   =self.hostname,
+                hostname=self.hostname,
             )
+
             # Register tidy-up mechanism in case of unexpected exit
             def _make_tidy_up(container):
                 def _tidy_up():
                     container.remove(force=True)
+
                 return _tidy_up
+
             tidy_up = _make_tidy_up(container)
             atexit.register(tidy_up)
             # Open a socket onto the container
-            socket = container.attach_socket(params={ "stdin"     : True,
-                                                      "stdout"    : True,
-                                                      "stderr"    : True,
-                                                      "logs"      : True,
-                                                      "detachKeys": "ctrl-p",
-                                                      "stream"    : True })
+            socket = container.attach_socket(
+                params={
+                    "stdin": True,
+                    "stdout": True,
+                    "stderr": True,
+                    "logs": True,
+                    "detachKeys": "ctrl-p",
+                    "stream": True,
+                }
+            )
             # Start the job
             container.start()
             # If interactive, open a shell
@@ -423,7 +445,7 @@ class Container:
                     print(">>> Use CTRL+P to detach from container <<<")
                 # Start monitoring for STDIN and STDOUT
                 t_write = write_stream(socket, e_done)
-                t_read  = read_stream(socket, stdout, e_done)
+                t_read = read_stream(socket, stdout, e_done)
                 e_done.wait()
                 t_read.join()
                 t_write.join()
@@ -432,7 +454,7 @@ class Container:
                     os.system("cls || clear")
             # Otherwise, track the task
             else:
-                for (stream, b_line) in socket_utils.frames_iter(socket, tty=False):
+                for stream, b_line in socket_utils.frames_iter(socket, tty=False):
                     line = b_line.decode("utf-8")
                     if stream == socket_utils.STDOUT:
                         stdout.write(line)
@@ -465,10 +487,12 @@ class Container:
         # Extract the status code (assume error if not set)
         return result.get("StatusCode", 1)
 
-    def shell(self,
-              command     : Tuple[str]     = ("/bin/bash", ),
-              workdir     : Optional[Path] = None,
-              show_detach : bool           = False) -> int:
+    def shell(
+        self,
+        command: tuple[str] = ("/bin/bash",),
+        workdir: Path | None = None,
+        show_detach: bool = False,
+    ) -> int:
         """
         Open an interactive shell in the container. This is similar to launch,
         but always enables and interactive shell and forwards the X11 display.
@@ -478,8 +502,10 @@ class Container:
         :param show_detach: Whether to show the detach key message
         :returns:           Exit code from the executed process
         """
-        return self.launch(*command,
-                           workdir=workdir,
-                           interactive=True,
-                           display=True,
-                           show_detach=show_detach)
+        return self.launch(
+            *command,
+            workdir=workdir,
+            interactive=True,
+            display=True,
+            show_detach=show_detach,
+        )

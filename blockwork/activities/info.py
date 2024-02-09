@@ -19,12 +19,14 @@ from rich.console import Console
 from rich.table import Table
 
 import blockwork
+
 from ..context import Context
+
 
 @click.command()
 @click.argument("query", nargs=-1, type=str)
 @click.pass_obj
-def info(ctx : Context, query: list[str]):
+def info(ctx: Context, query: list[str]):
     """
     List information about the project, an optional list of keys may be provided
     to only print select information - for example 'bw info host_tools' will just
@@ -34,6 +36,7 @@ def info(ctx : Context, query: list[str]):
         "Project": ctx.config.project,
         "Configuration File": ctx.config_path.as_posix(),
         "Blockwork Install": Path(blockwork.__file__).parent.as_posix(),
+        "Site": ctx.site.as_posix(),
         "Host Root": ctx.host_root.as_posix(),
         "Host Tools": ctx.host_tools.as_posix(),
         "Host Scratch": ctx.host_scratch.as_posix(),

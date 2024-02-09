@@ -13,23 +13,31 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
+
 from blockwork.build import Interface, Transform
 from blockwork.common.complexnamespaces import ReadonlyNamespace
 from blockwork.context import Context
-from blockwork.tools.tool import Version
-from infra.tools.misc import PythonSite
+from blockwork.tools.tool import Tool, Version
+
+from ..tools.misc import PythonSite
+
 
 class MakoTransform(Transform):
-    tools = [PythonSite]
+    tools: ClassVar[list[Tool]] = [PythonSite]
 
     def __init__(self, template: Interface[Path], output: Interface[Path]):
         super().__init__()
         self.bind_inputs(template=template)
         self.bind_outputs(output=output)
 
-    def execute(self, ctx: Context, tools: ReadonlyNamespace[Version], iface: ReadonlyNamespace[Any]):
-        cmd  = "from mako.template import Template;"
+    def execute(
+        self,
+        ctx: Context,
+        tools: ReadonlyNamespace[Version],
+        iface: ReadonlyNamespace[Any],
+    ):
+        cmd = "from mako.template import Template;"
         cmd += f"fh = open('{iface.output}', 'w');"
         cmd += f"fh.write(Template(filename='{iface.template}').render());"
         cmd += "fh.flush();"

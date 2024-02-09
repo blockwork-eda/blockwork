@@ -14,36 +14,51 @@
 
 import sys
 from pathlib import Path
-from typing import List
 
 import click
 
-from .common import BwExecCommand
 from ..context import Context
 from ..foundation import Foundation
 from ..tools import ToolMode
+from .common import BwExecCommand
+
 
 @click.command(cls=BwExecCommand)
-@click.option("--interactive", "-i", is_flag=True, default=False,
-              help="Make the shell interactive (attaches a TTY)")
-@click.option("--cwd", type=str, default=None,
-              help="Set the working directory within the container")
+@click.option(
+    "--interactive",
+    "-i",
+    is_flag=True,
+    default=False,
+    help="Make the shell interactive (attaches a TTY)",
+)
+@click.option(
+    "--cwd",
+    type=str,
+    default=None,
+    help="Set the working directory within the container",
+)
 @click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
-def exec(ctx : Context,
-         tool : List[str],
-         no_tools : bool,
-         tool_mode : str,
-         interactive : bool,
-         cwd : str,
-         runargs : List[str]) -> None:
-    """ Run a command within the container environment """
+def exec(  # noqa: A001
+    ctx: Context,
+    tool: list[str],
+    no_tools: bool,
+    tool_mode: str,
+    interactive: bool,
+    cwd: str,
+    runargs: list[str],
+) -> None:
+    """Run a command within the container environment"""
     container = Foundation(ctx, hostname=f"{ctx.config.project}_run")
     container.bind(ctx.host_root, ctx.container_root, False)
     BwExecCommand.bind_tools(container, no_tools, tool, ToolMode(tool_mode))
     # Execute and forward the exit code
-    sys.exit(container.launch(*runargs,
-                              workdir=Path(cwd) if cwd else ctx.container_root,
-                              interactive=interactive,
-                              display=True,
-                              show_detach=False))
+    sys.exit(
+        container.launch(
+            *runargs,
+            workdir=Path(cwd) if cwd else ctx.container_root,
+            interactive=interactive,
+            display=True,
+            show_detach=False,
+        )
+    )

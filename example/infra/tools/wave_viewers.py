@@ -1,53 +1,50 @@
 from pathlib import Path
-from typing import List
-
+from typing import ClassVar
 
 from blockwork.context import Context
 from blockwork.tools import Invocation, Require, Tool, Version
 
-from .compilers import Automake, GCC, GPerf
+from .compilers import GCC, Automake, GPerf
+
 
 @Tool.register()
 class GTKWave(Tool):
-    versions = [
-        Version(location = Tool.HOST_ROOT / "gtkwave" / "3.3.116",
-                version  = "3.3.116",
-                requires = [Require(Automake, "1.16.5"),
-                            Require(GCC,      "13.1.0"),
-                            Require(GPerf,    "3.1")],
-                paths    = { "PATH": [Tool.CNTR_ROOT / "bin"] },
-                default  = True),
+    versions: ClassVar[list[Version]] = [
+        Version(
+            location=Tool.HOST_ROOT / "gtkwave" / "3.3.116",
+            version="3.3.116",
+            requires=[
+                Require(Automake, "1.16.5"),
+                Require(GCC, "13.1.0"),
+                Require(GPerf, "3.1"),
+            ],
+            paths={"PATH": [Tool.CNTR_ROOT / "bin"]},
+            default=True,
+        ),
     ]
 
     @Tool.action("GTKWave", default=True)
-    def view(self,
-             ctx: Context,
-             version  : Version,
-             wavefile : str,
-             *args    : List[str]) -> Invocation:
+    def view(self, ctx: Context, version: Version, wavefile: str, *args: list[str]) -> Invocation:
         path = Path(wavefile).absolute()
         return Invocation(
-            version = version,
-            execute = "gtkwave",
-            args    = [path, *args],
-            display = True,
-            binds   = [path.parent]
+            version=version,
+            execute="gtkwave",
+            args=[path, *args],
+            display=True,
+            binds=[path.parent],
         )
 
     @Tool.action("GTKWave")
-    def version(self,
-                ctx: Context,
-                version : Version,
-                *args   : List[str]) -> Invocation:
+    def version(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         return Invocation(
-            version = version,
-            execute = "gtkwave",
-            args    = ["--version", *args],
-            display = True,
+            version=version,
+            execute="gtkwave",
+            args=["--version", *args],
+            display=True,
         )
 
     @Tool.installer("GTKWave")
-    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
         script = [
@@ -58,12 +55,12 @@ class GTKWave(Tool):
             "make -j4",
             "make install",
             "cd ../..",
-            f"rm -rf gtkwave-{vernum} ./*.tar.*"
+            f"rm -rf gtkwave-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version = version,
-            execute = "bash",
-            args    = ["-c", " && ".join(script)],
-            workdir = tool_dir,
-            interactive=True
+            version=version,
+            execute="bash",
+            args=["-c", " && ".join(script)],
+            workdir=tool_dir,
+            interactive=True,
         )

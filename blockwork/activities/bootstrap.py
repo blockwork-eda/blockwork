@@ -19,17 +19,20 @@ import click
 from ..bootstrap import Bootstrap, BwBootstrapMode
 from ..context import Context
 
+
 @click.command()
-@click.option("--mode",
-              type=click.Choice(BwBootstrapMode, case_sensitive=False),
-              default="default",
-              help="""Set the bootstrap mode.
+@click.option(
+    "--mode",
+    type=click.Choice(BwBootstrapMode, case_sensitive=False),
+    default="default",
+    help="""Set the bootstrap mode.
                           default: Rebuild out of date steps
                           force: Rebuild all steps
-                   """)
+                   """,
+)
 @click.pass_obj
-def bootstrap(ctx : Context, mode: str) -> None:
-    """ Run all bootstrapping actions """
+def bootstrap(ctx: Context, mode: str) -> None:
+    """Run all bootstrapping actions"""
     mode: BwBootstrapMode = getattr(BwBootstrapMode, mode)
     logging.info(f"Importing {len(ctx.config.bootstrap)} bootstrapping paths")
     Bootstrap.setup(ctx.host_root, ctx.config.bootstrap)

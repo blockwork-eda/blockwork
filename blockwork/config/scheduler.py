@@ -12,18 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from collections import defaultdict
-from typing import Generic, Hashable, Iterable, Optional, TypeVar
+from collections.abc import Hashable, Iterable
+from typing import Generic, TypeVar
+
 
 class SchedulingError(RuntimeError):
-    'Base class for scheduling errors'
+    "Base class for scheduling errors"
+
 
 class CyclicError(SchedulingError):
-    'Graph contains a cycle'
+    "Graph contains a cycle"
 
 
 _Schedulable = TypeVar("_Schedulable", bound=Hashable)
+
+
 class Scheduler(Generic[_Schedulable]):
-    '''
+    """
     Generic scheduler for a directed acyclic graphs.
 
     Usage example::
@@ -34,20 +39,23 @@ class Scheduler(Generic[_Schedulable]):
             for item in scheduler.schedulable:
                 scheduler.schedule(item)
                 ...run the step related to the item...
-                scheduler.finish(item)                
-    '''
-    def __init__(self, 
-                 dependency_map: dict[_Schedulable, set[_Schedulable]], 
-                 targets: Optional[Iterable[_Schedulable]]=None,
-                 reverse: bool=False):
-        '''
+                scheduler.finish(item)
+    """
+
+    def __init__(
+        self,
+        dependency_map: dict[_Schedulable, set[_Schedulable]],
+        targets: Iterable[_Schedulable] | None = None,
+        reverse: bool = False,
+    ):
+        """
         :param dependency_map: A map between items and the items that they depend on.
                                This must be dense, containing empty values for items
                                with no dependencies.
         :param targets: The target items, only (recursive) dependencies of these items
                         will be scheduled. If None, all items will be scheduled.
         :param reverse: Schedule in reverse order - as if the dependency map is flipped.
-        '''
+        """
         if targets is None:
             # Assume any item in the dependency map needs to be built
             level_targets = set(dependency_map.keys())
@@ -60,7 +68,7 @@ class Scheduler(Generic[_Schedulable]):
         count = 0
         while True:
             self._all |= level_targets
-            if count == (count:=len(self._all)):
+            if count == (count := len(self._all)):
                 break
             next_level_targets = set()
             for level_target in level_targets:
@@ -69,8 +77,7 @@ class Scheduler(Generic[_Schedulable]):
             if not level_targets:
                 break
 
-
-        # Iterate over the dependency map and prune it to the items that 
+        # Iterate over the dependency map and prune it to the items that
         # we need to schedule for the targets
         self._dependent_map: dict[_Schedulable, set[_Schedulable]] = defaultdict(set)
         self._dependency_map: dict[_Schedulable, set[_Schedulable]] = defaultdict(set)
@@ -83,7 +90,10 @@ class Scheduler(Generic[_Schedulable]):
                 self._dependent_map[dependency].add(dependant)
 
         if reverse:
-            self._dependency_map, self._dependent_map = self._dependent_map, self._dependency_map
+            self._dependency_map, self._dependent_map = (
+                self._dependent_map,
+                self._dependency_map,
+            )
 
         self._remaining = set(self._all)
         self._unscheduled = set(self._all)
@@ -133,7 +143,7 @@ class Scheduler(Generic[_Schedulable]):
     def complete(self) -> set[_Schedulable]:
         "Get any items that are complete"
         return set(self._complete)
-    
+
     def schedule(self, item: _Schedulable):
         """
         Schedule an item. This item must come from `schedulable`
@@ -157,4 +167,3 @@ class Scheduler(Generic[_Schedulable]):
         self._remaining.remove(item)
         self._scheduled.remove(item)
         self._complete.add(item)
-

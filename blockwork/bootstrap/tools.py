@@ -18,16 +18,15 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from ..tools.tool import ToolActionError
-
 from ..context import Context
 from ..foundation import Foundation
 from ..tools import Tool, ToolError
+from ..tools.tool import ToolActionError
 from .bootstrap import Bootstrap
 
 
 @Bootstrap.register()
-def install_tools(context : Context, last_run : datetime) -> bool:
+def install_tools(context: Context, last_run: datetime) -> bool:
     """
     Run the install action for all known tools
     """
@@ -71,15 +70,14 @@ def install_tools(context : Context, last_run : datetime) -> bool:
             logging.info(f" - {idx}: Launching installation of {tool_id}")
             invk = act_def(context)
             if invk is not None:
-                container = Foundation(context, hostname=f"{context.config.project}_install_{tool.id}")
-                exit_code = container.invoke(context,
-                                            act_def(context),
-                                            readonly=False)
+                container = Foundation(
+                    context, hostname=f"{context.config.project}_install_{tool.id}"
+                )
+                exit_code = container.invoke(context, act_def(context), readonly=False)
                 if exit_code != 0:
                     raise ToolError(f"Installation of {tool_id} failed")
             else:
-                logging.debug(f" - {idx}: Installation of {tool_id} produced "
-                              f"a null invocation")
+                logging.debug(f" - {idx}: Installation of {tool_id} produced " f"a null invocation")
             logging.debug(f" - {idx}: Installation of {tool_id} succeeded")
             # Touch the install folder to ensure its datetime is updated
             try:
@@ -87,4 +85,3 @@ def install_tools(context : Context, last_run : datetime) -> bool:
             except PermissionError as e:
                 logging.debug(f" - Could not update modified time of {host_loc}: {e}")
                 pass
-

@@ -15,9 +15,10 @@
 import functools
 import inspect
 from collections import defaultdict
+from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, TextIO, Tuple, Union
+from typing import Any, ClassVar, TextIO, Union
 
 from ..common.registry import RegisteredClass
 from ..common.singleton import Singleton
@@ -25,7 +26,7 @@ from ..context import Context
 
 
 class ToolMode(StrEnum):
-    READONLY  = auto()
+    READONLY = auto()
     READWRITE = auto()
 
 
@@ -38,11 +39,9 @@ class ToolActionError(ToolError):
 
 
 class Require:
-    """ Forms a requirement on another tool and version """
+    """Forms a requirement on another tool and version"""
 
-    def __init__(self,
-                 tool    : "Tool",
-                 version : Optional[str] = None) -> None:
+    def __init__(self, tool: "Tool", version: str | None = None) -> None:
         self.tool = tool
         self.version = version
         if not inspect.isclass(tool) or not issubclass(tool, Tool):
@@ -58,26 +57,28 @@ class Require:
 
 
 class Version:
-    """ Defines a version of a tool """
+    """Defines a version of a tool"""
 
-    def __init__(self,
-                 version  : str,
-                 location : Path,
-                 env      : Optional[Dict[str, str]]       = None,
-                 paths    : Optional[Dict[str, List[str]]] = None,
-                 requires : Optional[List[Require]]        = None,
-                 default  : bool                           = False) -> None:
+    def __init__(
+        self,
+        version: str,
+        location: Path,
+        env: dict[str, str] | None = None,
+        paths: dict[str, list[str]] | None = None,
+        requires: list[Require] | None = None,
+        default: bool = False,
+    ) -> None:
         self.version = version
         self.location = location
         self.env = env or {}
         self.paths = paths or {}
         self.requires = requires
         self.default = default
-        self.tool : Optional["Tool"] = None
+        self.tool: "Tool" | None = None
         # Sanitise arguments
         self.requires = self.requires or []
-        self.paths    = self.paths or {}
-        self.env      = self.env or {}
+        self.paths = self.paths or {}
+        self.env = self.env or {}
         if not isinstance(self.location, Path):
             raise ToolError(f"Bad location given for version {self.version}: {self.location}")
         if not isinstance(self.version, str) or len(self.version.strip()) == 0:
@@ -96,12 +97,12 @@ class Version:
             raise ToolError("Requirements must be a list of Require objects")
 
     @property
-    @functools.lru_cache()
+    @functools.lru_cache  # noqa: B019
     def id_tuple(self) -> str:
         return (*self.tool.base_id_tuple, self.version)
 
     @property
-    @functools.lru_cache()
+    @functools.lru_cache  # noqa: B019
     def id(self) -> str:
         vend, name, vers = self.id_tuple
         if vend.casefold() == Tool.NO_VENDOR.casefold():
@@ -109,8 +110,8 @@ class Version:
         else:
             return "_".join((vend, name, vers))
 
-    @functools.lru_cache()
-    def resolve_requirements(self) -> Set["Version"]:
+    @functools.lru_cache  # noqa: B019
+    def resolve_requirements(self) -> set["Version"]:
         return {x.resolve() for x in self.requires}
 
     @property
@@ -120,19 +121,23 @@ class Version:
         else:
             return Path(self.tool.name) / self.version
 
-    def get_action(self, name : str) -> Callable:
+    def get_action(self, name: str) -> Callable:
         action = self.tool.get_action(name)
+
         # Return a wrapper that inserts the active version
         def _wrap(context, *args, **kwargs):
             return action(context, self, *args, **kwargs)
+
         return _wrap
 
-    def get_installer(self) -> Union[Callable, None]:
+    def get_installer(self) -> Callable | None:
         if (action := self.tool.get_installer()) is None:
             return None
+
         # Return a wrapper that inserts the active version
         def _wrap(context, *args, **kwargs):
             return action(context, self, *args, **kwargs)
+
         return _wrap
 
     def __getattribute__(self, name: str) -> Any:
@@ -142,9 +147,9 @@ class Version:
             try:
                 return self.get_action(name)
             except ToolActionError:
-                raise e
+                raise e from None
 
-    def get_host_path(self, ctx : Context) -> Path:
+    def get_host_path(self, ctx: Context) -> Path:
         """
         Expand the location to get the full path to the tool on the host system.
         Substitutes Tool.HOST_ROOT for the 'host_tools' path from Context.
@@ -158,7 +163,7 @@ class Version:
             path = self.location
         return path.absolute()
 
-    def get_container_path(self, ctx : Context, path : Optional[Path] = None) -> Path:
+    def get_container_path(self, ctx: Context, path: Path | None = None) -> Path:
         """
         Expand the location to get the full path to the tool within the contained
         environment, substituting Tool.CNTR_ROOT for the 'container_tools' path
@@ -180,27 +185,27 @@ class Version:
 
 
 class Tool(RegisteredClass, metaclass=Singleton):
-    """ Base class for tools """
+    """Base class for tools"""
 
     # Tool root locator
-    CNTR_ROOT : Path = Path("/__tool_cntr_root__")
-    HOST_ROOT : Path = Path("/__tool_host_root__")
+    CNTR_ROOT: Path = Path("/__tool_cntr_root__")
+    HOST_ROOT: Path = Path("/__tool_host_root__")
 
     # Default vendor
     NO_VENDOR = "N/A"
 
     # Action registration
-    ACTIONS  = defaultdict(dict)
+    ACTIONS: ClassVar[dict[str, Callable]] = defaultdict(dict)
     RESERVED = ("installer", "default")
 
     # Placeholders
-    vendor   : Optional[str]           = None
-    versions : Optional[Sequence[Version]] = None
+    vendor: str | None = None
+    versions: Sequence[Version] | None = None
 
     def __init__(self) -> None:
         self.vendor = self.vendor.strip() if isinstance(self.vendor, str) else Tool.NO_VENDOR
         self.versions = self.versions or []
-        if not isinstance(self.versions, (list, tuple)):
+        if not isinstance(self.versions, list | tuple):
             raise ToolError(f"Versions of tool {self.name} must be a list or a tuple")
         if not all(isinstance(x, Version) for x in self.versions):
             raise ToolError(f"Versions of tool {self.name} must be a list of Version objects")
@@ -218,35 +223,41 @@ class Tool(RegisteredClass, metaclass=Singleton):
                 # Check for multiple defaults
                 if version.default:
                     if default_version is not None:
-                        raise ToolError(f"Multiple versions marked default for tool {self.name} "
-                                        f"from vendor {self.vendor}")
+                        raise ToolError(
+                            f"Multiple versions marked default for tool {self.name} "
+                            f"from vendor {self.vendor}"
+                        )
                     default_version = version
                 # Check for repeated version numbers
                 if version.version in version_nums:
-                    raise ToolError(f"Duplicate version {version.version} for tool "
-                                    f"{self.name} from vendor {self.vendor}")
+                    raise ToolError(
+                        f"Duplicate version {version.version} for tool "
+                        f"{self.name} from vendor {self.vendor}"
+                    )
                 version_nums.append(version.version)
             # Check the default has been identified
             if default_version is None:
-                raise ToolError(f"No version of tool {self.name} from vendor "
-                                f"{self.vendor} marked as default")
+                raise ToolError(
+                    f"No version of tool {self.name} from vendor "
+                    f"{self.vendor} marked as default"
+                )
             self.default = default_version
 
     def __iter__(self) -> Iterable[Version]:
         yield from self.versions
 
     @property
-    @functools.lru_cache()
+    @functools.lru_cache  # noqa: B019
     def name(self) -> str:
         return type(self).__name__.lower()
 
     @property
-    @functools.lru_cache()
+    @functools.lru_cache  # noqa: B019
     def base_id_tuple(self) -> str:
         return (self.vendor.lower(), self.name)
 
     @property
-    @functools.lru_cache()
+    @functools.lru_cache  # noqa: B019
     def base_id(self) -> str:
         vend, name = self.base_id_tuple
         if vend.casefold() == Tool.NO_VENDOR.casefold():
@@ -254,8 +265,8 @@ class Tool(RegisteredClass, metaclass=Singleton):
         else:
             return "_".join((vend, name))
 
-    @functools.lru_cache()
-    def get_version(self, version : str) -> Version:
+    @functools.lru_cache  # noqa: B019
+    def get_version(self, version: str) -> Version:
         """
         Retrieve a specific version of a tool from the version name.
 
@@ -266,10 +277,7 @@ class Tool(RegisteredClass, metaclass=Singleton):
         return match[0] if match else None
 
     @classmethod
-    def action(cls,
-               tool_name : str,
-               name      : Optional[str] = None,
-               default   : bool          = False) -> Callable:
+    def action(cls, tool_name: str, name: str | None = None, default: bool = False) -> Callable:
         """
         Decorator to mark a Tool method as an action, which can be called either
         by other tools or from the command line.
@@ -283,21 +291,25 @@ class Tool(RegisteredClass, metaclass=Singleton):
         :param default:     Whether to also associate this as the default action
                             for the tool
         """
-        def _inner(method : Callable) -> Callable:
+
+        def _inner(method: Callable) -> Callable:
             nonlocal name
             name = name or method.__name__
             # Check that the name is not reserved
             if name.lower() in cls.RESERVED:
-                raise ToolError(f"Cannot register an action called '{name}' to "
-                                f"tool '{tool_name}' as it is a reserved name")
+                raise ToolError(
+                    f"Cannot register an action called '{name}' to "
+                    f"tool '{tool_name}' as it is a reserved name"
+                )
             # Register the action
             cls.__register_action(tool_name, name, default, method)
             # Return the unaltered method
             return method
+
         return _inner
 
     @classmethod
-    def installer(cls, tool_name : str) -> Callable:
+    def installer(cls, tool_name: str) -> Callable:
         """
         Special decorator to mark an action that installs the tool by downloading
         it from a central store.
@@ -307,19 +319,17 @@ class Tool(RegisteredClass, metaclass=Singleton):
                             unbound methods do not have a relationship to their
                             parent.
         """
-        def _inner(method : Callable) -> Callable:
+
+        def _inner(method: Callable) -> Callable:
             # Register method with a fixed name of 'installer' (reserved)
             cls.__register_action(tool_name, "installer", False, method)
             # Return the unaltered method
             return method
+
         return _inner
 
     @classmethod
-    def __register_action(cls,
-                          tool_name : str,
-                          name : str,
-                          default : bool,
-                          method : Callable):
+    def __register_action(cls, tool_name: str, name: str, default: bool, method: Callable):
         """
         Register a provided method as a tool action with a given name, optionally
         marking it as the 'default'.
@@ -335,15 +345,16 @@ class Tool(RegisteredClass, metaclass=Singleton):
         name = name.lower()
         # Raise an error if the name clashes
         if name in cls.ACTIONS[tool_name]:
-            raise ToolError(f"An action called '{name}' already been registered "
-                            f"to tool '{tool_name}'")
+            raise ToolError(
+                f"An action called '{name}' already been registered " f"to tool '{tool_name}'"
+            )
         # Register the action as specified
         cls.ACTIONS[tool_name][name] = method
         # If marked as default, call recursively
         if default:
             cls.__register_action(tool_name, "default", False, method)
 
-    def get_action(self, name : str) -> Callable:
+    def get_action(self, name: str) -> Callable:
         """
         Return an action registered for this tool if known.
 
@@ -356,13 +367,16 @@ class Tool(RegisteredClass, metaclass=Singleton):
             raise ToolActionError
         if (raw_act := actions.get(name.lower(), None)) is None:
             raise ToolActionError
+
         # The method held in the actions dictionary is unbound, so this wrapper
         # provides the instance as the first argument
         def _wrap(context, *args, **kwargs):
             if not isinstance(context, Context):
-                raise RuntimeError(f"Expected Context object as first argument "
-                                   f"to action but got {context}")
+                raise RuntimeError(
+                    f"Expected Context object as first argument " f"to action but got {context}"
+                )
             return raw_act(self, context, *args, **kwargs)
+
         return _wrap
 
     # ==========================================================================
@@ -370,7 +384,7 @@ class Tool(RegisteredClass, metaclass=Singleton):
     # ==========================================================================
 
     @classmethod
-    def wrap(cls, tool : "Tool") -> "Tool":
+    def wrap(cls, tool: "Tool") -> "Tool":
         if tool in RegisteredClass.LOOKUP_BY_OBJ[cls]:
             return tool
         else:
@@ -379,10 +393,12 @@ class Tool(RegisteredClass, metaclass=Singleton):
             return tool
 
     @classmethod
-    def get(cls,
-            vend_or_name : str,
-            name         : Optional[str] = None,
-            version      : Optional[str] = None) -> Union["Tool", None]:
+    def get(
+        cls,
+        vend_or_name: str,
+        name: str | None = None,
+        version: str | None = None,
+    ) -> Union["Tool", None]:
         """
         Retrieve a tool registered for a given vendor, name, and version. If only a
         name is given, then NO_VENDOR is assumed for the vendor field. If no version
@@ -395,7 +411,7 @@ class Tool(RegisteredClass, metaclass=Singleton):
         """
         vendor = vend_or_name.lower() if name else Tool.NO_VENDOR.lower()
         name = (name if name else vend_or_name).lower()
-        tool_def : Tool = cls.get_by_name((vendor, name))
+        tool_def: Tool = cls.get_by_name((vendor, name))
         if not tool_def:
             return None
         tool = tool_def()
@@ -405,10 +421,12 @@ class Tool(RegisteredClass, metaclass=Singleton):
             return tool.default
 
     @classmethod
-    def select_version(cls,
-                       vend_or_name : str,
-                       name         : Optional[str] = None,
-                       version      : Optional[str] = None) -> None:
+    def select_version(
+        cls,
+        vend_or_name: str,
+        name: str | None = None,
+        version: str | None = None,
+    ) -> None:
         """
         Select a specific version of a tool as the default, overriding whatever
         default version the tool itself has nominated.
@@ -421,13 +439,14 @@ class Tool(RegisteredClass, metaclass=Singleton):
             raise ToolError("A version must be provided")
         vendor = vend_or_name.lower() if name else Tool.NO_VENDOR.lower()
         name = (name if name else vend_or_name).lower()
-        tool_def : Tool = cls.get_by_name((vendor, name))
+        tool_def: Tool = cls.get_by_name((vendor, name))
         if not tool_def:
             raise ToolError(f"No tool known for name '{name}' from vendor '{vendor}'")
         tool = tool_def()
         tool.default.default = False
         tool.default = tool.get_version(version)
         tool.default.default = True
+
 
 class Invocation:
     """
@@ -452,37 +471,41 @@ class Invocation:
     :param path:        Path variables to extend within the container
     """
 
-    def __init__(self,
-                 version     : Version,
-                 execute     : Union[Path, str],
-                 args        : Optional[Sequence[Union[str, Path]]] = None,
-                 workdir     : Optional[Path] = None,
-                 display     : bool = False,
-                 interactive : bool = False,
-                 stdout      : Optional[TextIO] = None,
-                 stderr      : Optional[TextIO] = None,
-                 host        : bool = False,
-                 binds       : Optional[Sequence[Union[Path, Tuple[Path, Path]]]] = None,
-                 env         : Optional[Dict[str, str]] = None,
-                 path        : Optional[dict[str, List[Path]]] = None) -> None:
-        self.version     = version
-        self.execute     = execute
-        self.args        = args or []
-        self.workdir     = workdir
-        self.display     = display
+    def __init__(
+        self,
+        version: Version,
+        execute: Path | str,
+        args: Sequence[str | Path] | None = None,
+        workdir: Path | None = None,
+        display: bool = False,
+        interactive: bool = False,
+        stdout: TextIO | None = None,
+        stderr: TextIO | None = None,
+        host: bool = False,
+        binds: Sequence[Path | tuple[Path, Path]] | None = None,
+        env: dict[str, str] | None = None,
+        path: dict[str, list[Path]] | None = None,
+    ) -> None:
+        self.version = version
+        self.execute = execute
+        self.args = args or []
+        self.workdir = workdir
+        self.display = display
         self.interactive = interactive or display
-        self.stdout      = stdout
-        self.stderr      = stderr
-        self.host        = host
-        self.binds       = binds or []
-        self.env         = env or {}
-        self.path        = path or {}
+        self.stdout = stdout
+        self.stderr = stderr
+        self.host = host
+        self.binds = binds or []
+        self.env = env or {}
+        self.path = path or {}
 
     def where(self, **kwargs):
-        'Utility method to configure invocation after the fact'
+        "Utility method to configure invocation after the fact"
         for k, v in kwargs.items():
             if hasattr(self, k):
                 setattr(self, k, v)
             else:
-                raise AttributeError(f'Invocation object has no option `{k}` (tried to set to `{v}`)')
+                raise AttributeError(
+                    f"Invocation object has no option `{k}` (tried to set to `{v}`)"
+                )
         return self

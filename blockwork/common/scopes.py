@@ -12,15 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Generic, ParamSpec, Self, TypeVar
+from collections.abc import Callable
+from typing import ClassVar, Generic, ParamSpec, Self, TypeVar
 
 
 class ScopeError(RuntimeError):
-    'Attempted to access scoped data outside of any scope'
+    "Attempted to access scoped data outside of any scope"
 
-_ScopedData = TypeVar('_ScopedData')
+
+_ScopedData = TypeVar("_ScopedData")
+
+
 class _ScopeWrap(Generic[_ScopedData]):
-    _stack: list[_ScopedData] = []
+    _stack: ClassVar[list[_ScopedData]] = []
+
     def __init__(self, data: _ScopedData):
         self._data = data
 
@@ -39,9 +44,10 @@ class _ScopeWrap(Generic[_ScopedData]):
         except IndexError as e:
             raise ScopeError from e
 
+
 class Scope:
     """
-    Mixin class to provide scoping via a context manager 
+    Mixin class to provide scoping via a context manager
     stack for data that may otherwise end up global. See example::
 
         @dataclass
@@ -53,11 +59,13 @@ class Scope:
                 ...
             else
                 ...
-            
+
         with Verbosity(VERBOSE=True):
             do_something()
     """
-    _stack: list[Self] = []
+
+    _stack: ClassVar[list[Self]] = []
+
     def __enter__(self):
         self._stack.append(self)
         return self
@@ -74,11 +82,13 @@ class Scope:
             raise ScopeError from e
 
 
-_Param = ParamSpec('_Param')
-_Return = TypeVar('_Return')
+_Param = ParamSpec("_Param")
+_Return = TypeVar("_Return")
+
+
 def scope(wrapee: Callable[_Param, _Return]) -> Callable[_Param, _ScopeWrap[_Return]]:
     """
-    Decorator intended to provide scoping via a context manager 
+    Decorator intended to provide scoping via a context manager
     stack for data that may otherwise end up global. See example::
 
         @scope
@@ -91,11 +101,13 @@ def scope(wrapee: Callable[_Param, _Return]) -> Callable[_Param, _ScopeWrap[_Ret
                 ...
             else
                 ...
-            
+
         with Verbosity(VERBOSE=True):
             do_something()
     """
+
     class Scoped(_ScopeWrap[wrapee]):
         def __init__(self, *args: _Param.args, **kwargs: _Param.kwargs):
             self._data = wrapee(*args, **kwargs)
+
     return Scoped

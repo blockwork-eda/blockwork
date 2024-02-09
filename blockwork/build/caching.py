@@ -24,7 +24,7 @@ Stages:
   Initial:
     - Hash the content of static input interfaces
     - Use these to compute transform hashkeys for nodes with no dependencies
-    - Use input interface names along with the hashkeys of transforms that 
+    - Use input interface names along with the hashkeys of transforms that
         output them to get the transform hashkeys for nodes with dependencies
 
   Pre-run:
@@ -39,7 +39,7 @@ Stages:
     - Push output interfaces to all caches that allow it
 
 Future improvements:
-  - Pass through information such as tags, file-size, and time-to-create 
+  - Pass through information such as tags, file-size, and time-to-create
     through to caches so they can make intelligent decisions on what to cache.
 
 '''
@@ -53,7 +53,7 @@ if TYPE_CHECKING:
     from blockwork.build.transform import Transform
 from ..context import Context
 
-# Switch to never pull or push from the cache, but to instead compare the 
+# Switch to never pull or push from the cache, but to instead compare the
 # hash with existing cache entries.
 # This will become a command option later...
 CACHE_CONSISTENCY_MODE = False
@@ -95,19 +95,19 @@ class Cache(ABC):
                 return True
             to.unlink(missing_ok=True)
         return False
-    
+
     @staticmethod
     def fetch_transform(ctx: Context, transform: "Transform") -> bool:
         'Fetch all the output interfaces for a transform'
         if CACHE_CONSISTENCY_MODE:
             return False
-        
+
         for idx, iface in enumerate(transform._flat_output_interfaces):
             hashkey = f"{iface.get_hashsource(ctx)}-{idx}"
             if not Cache.fetch_from_any(ctx, hashkey, iface.resolve(ctx)):
                 return False
         return True
-        
+
     @staticmethod
     def store_transform(ctx: Context, transform: "Transform") -> bool:
         'Store all the output interfaces for a transform'

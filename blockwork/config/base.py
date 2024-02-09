@@ -12,17 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 import yaml
-from .api import ConfigApi
-from ..common.yaml.parsers import Parser
 
-from ..common.singleton import keyed_singleton
 from ..build.transform import Transform
-
 from ..common.checkeddataclasses import dataclass, field
+from ..common.singleton import keyed_singleton
 from ..common.yaml import DataclassConverter
+from ..common.yaml.parsers import Parser
+from .api import ConfigApi
 
 
 class ConfigConverter(DataclassConverter["Config", "Parser"]):
@@ -38,36 +37,40 @@ class ConfigConverter(DataclassConverter["Config", "Parser"]):
         with ConfigApi.current.with_node(node):
             return super().construct_mapping(loader, node)
 
-class Config(metaclass=keyed_singleton(inst_key=lambda i:hash(i))):
-    '''
+
+class Config(metaclass=keyed_singleton(inst_key=lambda i: hash(i))):
+    """
     Base class for all config.
     All-caps keys are reserved.
-    '''
+    """
+
     "Defines which YAML registry the config belongs to i.e. site/project/element"
     # _CONVERTER: type[DataclassConverter] = DataclassConverter
     _CONVERTER = ConfigConverter
     "Defines how to convert the YAML tag into a Python object"
-    YAML_TAG: Optional[str] = None
+    YAML_TAG: str | None = None
     "The !<Tag> to represent this document in YAML"
-    FILE_NAME: Optional[str] = None
+    FILE_NAME: str | None = None
     "The api object for this config"
     api: ConfigApi
     "The parser for this config"
     parser: Parser = Parser()
-    """The implicit file name to use when one isn't provided, 
+    """The implicit file name to use when one isn't provided,
        defaults to YAML_TAG if provided, else class name"""
+
     def __init_subclass__(cls, *args, **kwargs):
         super().__init_subclass__(*args, **kwargs)
         cls.api = field(default_factory=lambda: ConfigApi.current)
-        cls.__annotations__['api'] = ConfigApi
+        cls.__annotations__["api"] = ConfigApi
         dataclass(kw_only=True, frozen=True, eq=False, repr=False)(cls)
         cls.parser.register(cls._CONVERTER, tag=cls.YAML_TAG)(cls)
 
-    def __init__(self, *args, **kwargs): ...
+    def __init__(self, *args, **kwargs):
+        ...
 
     def __hash__(self):
         return self.api.node_id() or id(self)
-    
+
     def __eq__(self, other):
         return hash(self) == hash(other)
 
@@ -105,12 +108,14 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i:hash(i))):
         """
         return True
 
+
 class Site(Config):
-    'Base class for site configuration'
+    "Base class for site configuration"
+
     projects: dict[str, str]
 
 
 class Project(Config):
-    'Base class for project configuration'
-    units: dict[str, str]
+    "Base class for project configuration"
 
+    units: dict[str, str]

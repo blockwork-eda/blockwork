@@ -12,43 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from functools import cache, partial, reduce
-from types import SimpleNamespace
-
-from ..build.caching import Cache
-
-from ..context import Context
-
-from ..config.base import Config, Project, Site
-from ..config.api import ConfigApi
-import click
 import logging
+from collections.abc import Callable, Iterable
+from functools import cache, partial, reduce
 from pathlib import Path
-from typing import Callable, Iterable, Optional, cast
+from types import SimpleNamespace
+from typing import cast
 
-from ..config.scheduler import Scheduler
+import click
 
-from ..build.interface import Interface
-
-from ..build.transform import Transform
 from ..activities.workflow import wf
+from ..build.caching import Cache
+from ..build.interface import Interface
+from ..build.transform import Transform
+from ..config.api import ConfigApi
+from ..config.base import Config, Project, Site
+from ..config.scheduler import Scheduler
+from ..context import Context
 
 
 class Workflow:
-    '''
+    """
     Wrapper for workflow functions.
 
     Workflows are implemented as functions which are run from the command
     line and that return a Config object. For example::
 
         @Workflow("<workflow_name>")
-        @click.option('--match', type=str, required=True)
+        @click.option("--match", type=str, required=True)
         def my_workflow(ctx, match):
             return Build(match=match)
 
-    '''
+    """
 
-     # Type for Site object
+    # Type for Site object
     SITE_TYPE = Site
 
     def __init__(self, name: str):
@@ -56,13 +53,13 @@ class Workflow:
         self.project_type = None
         self.target_type = None
 
-    def with_project(self, typ: Optional[type[Project]]=None):
-        'Convenience method to add a --project option'
+    def with_project(self, typ: type[Project] | None = None):
+        "Convenience method to add a --project option"
         self.project_type = typ or Project
         return self
 
-    def with_target(self, typ: Optional[type[Config]]=None):
-        'Convenience method to add --project and --target options'
+    def with_target(self, typ: type[Config] | None = None):
+        "Convenience method to add --project and --target options"
         self.project_type = self.project_type or Project
         self.target_type = typ or Config
         return self
@@ -72,19 +69,17 @@ class Workflow:
         return Config.parser(typ).parse(path)
 
     def __call__(self, fn: Callable[..., Config]) -> Callable[..., None]:
-
         @click.command()
         @click.pass_obj
         def command(ctx, project=None, target=None, *args, **kwargs):
-
             site_api = ConfigApi(ctx).with_site(ctx.site, self.SITE_TYPE)
 
             if project:
                 project_api = site_api.with_project(project, self.project_type)
-                kwargs['project'] = project_api.project.config
+                kwargs["project"] = project_api.project.config
                 if target:
                     target_api = project_api.with_target(target, self.target_type)
-                    kwargs['target'] = target_api.target.config
+                    kwargs["target"] = target_api.target.config
 
             with site_api:
                 inst = fn(ctx, *args, **kwargs)
@@ -92,30 +87,30 @@ class Workflow:
 
         option_fns = []
         if self.project_type:
-            option_fns.append(click.option('--project', '-p', type=str, required=True))
+            option_fns.append(click.option("--project", "-p", type=str, required=True))
         if self.target_type:
-            option_fns.append(click.option('--target', '-t', type=str, required=True))
+            option_fns.append(click.option("--target", "-t", type=str, required=True))
 
         # Apply the additional options
-        command = reduce(lambda f, o: o(f), option_fns, command)            
+        command = reduce(lambda f, o: o(f), option_fns, command)
 
         # This is a little horrible but this means click options
         # can be added before or after the workflow decorator
-        command.params += getattr(fn, '__click_params__', [])
+        command.params += getattr(fn, "__click_params__", [])
 
         wf.add_command(command, name=self.name)
         return command
-    
-    @cache
+
+    @cache  # noqa: B019
     def gather(self, config: Config) -> Iterable[tuple[Config, list[Transform], list[Transform]]]:
-        '''
+        """
         Iterate over the tree of configs gathering "interesting" transforms.
-        
-        Note it is functionally required that this is cached as we must only 
+
+        Note it is functionally required that this is cached as we must only
         process each config once.
 
         :return: An iterable of tuples of 'the config', 'its transforms', 'its target transforms'
-        '''
+        """
         for child_config in config.iter_config():
             for desc, transforms, target_transforms in self.gather(child_config):
                 if config.config_filter(desc):
@@ -130,14 +125,15 @@ class Workflow:
         target_transforms = list(filter(transform_filter, transforms))
         yield (config, transforms, target_transforms)
 
-    def get_transform_tree(self, root: Config) -> tuple[set[Transform], 
-                                                        dict[Transform, set[Transform]], 
-                                                        dict[Transform, set[Transform]]]:
-        '''
+    def get_transform_tree(
+        self, root: Config
+    ) -> tuple[set[Transform], dict[Transform, set[Transform]], dict[Transform, set[Transform]]]:
+        """
         Gather transform dependency data.
 
-        :return: Tuple of 'the targets', 'the dependency tree', 'the depenent tree (inverted dependency tree)'
-        '''
+        :return: Tuple of 'the targets', 'the dependency tree', 'the dependent
+                 tree (inverted dependency tree)'
+        """
         # Join interfaces together and get transform dependencies
         output_interfaces: list[Interface] = []
         dependency_map: dict[Transform, set[Transform]] = {}
@@ -151,7 +147,7 @@ class Workflow:
                 for interface in transform.real_output_interfaces:
                     output_interfaces.append(interface)
             targets.update(target_transforms)
-            
+
         # We only need to look at output interfaces since an output must
         # exist in order for a dependency to exist
         for interface in output_interfaces:
@@ -159,22 +155,24 @@ class Workflow:
             for output_transform in interface.output_transforms:
                 dependency_map[output_transform].add(input_transform)
                 dependent_map[input_transform].add(output_transform)
-        
+
         return targets, dependency_map, dependent_map
-    
-    def _run(self,
-             ctx: Context,
-             targets: set[Transform],
-             dependency_map: dict[Transform, set[Transform]],
-             dependent_map: dict[Transform, set[Transform]]):
-        '''
+
+    def _run(
+        self,
+        ctx: Context,
+        targets: set[Transform],
+        dependency_map: dict[Transform, set[Transform]],
+        dependent_map: dict[Transform, set[Transform]],
+    ):
+        """
         Run the workflow from transform dependency data.
-        '''
+        """
 
         # Record the transforms we pulled from the cache
         fetched_transforms: set[Transform] = set()
         # Record the transforms that don't need to be run since they were were
-        # pulled from the cahce or only transforms pulled from the cache 
+        # pulled from the cahce or only transforms pulled from the cache
         # depend on them.
         skipped_transforms: set[Transform] = set()
         # Record the transforms we actually ran
@@ -188,8 +186,10 @@ class Workflow:
             for transform in cache_scheduler.schedulable:
                 cache_scheduler.schedule(transform)
                 if transform not in targets:
-                    if not (dependent_map[transform] - skipped_transforms or
-                            dependent_map[transform] - fetched_transforms):
+                    if not (
+                        dependent_map[transform] - skipped_transforms
+                        or dependent_map[transform] - fetched_transforms
+                    ):
                         skipped_transforms.add(transform)
                     elif Cache.fetch_transform(ctx, transform):
                         logging.info("Fetched transform from cache: %s", transform)
@@ -219,5 +219,5 @@ class Workflow:
             run=run_transforms,
             stored=stored_transforms,
             fetched=fetched_transforms,
-            skipped=skipped_transforms
+            skipped=skipped_transforms,
         )

@@ -15,19 +15,23 @@
 import importlib
 import sys
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Type
+from typing import Any, ClassVar
+
 
 class RegistryError(Exception):
     pass
 
 
 class Registry:
-    LOOKUP_BY_NAME : Dict[Type, Dict[str, "RegisteredMethod"]] = defaultdict(lambda: {})
-    LOOKUP_BY_OBJ  : Dict[Type, Dict[Callable, "RegisteredMethod"]] = defaultdict(lambda: {})
+    LOOKUP_BY_NAME: ClassVar[dict[type, dict[str, "RegisteredMethod"]]] = defaultdict(lambda: {})
+    LOOKUP_BY_OBJ: ClassVar[dict[type, dict[Callable, "RegisteredMethod"]]] = defaultdict(
+        lambda: {}
+    )
 
     @staticmethod
-    def setup(root : Path, paths : List[str]) -> None:
+    def setup(root: Path, paths: list[str]) -> None:
         """
         Import Python modules that register objects of this type from a list of
         module paths that are either system wide or relative to a given root path.
@@ -42,24 +46,26 @@ class Registry:
             importlib.import_module(path)
 
     @classmethod
-    def wrap(cls, obj : Any) -> Any:
+    def wrap(cls, obj: Any) -> Any:
         del obj
-        raise NotImplementedError("The 'wrap' method must be implemented by an "
-                                  "inheriting registry type")
+        raise NotImplementedError(
+            "The 'wrap' method must be implemented by an " "inheriting registry type"
+        )
 
     @classmethod
     def register(cls, *_args, **_kwds) -> Any:
-        def _inner(obj : Any) -> Any:
+        def _inner(obj: Any) -> Any:
             cls.wrap(obj)
             return obj
+
         return _inner
 
     @classmethod
-    def get_all(cls) -> Dict[str, "RegisteredMethod"]:
+    def get_all(cls) -> dict[str, "RegisteredMethod"]:
         return RegisteredMethod.LOOKUP_BY_NAME[cls]
 
     @classmethod
-    def get_by_name(cls, name : str) -> "RegisteredMethod":
+    def get_by_name(cls, name: str) -> "RegisteredMethod":
         base = RegisteredMethod.LOOKUP_BY_NAME[cls]
         if name not in base:
             raise RegistryError(f"Unknown {cls.__name__.lower()} for '{name}'")
@@ -67,7 +73,7 @@ class Registry:
 
     @classmethod
     def clear_registry(cls) -> None:
-        """ Clear all existing registrations for this registry """
+        """Clear all existing registrations for this registry"""
         RegisteredMethod.LOOKUP_BY_NAME[cls] = {}
         RegisteredMethod.LOOKUP_BY_OBJ[cls] = {}
 
@@ -79,7 +85,7 @@ class RegisteredMethod(Registry):
     """
 
     @classmethod
-    def wrap(cls, obj : Callable) -> Callable:
+    def wrap(cls, obj: Callable) -> Callable:
         if obj in Registry.LOOKUP_BY_OBJ[cls]:
             return Registry.LOOKUP_BY_OBJ[cls][obj]
         else:
@@ -96,7 +102,7 @@ class RegisteredClass(Registry):
     """
 
     @classmethod
-    def wrap(cls, obj : Type) -> Type:
+    def wrap(cls, obj: type) -> type:
         if obj in RegisteredClass.LOOKUP_BY_OBJ[cls]:
             return obj
         else:

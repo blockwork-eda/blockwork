@@ -23,7 +23,6 @@ from blockwork.context import Context
 
 
 class TestBootstrap:
-
     @pytest.fixture(autouse=True)
     def reset_bootstrap(self):
         Bootstrap.clear_registry()
@@ -31,38 +30,39 @@ class TestBootstrap:
         Bootstrap.clear_registry()
 
     @pytest.fixture()
-    def context(self, tmp_path : Path) -> Context:
+    def context(self, tmp_path: Path) -> Context:
         bw_yaml = tmp_path / ".bw.yaml"
         with bw_yaml.open("w", encoding="utf-8") as fh:
-            fh.write("!Blockwork\n"
-                     "project: test\n")
+            fh.write("!Blockwork\n" "project: test\n")
         return Context(tmp_path)
 
-    def test_bootstrap(self, mocker, context : Context) -> None:
-        """ Exercise bootstrap registration and invocation """
+    def test_bootstrap(self, mocker, context: Context) -> None:
+        """Exercise bootstrap registration and invocation"""
         # Mock logging
         mk_log = mocker.patch("blockwork.bootstrap.bootstrap.logging")
         # Choose test directories
-        bs_dir    = context.host_root / "bootstrap"
+        bs_dir = context.host_root / "bootstrap"
         test_file = context.host_root / "test.txt"
         bs_dir.mkdir(parents=True, exist_ok=True)
         # Define a bootstrapping step
         with (bs_dir / "step_a.py").open("w", encoding="utf-8") as fh:
-            fh.write("from blockwork.bootstrap import Bootstrap\n"
-                     "from pathlib import Path\n"
-                     "@Bootstrap.register()\n"
-                     "def bs_step_a(context, last_run):\n"
-                     f"    Path('{test_file.as_posix()}').write_text('hello world\\n')\n"
-                     "    return False\n")
+            fh.write(
+                "from blockwork.bootstrap import Bootstrap\n"
+                "from pathlib import Path\n"
+                "@Bootstrap.register()\n"
+                "def bs_step_a(context, last_run):\n"
+                f"    Path('{test_file.as_posix()}').write_text('hello world\\n')\n"
+                "    return False\n"
+            )
         # Setup bootstrapping
         # NOTE: Deliberate repeat in the paths list to check items are registered
         #       only once
         assert len(Bootstrap.get_all().keys()) == 0
         Bootstrap.setup(context.host_root, ["bootstrap.step_a", "bootstrap.step_a"])
         assert len(Bootstrap.get_all().keys()) == 1
-        assert list(Bootstrap.get_all().keys())[0] == "bs_step_a"
+        assert next(iter(Bootstrap.get_all().keys())) == "bs_step_a"
         # Check registered step
-        step = list(Bootstrap.get_all().values())[0]
+        step = next(iter(Bootstrap.get_all().values()))
         assert isinstance(step, Bootstrap)
         assert step.full_path == "bootstrap.step_a.bs_step_a"
         assert callable(step.method)
@@ -84,33 +84,37 @@ class TestBootstrap:
         # Check for log messages
         mk_log.info.assert_called_with(f"Ran bootstrap step '{step.full_path}'")
 
-    def test_bootstrap_check_pointing(self, mocker, context : Context) -> None:
-        """ Use a check point file to reduce redundant invocations """
+    def test_bootstrap_check_pointing(self, mocker, context: Context) -> None:
+        """Use a check point file to reduce redundant invocations"""
         # Mock logging
         mk_log = mocker.patch("blockwork.bootstrap.bootstrap.logging")
         mk_log.info.side_effect = print
         # Choose test directories
-        bs_dir    = context.host_root / "bootstrap"
+        bs_dir = context.host_root / "bootstrap"
         test_file = context.host_root / "test.txt"
         chk_point = context.host_root / "check_point.txt"
         bs_dir.mkdir(parents=True, exist_ok=True)
         chk_point.write_text("abc\n")
         # Define a bootstrapping step
         with (bs_dir / "step_b.py").open("w", encoding="utf-8") as fh:
-            fh.write("from blockwork.bootstrap import Bootstrap\n"
-                     "from pathlib import Path\n"
-                     "@Bootstrap.register()\n"
-                     f"@Bootstrap.checkpoint(Path('{chk_point}'))\n"
-                     "def bs_step_b(context, last_run):\n"
-                     f"    Path('{test_file.as_posix()}').write_text('hello world\\n')\n"
-                     "    return False\n")
+            fh.write(
+                "from blockwork.bootstrap import Bootstrap\n"
+                "from pathlib import Path\n"
+                "@Bootstrap.register()\n"
+                f"@Bootstrap.checkpoint(Path('{chk_point}'))\n"
+                "def bs_step_b(context, last_run):\n"
+                f"    Path('{test_file.as_posix()}').write_text('hello world\\n')\n"
+                "    return False\n"
+            )
         # Setup and run bootstrapping for the first time
         Bootstrap.setup(context.host_root, ["bootstrap.step_b"])
         ts_pre_a = datetime.now()
         Bootstrap.evaluate_all(context)
         ts_post_a = datetime.now()
         # Check bs_step_b was run
-        ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_b__bs_step_b"))
+        ts_step = datetime.fromisoformat(
+            context.state.bootstrap.get("bootstrap__step_b__bs_step_b")
+        )
         assert ts_pre_a <= ts_step
         assert ts_post_a >= ts_step
         mk_log.info.assert_called_with("Ran bootstrap step 'bootstrap.step_b.bs_step_b'")
@@ -122,9 +126,14 @@ class TestBootstrap:
         ts_pre_b = datetime.now()
         Bootstrap.evaluate_all(context)
         # Check bs_step_b was NOT run
-        ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_b__bs_step_b"))
+        ts_step = datetime.fromisoformat(
+            context.state.bootstrap.get("bootstrap__step_b__bs_step_b")
+        )
         assert ts_step < ts_pre_b
-        mk_log.info.assert_called_with("Bootstrap step 'bootstrap.step_b.bs_step_b' is already up to date (based on checkpoints)")
+        mk_log.info.assert_called_with(
+            "Bootstrap step 'bootstrap.step_b.bs_step_b' is already up to date "
+            "(based on checkpoints)"
+        )
         mk_log.info.reset_mock()
         assert not test_file.exists()
         # Modify the checkpoint file
@@ -135,39 +144,45 @@ class TestBootstrap:
         Bootstrap.evaluate_all(context)
         ts_post_c = datetime.now()
         # Check bs_step_b WAS run
-        ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_b__bs_step_b"))
+        ts_step = datetime.fromisoformat(
+            context.state.bootstrap.get("bootstrap__step_b__bs_step_b")
+        )
         assert ts_pre_c <= ts_step
         assert ts_post_c >= ts_step
         mk_log.info.assert_called_with("Ran bootstrap step 'bootstrap.step_b.bs_step_b'")
         mk_log.info.reset_mock()
         assert test_file.exists()
 
-    def test_bootstrap_last_run(self, mocker, context : Context) -> None:
-        """ Use the 'last_run' variable to manually test out-of-date-ness """
+    def test_bootstrap_last_run(self, mocker, context: Context) -> None:
+        """Use the 'last_run' variable to manually test out-of-date-ness"""
         # Mock logging
         mk_log = mocker.patch("blockwork.bootstrap.bootstrap.logging")
         # Choose test directories
-        bs_dir    = context.host_root / "bootstrap"
+        bs_dir = context.host_root / "bootstrap"
         test_file = context.host_root / "test.txt"
         bs_dir.mkdir(parents=True, exist_ok=True)
         # Define a bootstrapping step
         with (bs_dir / "step_c.py").open("w", encoding="utf-8") as fh:
-            fh.write("from blockwork.bootstrap import Bootstrap\n"
-                     "from pathlib import Path\n"
-                     "from datetime import datetime\n"
-                     f"@Bootstrap.register()\n"
-                     "def bs_step_c(context, last_run):\n"
-                     "    if last_run > datetime.min:\n"
-                     "        return True\n"
-                     f"    Path('{test_file.as_posix()}').write_text('hello world\\n')\n"
-                     "    return False\n")
+            fh.write(
+                "from blockwork.bootstrap import Bootstrap\n"
+                "from pathlib import Path\n"
+                "from datetime import datetime\n"
+                f"@Bootstrap.register()\n"
+                "def bs_step_c(context, last_run):\n"
+                "    if last_run > datetime.min:\n"
+                "        return True\n"
+                f"    Path('{test_file.as_posix()}').write_text('hello world\\n')\n"
+                "    return False\n"
+            )
         # Setup and run bootstrapping for the first time
         Bootstrap.setup(context.host_root, ["bootstrap.step_c"])
         ts_pre_a = datetime.now()
         Bootstrap.evaluate_all(context)
         ts_post_a = datetime.now()
         # Check bs_step_c was run
-        ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_c__bs_step_c"))
+        ts_step = datetime.fromisoformat(
+            context.state.bootstrap.get("bootstrap__step_c__bs_step_c")
+        )
         assert ts_pre_a <= ts_step
         assert ts_post_a >= ts_step
         mk_log.info.assert_called_with("Ran bootstrap step 'bootstrap.step_c.bs_step_c'")
@@ -179,8 +194,12 @@ class TestBootstrap:
         ts_pre_b = datetime.now()
         Bootstrap.evaluate_all(context)
         # Check bs_step_c was NOT run
-        ts_step = datetime.fromisoformat(context.state.bootstrap.get("bootstrap__step_c__bs_step_c"))
+        ts_step = datetime.fromisoformat(
+            context.state.bootstrap.get("bootstrap__step_c__bs_step_c")
+        )
         assert ts_step < ts_pre_b
-        mk_log.info.assert_called_with("Bootstrap step 'bootstrap.step_c.bs_step_c' is already up to date (based on method)")
+        mk_log.info.assert_called_with(
+            "Bootstrap step 'bootstrap.step_c.bs_step_c' is already up to date (based on method)"
+        )
         mk_log.info.reset_mock()
         assert not test_file.exists()
