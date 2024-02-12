@@ -15,35 +15,37 @@
 from pathlib import Path
 
 import pytest
-from blockwork.common.yaml import YamlConversionError
 
+from blockwork.common.yaml import YamlConversionError
 from blockwork.config import Blockwork
 from blockwork.context import Context
 from blockwork.state import State
-from blockwork.tools import Tool
 
 
 class TestContext:
-
-    def test_context(self, tmp_path : Path) -> None:
-        """ Context should recognise the .bw.yaml file """
-        root    = tmp_path / "project"
+    def test_context(self, tmp_path: Path) -> None:
+        """Context should recognise the .bw.yaml file"""
+        root = tmp_path / "project"
         bw_yaml = root / ".bw.yaml"
-        infra   = root / "infra"
+        infra = root / "infra"
         infra.mkdir(parents=True)
         # Create a tool definition
         with (infra / "tools.py").open("w", encoding="utf-8") as fh:
-            fh.write("from pathlib import Path\n"
-                     "from blockwork.tools import Tool, Version\n"
-                     "class ToolA(Tool):\n"
-                     f"  versions = [Version('1.1', Path('{infra}'))]\n")
+            fh.write(
+                "from pathlib import Path\n"
+                "from blockwork.tools import Tool, Version\n"
+                "class ToolA(Tool):\n"
+                f"  versions = [Version('1.1', Path('{infra}'))]\n"
+            )
         # Create a configuration file
         with bw_yaml.open("w", encoding="utf-8") as fh:
-            fh.write("!Blockwork\n"
-                     "project: test_project\n"
-                     "root: /a/b\n"
-                     "tooldefs:\n"
-                     "  - infra.tools\n")
+            fh.write(
+                "!Blockwork\n"
+                "project: test_project\n"
+                "root: /a/b\n"
+                "tooldefs:\n"
+                "  - infra.tools\n"
+            )
         # Create a context
         ctx = Context(root)
         assert ctx.host_root == root
@@ -58,24 +60,28 @@ class TestContext:
         assert isinstance(ctx.config, Blockwork)
         assert ctx.config.project == "test_project"
 
-    def test_context_dig(self, tmp_path : Path) -> None:
-        """ Context should recognise the .bw.yaml file in a parent layer """
+    def test_context_dig(self, tmp_path: Path) -> None:
+        """Context should recognise the .bw.yaml file in a parent layer"""
         bw_yaml = tmp_path / ".bw.yaml"
-        infra   = tmp_path / "infra"
+        infra = tmp_path / "infra"
         infra.mkdir()
         # Create a tool definition
         with (infra / "tools.py").open("w", encoding="utf-8") as fh:
-            fh.write("from pathlib import Path\n"
-                     "from blockwork.tools import Tool, Version\n"
-                     "class ToolA(Tool):\n"
-                     f"  versions = [Version('1.1', Path('{infra}'))]\n")
+            fh.write(
+                "from pathlib import Path\n"
+                "from blockwork.tools import Tool, Version\n"
+                "class ToolA(Tool):\n"
+                f"  versions = [Version('1.1', Path('{infra}'))]\n"
+            )
         # Create a configuration file
         with bw_yaml.open("w", encoding="utf-8") as fh:
-            fh.write("!Blockwork\n"
-                     "project: test_project\n"
-                     "root: /a/b\n"
-                     "tooldefs:\n"
-                     "  - infra.tools\n")
+            fh.write(
+                "!Blockwork\n"
+                "project: test_project\n"
+                "root: /a/b\n"
+                "tooldefs:\n"
+                "  - infra.tools\n"
+            )
         # Create a context in a sub-path
         sub_path = tmp_path / "a" / "b" / "c"
         sub_path.mkdir(parents=True)
@@ -87,23 +93,22 @@ class TestContext:
         assert isinstance(ctx.config, Blockwork)
         assert ctx.config.project == "test_project"
 
-    def test_context_bad_path(self, tmp_path : Path) -> None:
-        """ A bad root should raise an exception """
+    def test_context_bad_path(self, tmp_path: Path) -> None:
+        """A bad root should raise an exception"""
         with pytest.raises(Exception) as exc:
             Context(tmp_path)
         assert str(exc.value) == f"Could not identify work area in parents of {tmp_path}"
 
-    def test_context_bad_config(self, tmp_path : Path) -> None:
-        """ A malformed configuration should raise an exception """
+    def test_context_bad_config(self, tmp_path: Path) -> None:
+        """A malformed configuration should raise an exception"""
         bw_yaml = tmp_path / ".bw.yaml"
         with bw_yaml.open("w", encoding="utf-8") as fh:
             fh.write("blargh\n")
-        with pytest.raises(YamlConversionError) as exc:
-            Context(tmp_path).config
+        with pytest.raises(YamlConversionError):
+            _ = Context(tmp_path).config
 
-
-    def test_context_state(self, tmp_path : Path) -> None:
-        """ Check that a state object is created at the right path """
+    def test_context_state(self, tmp_path: Path) -> None:
+        """Check that a state object is created at the right path"""
         bw_yaml = tmp_path / ".bw.yaml"
         with bw_yaml.open("w", encoding="utf-8") as fh:
             fh.write("!Blockwork\nproject: test\nhost_state: .my_{project}_state\n")
@@ -111,17 +116,19 @@ class TestContext:
         assert isinstance(ctx.state, State)
         assert ctx.state._State__location == tmp_path / ".my_test_state"
 
-    def test_context_root_dir(self, tmp_path : Path) -> None:
-        """ Test that {root_dir} substitution works for scratch and state directories """
+    def test_context_root_dir(self, tmp_path: Path) -> None:
+        """Test that {root_dir} substitution works for scratch and state directories"""
         root = tmp_path / "other_dir"
         root.mkdir(exist_ok=True)
         bw_yaml = root / ".bw.yaml"
         # Create a configuration file
         with bw_yaml.open("w", encoding="utf-8") as fh:
-            fh.write("!Blockwork\n"
-                     "project: test_project\n"
-                     "host_scratch: ../{root_dir}.scratch\n"
-                     "host_state: ../{root_dir}.state\n")
+            fh.write(
+                "!Blockwork\n"
+                "project: test_project\n"
+                "host_scratch: ../{root_dir}.scratch\n"
+                "host_state: ../{root_dir}.state\n"
+            )
         # Create a context
         ctx = Context(root)
         assert ctx.host_root == root

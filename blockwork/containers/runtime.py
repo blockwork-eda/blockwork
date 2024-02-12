@@ -22,11 +22,13 @@ import shutil
 import subprocess
 import tempfile
 import time
-from typing import Any, Dict, Generator, Tuple
-from urllib.parse import urlparse
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
 
 from docker import DockerClient
+
 
 class Runtime:
     """
@@ -37,17 +39,17 @@ class Runtime:
     PREFERENCE = None
 
     @classmethod
-    def set_preferred_runtime(cls, preference : str) -> None:
+    def set_preferred_runtime(cls, preference: str) -> None:
         logging.debug(f"Preferred container runtime set to '{preference}'")
         cls.PREFERENCE = preference
 
     @classmethod
-    @functools.lru_cache()
+    @functools.lru_cache
     def is_macos(cls) -> bool:
         return "darwin" in platform.system().lower()
 
     @classmethod
-    @functools.lru_cache()
+    @functools.lru_cache
     def is_orbstack_available(cls) -> bool:
         if shutil.which("orbctl") is None:
             return False
@@ -56,7 +58,7 @@ class Runtime:
         return True
 
     @classmethod
-    @functools.lru_cache()
+    @functools.lru_cache
     def is_podman_available(cls) -> bool:
         if shutil.which("podman") is None:
             return False
@@ -65,7 +67,7 @@ class Runtime:
         return True
 
     @classmethod
-    @functools.lru_cache()
+    @functools.lru_cache
     def is_docker_available(cls) -> bool:
         if shutil.which("docker") is None:
             return False
@@ -74,7 +76,7 @@ class Runtime:
         return True
 
     @classmethod
-    @functools.lru_cache()
+    @functools.lru_cache
     def identify_runtime(cls) -> str:
         """
         Attempt to identify which container runtime is being used by testing for
@@ -102,7 +104,7 @@ class Runtime:
             raise Exception("Could not identify a container runtime")
 
     @classmethod
-    @functools.lru_cache()
+    @functools.lru_cache
     def get_host_address(cls) -> str:
         """
         Determine the hostname used to access the container host from within the
@@ -118,22 +120,21 @@ class Runtime:
             return "host.docker.internal"
 
     @classmethod
-    @functools.lru_cache()
-    def get_podman_info(cls) -> Dict[str, Any]:
+    @functools.lru_cache
+    def get_podman_info(cls) -> dict[str, Any]:
         """
         Read back the information dictionary from the local Podman client which
         contains details on the host.
 
         :returns:   Parsed dictionary from Podman's JSON output
         """
-        proc = subprocess.Popen(["podman", "info", "--format=json"],
-                                stdout=subprocess.PIPE)
+        proc = subprocess.Popen(["podman", "info", "--format=json"], stdout=subprocess.PIPE)
         out, _ = proc.communicate()
         assert proc.returncode == 0, f"Bad podman exit code: {proc.returncode}"
         return json.loads(out)
 
     @classmethod
-    @functools.lru_cache()
+    @functools.lru_cache
     def is_podman_remote(cls) -> bool:
         """
         Determine if Podman is running locally or remote
@@ -143,22 +144,30 @@ class Runtime:
         return cls.get_podman_info()["host"]["serviceIsRemote"]
 
     @classmethod
-    @functools.lru_cache()
-    def get_rootless_remote_podman_details(cls) -> Tuple[str, str, int, str, str]:
+    @functools.lru_cache
+    def get_rootless_remote_podman_details(cls) -> tuple[str, str, int, str, str]:
         """
         Get the rootless remote access details.
 
         :returns:   Tuple of username, hostname, port, remote socket path, and
                     the local SSH identity path
         """
-        p = subprocess.Popen(["podman", "system", "connection", "ls", "--format=json"],
-                             stdout=subprocess.PIPE)
+        p = subprocess.Popen(
+            ["podman", "system", "connection", "ls", "--format=json"],
+            stdout=subprocess.PIPE,
+        )
         out, _ = p.communicate()
         data = json.loads(out)
-        default = [x for x in data if x["Name"] == "podman-machine-default"][0]
+        default = next(iter(x for x in data if x["Name"] == "podman-machine-default"))
         parsed = urlparse(default["URI"])
         assert parsed.scheme == "ssh", f"Unsupported scheme {parsed.scheme}"
-        return parsed.username, parsed.hostname, parsed.port, parsed.path, default["Identity"]
+        return (
+            parsed.username,
+            parsed.hostname,
+            parsed.port,
+            parsed.path,
+            default["Identity"],
+        )
 
     @classmethod
     @contextlib.contextmanager
@@ -173,16 +182,24 @@ class Runtime:
         """
         if cls.is_podman_remote():
             user, host, port, path, identity = cls.get_rootless_remote_podman_details()
-            tmpdir   = Path(tempfile.mkdtemp())
+            tmpdir = Path(tempfile.mkdtemp())
             sockfile = tmpdir / "podman.sock"
-            command  = ["ssh", "-L", f"{sockfile.as_posix()}:{path}",
-                               "-i", identity,
-                               "-p", str(port),
-                               f"{user}@{host}"]
-            ssh_fwd  = subprocess.Popen(command,
-                                        stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE,
-                                        stdin =subprocess.PIPE)
+            command = [
+                "ssh",
+                "-L",
+                f"{sockfile.as_posix()}:{path}",
+                "-i",
+                identity,
+                "-p",
+                str(port),
+                f"{user}@{host}",
+            ]
+            ssh_fwd = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+            )
             # Wait for the forwarded socket to appear
             while not sockfile.exists():
                 time.sleep(0.01)

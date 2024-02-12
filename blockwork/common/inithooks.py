@@ -13,6 +13,7 @@
 # limitations under the License.
 from inspect import getmembers_static
 
+
 class InitHooks:
     """
     Provides methods for registering pre and post init hooks that
@@ -22,8 +23,10 @@ class InitHooks:
         @InitHooks()
         class MyNumberClass:
             @InitHooks.pre
-            def init_numbers(): ...
+            def init_numbers():
+                ...
     """
+
     PRE_ATTR = "_init_hooks_pre_init"
     POST_ATTR = "_init_hooks_post_init"
 
@@ -44,10 +47,12 @@ class InitHooks:
         # Replace the init_subclass method with one that wraps
         # the subclasses init method.
         orig_init_subclass = cls_.__init_subclass__
-        def __init_subclass__(subcls_, *args, **kwargs):
+
+        def _custom_init_subclass(subcls_, *args, **kwargs):
             orig_init_subclass(*args, **kwargs)
             InitHooks._wrap_subcls(subcls_, pre_hooks, post_hooks)
-        cls_.__init_subclass__ = classmethod(__init_subclass__)
+
+        cls_.__init_subclass__ = classmethod(_custom_init_subclass)
         # Finally wrap the cls itself
         return InitHooks._wrap_subcls(cls_, pre_hooks, post_hooks)
 
@@ -56,7 +61,8 @@ class InitHooks:
         # Wrap the subclasses init method with one that
         # runs our hooks.
         orig_init = subcls_.__init__
-        def __init__(self, *args, **kwargs):
+
+        def _custom_init(self, *args, **kwargs):
             if self.__class__ is subcls_:
                 for hook in pre_hooks:
                     hook(self)
@@ -64,7 +70,8 @@ class InitHooks:
             if self.__class__ is subcls_:
                 for hook in post_hooks:
                     hook(self)
-        subcls_.__init__ = __init__
+
+        subcls_.__init__ = _custom_init
         return subcls_
 
     @staticmethod
@@ -72,7 +79,7 @@ class InitHooks:
         "Run this function before `__init__` (class must be decorated with `InitHooks`)"
         setattr(fn, InitHooks.PRE_ATTR, True)
         return fn
-    
+
     @staticmethod
     def post(fn):
         "Run this function after `__init__` (class must be decorated with `InitHooks`)"

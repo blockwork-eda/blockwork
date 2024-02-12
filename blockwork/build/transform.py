@@ -44,8 +44,8 @@ class Transform:
         yield (Transform().bind_tools(PythonSite)
                           .bind_inputs(args=ArgsInterface(self.args))
                           .bind_execute(lambda c, t, i: [
-                              Invocation(version=t.pythonsite, 
-                                         execute="cat", 
+                              Invocation(version=t.pythonsite,
+                                         execute="cat",
                                          args=i.args)]))
 
     """
@@ -94,12 +94,12 @@ class Transform:
         for name, (direction, _pipe, interface) in self._interfaces.items():
             interfaces[name] = interface
         return ReadonlyNamespace(**interfaces)
-    
+
     @property
     @functools.lru_cache()
     def real_input_interfaces(self):
         return self._flat_input_interfaces
-    
+
     @property
     @functools.lru_cache()
     def real_output_interfaces(self):
@@ -133,7 +133,7 @@ class Transform:
 
     def bind_outputs(self, **interface: Interface) -> Self:
         """
-        Attach interfaces to this transform by name as outputs. The 
+        Attach interfaces to this transform by name as outputs. The
         supplied names can be used to refer the interfaces in `execute`.
 
         For each name, either a single interfaces or an array of interfaces
@@ -142,15 +142,15 @@ class Transform:
         """
         self._bind_interfaces(Direction.OUTPUT, Pipe.FLOW, **interface)
         return self
-    
+
     def bind_host_outputs(self, **interface: Interface) -> Self:
         """
-        Attach interfaces to this transform by name as outputs. The 
+        Attach interfaces to this transform by name as outputs. The
         supplied names can be used to refer the interfaces in `execute`.
 
-        Host outputs are special in that they resolve as paths on 
+        Host outputs are special in that they resolve as paths on
         the host within the execute method. This is sometimes useful if
-        an output file needs to be created from the execute method itself 
+        an output file needs to be created from the execute method itself
         rather than from within a container.
         """
         self._bind_interfaces(Direction.OUTPUT, Pipe.HOST, **interface)
@@ -158,7 +158,7 @@ class Transform:
 
     def bind_inputs(self, **interface: Interface) -> Self:
         """
-        Attach interfaces to this transform by name as inputs. The 
+        Attach interfaces to this transform by name as inputs. The
         supplied names can be used to refer the interfaces in `execute`.
 
         For each name, either a single interfaces or an array of interfaces
@@ -167,16 +167,16 @@ class Transform:
         """
         self._bind_interfaces(Direction.INPUT, Pipe.FLOW, **interface)
         return self
-    
+
     def bind_tools(self, *tools: type["Tool"]) -> Self:
         """
-        Attach additional tools to the instance - typically only used if 
+        Attach additional tools to the instance - typically only used if
         a transform is used anonymously.
         """
         self._tools += tools
         return self
-    
-    def bind_execute(self, 
+
+    def bind_execute(self,
                      execute: Execute) -> Self:
         """
         Attach an alternative execute method to the instance - typically only
@@ -187,10 +187,10 @@ class Transform:
 
     def bind_host_inputs(self, **interface: Interface):
         """
-        Attach interfaces to this transform by name as inputs. The 
+        Attach interfaces to this transform by name as inputs. The
         supplied names can be used to refer the interfaces in `execute`.
 
-        Host inputs are special in that they resolve as paths on 
+        Host inputs are special in that they resolve as paths on
         the host within the execute method. This is sometimes useful for
         transforms which execute on the host itself - or need to log host
         paths.
@@ -230,7 +230,7 @@ class Transform:
             if exit_code:=container.invoke(ctx, invocation) != 0:
                 raise RuntimeError(f"Invocation `{invocation}` failed with exit code `{exit_code}`.")
 
-    
+
     def execute(self,
              ctx  : "Context",
              tools: ReadonlyNamespace["Version"],

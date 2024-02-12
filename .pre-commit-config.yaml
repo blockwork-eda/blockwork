@@ -1,0 +1,16 @@
+repos:
+# Basic checks
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.5.0
+  hooks:
+  - id: trailing-whitespace
+  - id: check-merge-conflict
+  - id: end-of-file-fixer
+  - id: no-commit-to-branch
+    args: [--branch, main]
+# Ruff Python linting and formatting
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.2.1
+  hooks:
+    - id: ruff
+    - id: ruff-format

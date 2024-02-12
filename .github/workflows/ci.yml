@@ -1,9 +1,8 @@
-name: Unit Tests and Documentation
+name: CI
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
+  push:
     branches: [ "main" ]
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
@@ -23,38 +22,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v3
+    - uses: actions/checkout@v4
+    - uses: ./.github/composites/setup
       with:
         python-version: 3.11
-    - name: Install Poetry
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install poetry poethepoet
-    - name: Setup environment
-      run: |
-        poetry install --with dev
-    - name: Run lint
-      run: |
-        poe lint
+    - name: Run Ruff formatting check
+      run: poetry run ruff format --check .
+    - name: Run Ruff linting check
+      run: poetry run ruff check .
+    - name: Run precommit checks
+      run: poetry run pre-commit run --all-files
 
   build_docs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v3
+    - uses: actions/checkout@v4
+    - uses: ./.github/composites/setup
       with:
         python-version: 3.11
-    - name: Install Poetry
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install poetry poethepoet
-    - name: Setup environment
-      run: |
-        poetry install --with dev
     - name: Build documentation
       run: |
         poe docs
@@ -65,6 +51,7 @@ jobs:
 
   deploy_docs:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     timeout-minutes: 15
     needs: build_docs
     steps:
@@ -82,22 +69,13 @@ jobs:
         python-version: ["3.11"]
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+    - uses: actions/checkout@v4
+    - uses: ./.github/composites/setup
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install Poetry
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install poetry poethepoet
-    - name: Setup environment
-      run: |
-        poetry install --with dev
     - name: Run tests
       timeout-minutes: 5
-      run: |
-        poe test
+      run: poe test
     - name: Archive code coverage results
       uses: actions/upload-artifact@v3
       with:

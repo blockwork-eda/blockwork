@@ -13,14 +13,24 @@
 # limitations under the License.
 
 from typing import Any
+
 import pytest
 
-from blockwork.config.scheduler import Scheduler, CyclicError
+from blockwork.config.scheduler import CyclicError, Scheduler
+
 
 class StateRecord:
     def __init__(self):
         self.states = []
-        self.keys = {"leaves","schedulable","blocked","unscheduled","scheduled","incomplete","complete"}
+        self.keys = {
+            "leaves",
+            "schedulable",
+            "blocked",
+            "unscheduled",
+            "scheduled",
+            "incomplete",
+            "complete",
+        }
 
     def record(self, scheduler):
         self.states.append({key: getattr(scheduler, key) for key in self.keys})
@@ -32,15 +42,11 @@ class StateRecord:
 
 
 class TestScheduler:
-
     def test_basic(self):
-        'Tests a basic chain'
-        dependency_map = {
-            "y": {"x"}, 
-            "z": {"y"}
-        }
+        "Tests a basic chain"
+        dependency_map = {"y": {"x"}, "z": {"y"}}
         scheduler = Scheduler(dependency_map)
-        
+
         states = StateRecord()
 
         while scheduler.incomplete:
@@ -49,34 +55,30 @@ class TestScheduler:
                 scheduler.schedule(item)
                 scheduler.finish(item)
 
-        assert states.schedulable == ({"x"},{"y"},{"z"})
-        assert states.blocked == ({"y","z"},{"z"}, set())
+        assert states.schedulable == ({"x"}, {"y"}, {"z"})
+        assert states.blocked == ({"y", "z"}, {"z"}, set())
         assert states.incomplete == ({"x", "y", "z"}, {"y", "z"}, {"z"})
         assert states.complete == (set(), {"x"}, {"x", "y"})
 
     def test_cycle(self):
-        'Tests that cycles are detected'
-        dependency_map = {
-            "y": {"x"},
-            "z": {"y"},
-            "x": {"z"}
-        }
+        "Tests that cycles are detected"
+        dependency_map = {"y": {"x"}, "z": {"y"}, "x": {"z"}}
         scheduler = Scheduler(dependency_map)
 
         with pytest.raises(CyclicError):
-            scheduler.schedulable
+            _ = scheduler.schedulable
 
     def test_complex(self) -> None:
-        'Tests a more complex tree is scheduled correctly'
+        "Tests a more complex tree is scheduled correctly"
         dependency_map = {
-            "b": {"a"}, 
+            "b": {"a"},
             "c": {"b"},
             "d": {"b"},
             "e": {"c"},
-            "f": {"d", "e", "g"}
+            "f": {"d", "e", "g"},
         }
         scheduler = Scheduler(dependency_map)
-        
+
         states = StateRecord()
         while scheduler.incomplete:
             states.record(scheduler)
@@ -87,7 +89,7 @@ class TestScheduler:
         assert states.schedulable == ({"a", "g"}, {"b"}, {"c", "d"}, {"e"}, {"f"})
 
         # Do it again, but this time with a specific target
-        scheduler = Scheduler(dependency_map, targets=['e'])
+        scheduler = Scheduler(dependency_map, targets=["e"])
         states = StateRecord()
         while scheduler.incomplete:
             states.record(scheduler)

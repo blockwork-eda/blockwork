@@ -15,18 +15,27 @@
 from typing import Generic, TypeVar
 
 _NamespaceValue = TypeVar("_NamespaceValue")
+
+
 class ComplexNamespace(Generic[_NamespaceValue]):
-    '''
+    """
     Typed version of types.SimpleNamespace with read and modify only options.
-    '''
-    def __init__(self, *, _RO: bool = False, _MO: bool = False, **kwargs: _NamespaceValue):
+    """
+
+    def __init__(
+        self,
+        *,
+        _RO: bool = False,  # noqa: N803
+        _MO: bool = False,  # noqa: N803
+        **kwargs: _NamespaceValue,
+    ):
         self.__dict__["RO"] = _RO
         self.__dict__["MO"] = _MO
-        self.__dict__['ns'] = kwargs
-       
+        self.__dict__["ns"] = kwargs
+
     def __getattr__(self, name) -> _NamespaceValue:
         return self.ns[name]
-    
+
     def __getitem__(self, name) -> _NamespaceValue:
         return self.ns[name]
 
@@ -51,10 +60,11 @@ class ComplexNamespace(Generic[_NamespaceValue]):
 
 
 class ReadonlyNamespace(ComplexNamespace[_NamespaceValue]):
-    '''
+    """
     Namespace where attributes cannot be added or modified post initialisation
-    '''
+    """
+
     def __init__(self, **kwargs: _NamespaceValue):
         self.__dict__["RO"] = True
         self.__dict__["MO"] = False
-        self.__dict__['ns'] = kwargs
+        self.__dict__["ns"] = kwargs

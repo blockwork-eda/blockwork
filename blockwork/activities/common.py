@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import logging
-from typing import List, Tuple, Union
 
 import click
 from click.core import Command, Option
@@ -21,44 +20,61 @@ from click.core import Command, Option
 from ..foundation import Foundation
 from ..tools import Tool, ToolMode, Version
 
+
 class BwExecCommand(Command):
-    """ Standard argument handling for commands that launch a container """
+    """Standard argument handling for commands that launch a container"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.params.insert(0,
-                           Option(("--tool", "-t"),
-                                  type=str,
-                                  multiple=True,
-                                  default=[],
-                                  help="Bind specific tools into the shell, if "
-                                       "omitted then all known tools will be "
-                                       "bound. Either use the form "
-                                       "'--tool <NAME>' or '--tool <NAME>=<VERSION>' "
-                                       "where a specific version other than the "
-                                       "default is desired. To specify a vendor use "
-                                       "the form '--tool <VENDOR>:<NAME>(=<VERSION>)'."))
-        self.params.insert(0,
-                           Option(("--no-tools", ),
-                                  is_flag=True,
-                                  default=False,
-                                  help="Do not bind any tools by default"))
-        self.params.insert(0,
-                           Option(("--tool-mode", ),
-                                  type=click.Choice(ToolMode, case_sensitive=False),
-                                  default="readonly",
-                                  help="Set the file mode used when binding tools "
-                                       "to enable write access. Legal values are "
-                                       "either 'readonly' or 'readwrite', defaults "
-                                       "to 'readonly'."))
-        self.params.insert(0,
-                           Option(("--no-tools", ),
-                                  is_flag=True,
-                                  default=False,
-                                  help="Do not bind any tools by default"))
+        self.params.insert(
+            0,
+            Option(
+                ("--tool", "-t"),
+                type=str,
+                multiple=True,
+                default=[],
+                help="Bind specific tools into the shell, if "
+                "omitted then all known tools will be "
+                "bound. Either use the form "
+                "'--tool <NAME>' or '--tool <NAME>=<VERSION>' "
+                "where a specific version other than the "
+                "default is desired. To specify a vendor use "
+                "the form '--tool <VENDOR>:<NAME>(=<VERSION>)'.",
+            ),
+        )
+        self.params.insert(
+            0,
+            Option(
+                ("--no-tools",),
+                is_flag=True,
+                default=False,
+                help="Do not bind any tools by default",
+            ),
+        )
+        self.params.insert(
+            0,
+            Option(
+                ("--tool-mode",),
+                type=click.Choice(ToolMode, case_sensitive=False),
+                default="readonly",
+                help="Set the file mode used when binding tools "
+                "to enable write access. Legal values are "
+                "either 'readonly' or 'readwrite', defaults "
+                "to 'readonly'.",
+            ),
+        )
+        self.params.insert(
+            0,
+            Option(
+                ("--no-tools",),
+                is_flag=True,
+                default=False,
+                help="Do not bind any tools by default",
+            ),
+        )
 
     @staticmethod
-    def decode_tool(fullname : str) -> Tuple[str, str, Union[str, None]]:
+    def decode_tool(fullname: str) -> tuple[str, str, str | None]:
         """
         Decode a tool vendor, name, and version from a string - in one of the
         forms <VENDOR>:<NAME>=<VERSION>, <NAME>=<VERSION>, <VENDOR>:<NAME>, or
@@ -73,27 +89,28 @@ class BwExecCommand(Command):
         return vendor, name, (version or None)
 
     @staticmethod
-    def set_tool_versions(tools : List[str]) -> None:
+    def set_tool_versions(tools: list[str]) -> None:
         for vendor, name, version in map(BwExecCommand.decode_tool, tools):
             if version is not None:
                 Tool.select_version(vendor, name, version)
 
     @staticmethod
-    def bind_tools(container : Foundation,
-                   no_tools  : bool,
-                   tools     : List[str],
-                   tool_mode : ToolMode) -> None:
-        readonly = (tool_mode == ToolMode.READONLY)
+    def bind_tools(
+        container: Foundation, no_tools: bool, tools: list[str], tool_mode: ToolMode
+    ) -> None:
+        readonly = tool_mode == ToolMode.READONLY
         # If tools are provided, process them for default version overrides
         BwExecCommand.set_tool_versions(tools)
         # If auto-binding is disabled, only bind specified tools
         if no_tools:
             for vendor, name, version in map(BwExecCommand.decode_tool, tools):
-                matched : Version = Tool.get(vendor, name, version or None)
+                matched: Version = Tool.get(vendor, name, version or None)
                 if not matched:
                     raise Exception(f"Failed to identify tool '{vendor}:{name}={version}'")
-                logging.info(f"Binding tool {matched.tool.name} from {matched.tool.vendor} "
-                            f"version {matched.version} into shell")
+                logging.info(
+                    f"Binding tool {matched.tool.name} from {matched.tool.vendor} "
+                    f"version {matched.version} into shell"
+                )
                 container.add_tool(matched, readonly=readonly)
         # Otherwise, bind all default tool versions
         else:

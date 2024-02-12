@@ -13,19 +13,19 @@
 # limitations under the License.
 
 import sys
-from typing import List
 
 import click
 
-from .common import BwExecCommand
 from ..context import Context
 from ..foundation import Foundation
 from ..tools import ToolMode
+from .common import BwExecCommand
+
 
 @click.command(cls=BwExecCommand)
 @click.pass_obj
-def shell(ctx : Context, tool : List[str], no_tools : bool, tool_mode : str):
-    """ Launch a shell within the container environment """
+def shell(ctx: Context, tool: list[str], no_tools: bool, tool_mode: str):
+    """Launch a shell within the container environment"""
     container = Foundation(ctx, hostname=f"{ctx.config.project}_shell")
     container.bind(ctx.host_root, ctx.container_root, False)
     BwExecCommand.bind_tools(container, no_tools, tool, ToolMode(tool_mode))

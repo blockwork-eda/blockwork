@@ -23,7 +23,8 @@ import termios
 import tty
 from socket import SocketIO
 from threading import Event, Thread
-from typing import List, Optional, TextIO, Tuple
+from typing import TextIO
+
 
 @contextlib.contextmanager
 def get_raw_input():
@@ -36,13 +37,14 @@ def get_raw_input():
     sequences to be captured without deadlocking.
     """
     # Capture the base configuration of termios and fcntl
-    stdin        = sys.stdin.fileno()
+    stdin = sys.stdin.fileno()
     orig_termios = termios.tcgetattr(stdin)
-    orig_fcntl   = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
+    orig_fcntl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
     # If any exception occurs, always capture it to avoid exception escaping
     try:
         # Set TTY into raw mode
         tty.setraw(stdin)
+
         # Yield a function to get a input
         def _get_char():
             # Wait up to one second for data
@@ -57,14 +59,17 @@ def get_raw_input():
                 # Read as much data as was 'peeked' to move the cursor forwards
                 sys.stdin.buffer.read(len(data))
                 return data
+
         yield _get_char
     finally:
         # Reset termios and fcntl back to base values
         termios.tcsetattr(stdin, termios.TCSADRAIN, orig_termios)
         fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fcntl)
 
-def read_stream(socket : SocketIO, stdout: TextIO, e_done : Event) -> Thread:
-    """ Wrapped thread method to capture from the container STDOUT """
+
+def read_stream(socket: SocketIO, stdout: TextIO, e_done: Event) -> Thread:
+    """Wrapped thread method to capture from the container STDOUT"""
+
     def _inner(socket, e_done):
         try:
             # Move socket into non-blocking mode
@@ -77,9 +82,9 @@ def read_stream(socket : SocketIO, stdout: TextIO, e_done : Event) -> Thread:
                     buff = socket.read(1024)
                     # @edwardk: Not entirely sure why this replace is necessary
                     # but otherwise we don't get carriage returns
-                    buff = buff.replace(b'\n',b'\r\n')
+                    buff = buff.replace(b"\n", b"\r\n")
                     if len(buff) > 0:
-                        stdout.write(buff.decode("utf-8", errors='backslashreplace'))
+                        stdout.write(buff.decode("utf-8", errors="backslashreplace"))
                         stdout.flush()
                     else:
                         break
@@ -87,14 +92,15 @@ def read_stream(socket : SocketIO, stdout: TextIO, e_done : Event) -> Thread:
             pass
         # Set event to signal completion of stream
         e_done.set()
+
     thread = Thread(target=_inner, args=(socket, e_done), daemon=True)
     thread.start()
     return thread
 
-def write_stream(socket : SocketIO,
-                 e_done : Event,
-                 command : Optional[List[str]] = None) -> Thread:
-    """ Wrapped thread method to capture STDIN and write into container """
+
+def write_stream(socket: SocketIO, e_done: Event, command: list[str] | None = None) -> Thread:
+    """Wrapped thread method to capture STDIN and write into container"""
+
     def _inner(socket, e_done, command):
         with get_raw_input() as get_char:
             try:
@@ -109,11 +115,13 @@ def write_stream(socket : SocketIO,
                 pass
         # Set event to signal completion of stream
         e_done.set()
+
     thread = Thread(target=_inner, args=(socket, e_done, command), daemon=True)
     thread.start()
     return thread
 
-def forwarding_host(e_done : Event) -> Tuple[Thread, int]:
+
+def forwarding_host(e_done: Event) -> tuple[Thread, int]:
     """
     Wrapped thread method to handle forwarded commands from the container. Within
     the container, a relatively simple Python script encapsulates calls to the
@@ -132,6 +140,7 @@ def forwarding_host(e_done : Event) -> Tuple[Thread, int]:
         s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         port = s.getsockname()[1]
+
     # Declare the thread process
     def _inner(e_done, port):
         with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
@@ -142,7 +151,7 @@ def forwarding_host(e_done : Event) -> Tuple[Thread, int]:
             while not e_done.is_set():
                 try:
                     conn, _addr = s.accept()
-                except socket.timeout:
+                except TimeoutError:
                     continue
                 # Once a client connects, start receiving data
                 with conn:
@@ -166,13 +175,18 @@ def forwarding_host(e_done : Event) -> Tuple[Thread, int]:
                         break
                     # TODO: DO SOMETHING WITH DATA!
                     # Encode response
-                    raw_resp = json.dumps({ "stdout"  : f"STDOUT for {data}",
-                                            "stderr"  : f"STDERR for {data}",
-                                            "exitcode": 1 }).encode("utf-8")
+                    raw_resp = json.dumps(
+                        {
+                            "stdout": f"STDOUT for {data}",
+                            "stderr": f"STDERR for {data}",
+                            "exitcode": 1,
+                        }
+                    ).encode("utf-8")
                     # Send the data size as the first 4 bytes
                     conn.sendall(bytearray(((len(raw_resp) >> (x * 8)) & 0xFF) for x in range(4)))
                     # Send the encoded data
                     conn.sendall(raw_resp)
+
     # Start the thread
     thread = Thread(target=_inner, args=(e_done, port), daemon=True)
     thread.start()

@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Iterable
+from collections.abc import Iterable
+
 from blockwork.build.transform import Transform
 from blockwork.common.checkeddataclasses import field
 from blockwork.config import base
+
 from ..transforms.lint import DesignInterface, VerilatorLintTransform
 from ..transforms.templating import MakoTransform
 
@@ -27,6 +29,7 @@ class Site(base.Site):
 class Project(base.Project):
     pass
 
+
 class Mako(base.Config):
     template: str
     output: str
@@ -34,7 +37,7 @@ class Mako(base.Config):
     def iter_transforms(self):
         yield MakoTransform(
             template=self.api.file_interface(self.template),
-            output=self.api.file_interface(self.output)
+            output=self.api.file_interface(self.output),
         )
 
 
@@ -47,8 +50,7 @@ class Design(base.Config):
         yield from self.transforms
 
     def iter_transforms(self) -> Iterable[Transform]:
-        idesign = DesignInterface(sources=map(self.api.file_interface, self.sources),
-                                  headers=[])
+        idesign = DesignInterface(sources=map(self.api.file_interface, self.sources), headers=[])
         yield VerilatorLintTransform(idesign)
 
 

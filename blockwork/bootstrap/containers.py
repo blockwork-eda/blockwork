@@ -14,12 +14,13 @@
 
 import logging
 from datetime import datetime
-from docker.errors import ImageNotFound
 from pathlib import Path
 
+from docker.errors import ImageNotFound
 from rich.console import Console
 
 import blockwork
+
 from ..containers.runtime import Runtime
 from ..context import Context
 from .bootstrap import Bootstrap
@@ -29,8 +30,9 @@ cntr_dir = root_dir / "containerfiles"
 
 # === Foundation Container ===
 
+
 @Bootstrap.register()
-def build_foundation(context : Context, last_run : datetime) -> bool:
+def build_foundation(context: Context, last_run: datetime) -> bool:
     """
     Built-in bootstrap action that builds the foundation container using the
     active runtime.
@@ -46,19 +48,21 @@ def build_foundation(context : Context, last_run : datetime) -> bool:
             last_run = datetime.min
         # Check that the container file can be found
         if not defn_file.exists():
-            raise FileExistsError(
-                f"Foundation {defn_file.name} does not exist at '{defn_file}'!"
-            )
+            raise FileExistsError(f"Foundation {defn_file.name} does not exist at '{defn_file}'!")
         # Check if the container file is newer than the last run
         if datetime.fromtimestamp(defn_file.stat().st_mtime) <= last_run:
             return True
         # Build the container
-        logging.info(f"Building the foundation container from {defn_file} for "
-                     f"{host_arch} architecture - this may take a while...")
+        logging.info(
+            f"Building the foundation container from {defn_file} for "
+            f"{host_arch} architecture - this may take a while..."
+        )
         with Console().status("Building container...", spinner="arc"):
-            client.images.build(path=defn_file.parent.as_posix(),
-                                dockerfile=defn_file.name,
-                                tag=img_tag,
-                                rm=True)
+            client.images.build(
+                path=defn_file.parent.as_posix(),
+                dockerfile=defn_file.name,
+                tag=img_tag,
+                rm=True,
+            )
         logging.info("Foundation container built")
         return False

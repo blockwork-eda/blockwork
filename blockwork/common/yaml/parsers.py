@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Generic, Optional,  Self
-from .converters import Converter, ConverterRegistry, _Convertable, YamlConversionError
+from typing import Any, Generic, Self
+
 import yaml
+
+from .converters import Converter, ConverterRegistry, YamlConversionError, _Convertable
+
 try:
     from yaml import CDumper as Dumper
     from yaml import CLoader as Loader
@@ -25,12 +29,13 @@ except ImportError:
 
 class ObjectParser(Generic[_Convertable]):
     """Yaml parser for a specific type, created by ParserFactory"""
+
     def __init__(self, typ: type[_Convertable], loader: type[Loader], dumper: type[Dumper]):
         self.typ = typ
         self.loader = loader
         self.dumper = dumper
 
-    def parse(self, path : Path) -> _Convertable:
+    def parse(self, path: Path) -> _Convertable:
         """
         Parse a YAML file from disk and return any dataclass object it contains.
 
@@ -40,19 +45,24 @@ class ObjectParser(Generic[_Convertable]):
         with path.open("r", encoding="utf-8") as fh:
             parsed: _Convertable = yaml.load(fh, Loader=self.loader)
         if not isinstance(parsed, self.typ):
-            raise YamlConversionError(path, f"Expected {self.typ} object got {type(parsed).__name__}")
+            raise YamlConversionError(
+                path, f"Expected {self.typ} object got {type(parsed).__name__}"
+            )
         return parsed
 
-    def parse_str(self, data : str) -> _Convertable:
+    def parse_str(self, data: str) -> _Convertable:
         """
         Parse a YAML string and return any dataclass object it contains.
 
         :param data: YAML string
         :returns:    Parsed object
         """
-        parsed : _Convertable = yaml.load(data, Loader=self.loader)
+        parsed: _Convertable = yaml.load(data, Loader=self.loader)
         if not isinstance(parsed, self.typ):
-            raise YamlConversionError("<unicode string>", f"Expected {self.typ} object got {type(parsed).__name__}")
+            raise YamlConversionError(
+                "<unicode string>",
+                f"Expected {self.typ} object got {type(parsed).__name__}",
+            )
         return parsed
 
 
@@ -61,13 +71,15 @@ class Parser:
     Creates a parser from a registry of conversions from tag to object and back, for example::
 
         spacial_registry = ConverterRegistry()
-        
+
+
         @spacial_registry.register(DataclassConverter, tag="!coord")
         @dataclass
         class Coordinate:
             x: int
             y: int
-        
+
+
         # Parse as specific type (validates the result is a coordinate)
         spacial_parser = Parser(spacial_registry)
         spacial_parser(Coordinate).parse_str(...)
@@ -76,33 +88,40 @@ class Parser:
         spacial_parser.parse_str(...)
 
     """
-    def __init__(self, registry: Optional[ConverterRegistry]=None):
-        class loader(Loader):
-            ...
-        class dumper(Dumper):
+
+    def __init__(self, registry: ConverterRegistry | None = None):
+        class _Loader(Loader):
             ...
 
-        self.loader = loader
-        self.dumper = dumper
+        class _Dumper(Dumper):
+            ...
+
+        self.loader = _Loader
+        self.dumper = _Dumper
 
         if registry is not None:
             for tag, typ, converter in registry:
                 self.register(converter, tag=tag)(typ)
 
-
-    def register(self, Converter: type[Converter[_Convertable, Self]], *, tag: Optional[str]=None)\
-                 -> Callable[[type[_Convertable]], type[_Convertable]]:
+    def register(
+        self,
+        Converter: type[Converter[_Convertable, Self]],  # noqa: N803
+        *,
+        tag: str | None = None,
+    ) -> Callable[[type[_Convertable]], type[_Convertable]]:
         """
         Register a object for parsing with this parser object.
 
         :param tag: The yaml tag to register as (!ClassName otherwise)
         """
+
         def wrap(typ: type[_Convertable]) -> type[_Convertable]:
             inner_tag = f"!{typ.__name__}" if tag is None else tag
             converter = Converter(tag=inner_tag, typ=typ, parser=self)
             self.loader.add_constructor(inner_tag, converter.construct)
             self.dumper.add_representer(typ, converter.represent)
             return typ
+
         return wrap
 
     def __call__(self, typ: type[_Convertable]) -> ObjectParser[_Convertable]:
@@ -113,8 +132,8 @@ class Parser:
         :returns:    object Parser
         """
         return ObjectParser(typ, loader=self.loader, dumper=self.dumper)
-    
-    def parse(self, path : Path) -> Any:
+
+    def parse(self, path: Path) -> Any:
         """
         Parse a YAML file from disk and return any dataclass object it contains.
 
@@ -123,7 +142,7 @@ class Parser:
         """
         return self(object).parse(path)
 
-    def parse_str(self, data : str) -> Any:
+    def parse_str(self, data: str) -> Any:
         """
         Parse a YAML string and return any dataclass object it contains.
 
@@ -133,8 +152,10 @@ class Parser:
         return self(object).parse_str(data)
 
 
-def SimpleParser(typ: type[_Convertable], Converter: type[Converter[_Convertable, Parser]])\
-                 -> ObjectParser[_Convertable]:
+def SimpleParser(  # noqa: N802
+    typ: type[_Convertable],
+    Converter: type[Converter[_Convertable, Parser]],  # noqa: N803
+) -> ObjectParser[_Convertable]:
     """
     Create a parser for a specific dataclass
     """

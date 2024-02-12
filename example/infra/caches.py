@@ -1,15 +1,15 @@
 from pathlib import Path
 from shutil import copy, copytree
-from typing import Optional
+
 from blockwork.build.caching import Cache
 from blockwork.context import Context
 
-class BasicFileCache(Cache):
 
+class BasicFileCache(Cache):
     def __init__(self, ctx: Context) -> None:
-        self.cache_root = ctx.host_scratch / 'cache'
-        self.key_store = self.cache_root / 'key_store'
-        self.content_store = self.cache_root / 'content_store'
+        self.cache_root = ctx.host_scratch / "cache"
+        self.key_store = self.cache_root / "key_store"
+        self.content_store = self.cache_root / "content_store"
         self.cache_root.mkdir(exist_ok=True)
         self.key_store.mkdir(exist_ok=True)
         self.content_store.mkdir(exist_ok=True)
@@ -22,7 +22,7 @@ class BasicFileCache(Cache):
         (self.key_store / key_hash).unlink(missing_ok=True)
         return True
 
-    def fetch_hash(self, key_hash: str) -> Optional[str]:
+    def fetch_hash(self, key_hash: str) -> str | None:
         try:
             return (self.key_store / key_hash).read_text()
         except FileNotFoundError:

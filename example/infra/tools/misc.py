@@ -1,24 +1,29 @@
 from pathlib import Path
-from typing import List
+from typing import ClassVar
 
-from blockwork.tools import Invocation, Require, Tool, Version
 from blockwork.context import Context
+from blockwork.tools import Invocation, Require, Tool, Version
 
 from .compilers import GCC
 
+
 @Tool.register()
 class Python(Tool):
-    versions = [
-        Version(location = Tool.HOST_ROOT / "python" / "3.11.4",
-                version  = "3.11.4",
-                requires = [Require(GCC, "13.1.0")],
-                paths    = { "PATH"           : [Tool.CNTR_ROOT / "bin"],
-                             "LD_LIBRARY_PATH": [Tool.CNTR_ROOT / "lib"] },
-                default  = True),
+    versions: ClassVar[list[Version]] = [
+        Version(
+            location=Tool.HOST_ROOT / "python" / "3.11.4",
+            version="3.11.4",
+            requires=[Require(GCC, "13.1.0")],
+            paths={
+                "PATH": [Tool.CNTR_ROOT / "bin"],
+                "LD_LIBRARY_PATH": [Tool.CNTR_ROOT / "lib"],
+            },
+            default=True,
+        ),
     ]
 
     @Tool.installer("Python")
-    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
         script = [
@@ -30,61 +35,62 @@ class Python(Tool):
             "make -j4",
             "make install",
             "cd ..",
-            f"rm -rf Python-{vernum} ./*.tgz*"
+            f"rm -rf Python-{vernum} ./*.tgz*",
         ]
         return Invocation(
-            version = version,
-            execute = "bash",
-            args    = ["-c", " && ".join(script)],
-            workdir = tool_dir
+            version=version,
+            execute="bash",
+            args=["-c", " && ".join(script)],
+            workdir=tool_dir,
         )
 
 
 @Tool.register()
 class PythonSite(Tool):
-    versions = [
-        Version(location = Tool.HOST_ROOT / "python-site" / "3.11.4",
-                version  = "3.11.4",
-                env      = { "PYTHONUSERBASE": Tool.CNTR_ROOT },
-                paths    = { "PATH"      : [Tool.CNTR_ROOT / "bin"],
-                             "PYTHONPATH": [Tool.CNTR_ROOT / "lib" / "python3.11" / "site-packages"] },
-                requires = [Require(Python, "3.11.4")],
-                default  = True),
+    versions: ClassVar[list[Version]] = [
+        Version(
+            location=Tool.HOST_ROOT / "python-site" / "3.11.4",
+            version="3.11.4",
+            env={"PYTHONUSERBASE": Tool.CNTR_ROOT},
+            paths={
+                "PATH": [Tool.CNTR_ROOT / "bin"],
+                "PYTHONPATH": [Tool.CNTR_ROOT / "lib" / "python3.11" / "site-packages"],
+            },
+            requires=[Require(Python, "3.11.4")],
+            default=True,
+        ),
     ]
 
     @Tool.action("PythonSite")
-    def run(self,
-            ctx: Context,
-            version : Version,
-            *args   : List[str]) -> Invocation:
-        return Invocation(
-            version = version,
-            execute = "python3",
-            args    = args
-        )
+    def run(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
+        return Invocation(version=version, execute="python3", args=args)
 
     @Tool.installer("PythonSite")
-    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         return Invocation(
-            version     = version,
-            execute     = "python3",
-            args        = ["-m",
-                           "pip",
-                           "--no-cache-dir",
-                           "install",
-                           "-r",
-                           ctx.host_root / "infra" / "tools" / "pythonsite.txt"],
-            interactive = True
+            version=version,
+            execute="python3",
+            args=[
+                "-m",
+                "pip",
+                "--no-cache-dir",
+                "install",
+                "-r",
+                ctx.host_root / "infra" / "tools" / "pythonsite.txt",
+            ],
+            interactive=True,
         )
 
 
 @Tool.register()
 class Make(Tool):
-    versions = [
-        Version(location = Tool.HOST_ROOT / "make" / "4.4.1",
-                version  = "4.4.1",
-                paths    = { "PATH": [Tool.CNTR_ROOT / "bin"] },
-                default  = True),
+    versions: ClassVar[list[Version]] = [
+        Version(
+            location=Tool.HOST_ROOT / "make" / "4.4.1",
+            version="4.4.1",
+            paths={"PATH": [Tool.CNTR_ROOT / "bin"]},
+            default=True,
+        ),
     ]
 
     @Tool.action("Make", default=True)
@@ -92,7 +98,7 @@ class Make(Tool):
         return Invocation(version=version, execute="make", args=args)
 
     @Tool.installer("Make")
-    def install(self, ctx: Context, version : Version, *args : List[str]) -> Invocation:
+    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
         script = [
@@ -103,11 +109,11 @@ class Make(Tool):
             "make -j4",
             "make install",
             "cd ..",
-            f"rm -rf make-{vernum} ./*.tar.*"
+            f"rm -rf make-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version = version,
-            execute = "bash",
-            args    = ["-c", " && ".join(script)],
-            workdir = tool_dir
+            version=version,
+            execute="bash",
+            args=["-c", " && ".join(script)],
+            workdir=tool_dir,
         )

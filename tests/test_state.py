@@ -22,9 +22,8 @@ from blockwork.state import State, StateError
 
 
 class TestState:
-
-    def test_state(self, tmp_path : Path) -> None:
-        """ Exercise state preservation and retrieval """
+    def test_state(self, tmp_path: Path) -> None:
+        """Exercise state preservation and retrieval"""
         state_dirx = tmp_path / "state"
         # Create state object
         state = State(state_dirx)
@@ -47,7 +46,7 @@ class TestState:
         assert ns_1.a == 123
         assert ns_1.b == "abc"
         assert ns_2.c == 234.567
-        assert ns_2.d == False
+        assert ns_2.d is False
         assert ns_3.e == 456
         assert ns_3.f == "def"
         # Check non-existing values return None
@@ -71,24 +70,26 @@ class TestState:
         assert state_two.ns_1.a == 123
         assert state_two.ns_1.b == "abc"
         assert state_two.ns_2.c == 234.567
-        assert state_two.ns_2.d == False
+        assert state_two.ns_2.d is False
         assert state_two.ns_3.e == 456
         assert state_two.ns_3.f == "def"
 
-    def test_state_autosave(self, mocker, tmp_path : Path) -> None:
-        """ Check that state registers 'save_all' with atexit """
+    def test_state_autosave(self, mocker, tmp_path: Path) -> None:
+        """Check that state registers 'save_all' with atexit"""
         # Mock atexit so the save event can be properly triggered
         registered = []
-        mk_atexit  = mocker.patch("blockwork.state.atexit")
+        mk_atexit = mocker.patch("blockwork.state.atexit")
+
         def _register(method):
             nonlocal registered
             registered.append(method)
+
         mk_atexit.register.side_effect = _register
         # Check nothing is registered
         assert len(registered) == 0
         # Create a state object
         state_dirx = tmp_path / "state"
-        state      = State(state_dirx)
+        state = State(state_dirx)
         # Check for the registration
         assert len(registered) == 1
         assert registered[0] == state.save_all
@@ -101,20 +102,20 @@ class TestState:
         with (state_dirx / "test_ns.json").open("r", encoding="utf-8") as fh:
             assert json.load(fh) == {"test_var": 123}
 
-    def test_state_bad_value(self, tmp_path : Path) -> None:
-        """ Attempt to store an unsupported value """
+    def test_state_bad_value(self, tmp_path: Path) -> None:
+        """Attempt to store an unsupported value"""
         state_dirx = tmp_path / "state"
-        state      = State(state_dirx)
+        state = State(state_dirx)
         with pytest.raises(StateError) as exc:
             state.test_ns.test_var = [1, 2, 3]
         assert str(exc.value) == "Value of type list is not supported"
 
-    def test_state_alterations(self, tmp_path : Path) -> None:
-        """ Namespaces should only write to disk when alterations have been made """
+    def test_state_alterations(self, tmp_path: Path) -> None:
+        """Namespaces should only write to disk when alterations have been made"""
         # Create a namespace
         state_dirx = tmp_path / "state"
-        state      = State(state_dirx)
-        test_ns    = state.test_ns
+        state = State(state_dirx)
+        test_ns = state.test_ns
         # Check that the alteration flag starts low
         assert not test_ns._StateNamespace__altered
         # Make a change and check the flag is now set

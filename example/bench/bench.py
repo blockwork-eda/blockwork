@@ -2,6 +2,7 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
 
+
 @cocotb.test()
 async def smoke(dut):
     # Start a clock

@@ -12,21 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import ClassVar
+
 from blockwork.build import Transform
+from blockwork.tools import Tool
+
 from ..interfaces.interfaces import DesignInterface
-from infra.tools.simulators import Verilator
+from ..tools.simulators import Verilator
+
 
 class VerilatorLintTransform(Transform):
-    tools = [Verilator]
+    tools: ClassVar[list[Tool]] = [Verilator]
 
     def __init__(self, design: DesignInterface):
         super().__init__()
         self.bind_inputs(design=design)
 
     def execute(self, ctx, tools, iface):
-        yield tools.verilator.get_action("run")(
-            ctx,
-            "--lint-only",
-            "-Wall",
-            *iface.design.sources
-        )
+        yield tools.verilator.get_action("run")(ctx, "--lint-only", "-Wall", *iface.design.sources)

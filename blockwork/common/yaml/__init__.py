@@ -12,20 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .converters import (ConverterRegistry,
-                         DataclassConverter,
-                         YamlConversionError,
-                         YamlFieldError,
-                         YamlMissingFieldsError,
-                         YamlExtraFieldsError)
+from .converters import (
+    ConverterRegistry,
+    DataclassConverter,
+    YamlConversionError,
+    YamlExtraFieldsError,
+    YamlFieldError,
+    YamlMissingFieldsError,
+)
 from .parsers import Parser, SimpleParser
 
-assert all((ConverterRegistry,
-            DataclassConverter,
-            YamlConversionError,
-            YamlFieldError,
-            YamlMissingFieldsError,
-            YamlExtraFieldsError,
-            Parser,
-            SimpleParser))
-
+assert all(
+    (
+        ConverterRegistry,
+        DataclassConverter,
+        YamlConversionError,
+        YamlFieldError,
+        YamlMissingFieldsError,
+        YamlExtraFieldsError,
+        Parser,
+        SimpleParser,
+    )
+)

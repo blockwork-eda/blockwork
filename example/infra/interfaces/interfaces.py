@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
+
 from blockwork.build.interface import Interface, MetaInterface
 from blockwork.common.complexnamespaces import ReadonlyNamespace
 
+
 class DesignInterface(MetaInterface):
-    def __init__(self, sources: Iterable[Interface[Path]], 
-                       headers: Iterable[Interface[Path]]) -> None:
+    def __init__(
+        self, sources: Iterable[Interface[Path]], headers: Iterable[Interface[Path]]
+    ) -> None:
         self.sources = list(sources)
 
     def resolve_meta(self, fn):

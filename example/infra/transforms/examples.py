@@ -13,23 +13,31 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
+
+from infra.tools.misc import PythonSite
+
 from blockwork.build import Interface, Transform
 from blockwork.common.complexnamespaces import ReadonlyNamespace
 from blockwork.context import Context
-from blockwork.tools.tool import Version
-from infra.tools.misc import PythonSite
+from blockwork.tools.tool import Tool, Version
 
 
 class CapturedTransform(Transform):
-    'Transform with stdout captured to a file interface'
-    tools = [PythonSite]
+    "Transform with stdout captured to a file interface"
+
+    tools: ClassVar[list[Tool]] = [PythonSite]
 
     def __init__(self, output: Interface[Path]):
         super().__init__()
         self.bind_host_outputs(output=output)
 
-    def execute(self, ctx: Context, tools: ReadonlyNamespace[Version], iface: ReadonlyNamespace[Any]):
+    def execute(
+        self,
+        ctx: Context,
+        tools: ReadonlyNamespace[Version],
+        iface: ReadonlyNamespace[Any],
+    ):
         with iface.output.open(mode="w", encoding="utf-8") as stdout:
             inv = tools.pythonsite.get_action("run")(ctx, "-c", "print('hello interface')")
             inv.stdout = stdout
