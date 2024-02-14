@@ -79,6 +79,10 @@ def install_tools(context: Context, last_run: datetime) -> bool:
             else:
                 logging.debug(f" - {idx}: Installation of {tool_id} produced " f"a null invocation")
             logging.debug(f" - {idx}: Installation of {tool_id} succeeded")
+            # If the install folder doesn't exist at this point, create it
+            # NOTE: This allows tools to optionally not install, this may be the
+            #       case if they're only supported on specific platforms
+            host_loc.mkdir(parents=True, exist_ok=True)
             # Touch the install folder to ensure its datetime is updated
             try:
                 os.utime(host_loc)
