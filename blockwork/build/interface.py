@@ -12,24 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum, auto
-from functools import cache
 import hashlib
-from pathlib import Path
 import shlex
 import types
-from typing import Any, Callable, Generic, Hashable, Iterable, Optional, Sequence, TypeVar, TYPE_CHECKING
-from .caching import Cache
-
-from blockwork.context import Context
+from enum import Enum, auto
+from functools import cache
+from pathlib import Path
+from typing import (Any, Callable, Generic, Hashable, Iterable, Optional,
+                    Sequence, TypeVar, Union, TYPE_CHECKING)
 
 from ..common.complexnamespaces import ReadonlyNamespace
-
 from ..common.inithooks import InitHooks
-
 from ..common.singleton import keyed_singleton
-
 from ..containers.container import Container
+from ..context import Context
+from .caching import Cache
 
 if TYPE_CHECKING:
     from ..context import Context
@@ -120,6 +117,20 @@ class Interface(Generic[_RVALUE], metaclass=keyed_singleton(inst_key=lambda i: (
                 yield str(self.value)
                 return
         raise NotImplementedError
+
+    def to_simple(self) -> tuple[Any, dict[str, Any]]:
+        return (type(self).__name__, {"value": Interface.to_simple_value(self.value)})
+
+    @staticmethod
+    def to_simple_value(value: Any) -> dict[str, Any]:
+        if isinstance(value, Interface):
+            return (type(value).__name__, value.to_simple())
+        elif isinstance(value, (tuple, list)):
+            return [Interface.to_simple_value(x) for x in value]
+        elif isinstance(value, dict):
+            return {Interface.to_simple_value(k): Interface.to_simple_value(v) for k, v in value.items()}
+        else:
+            return (type(value).__name__, str(value))
 
     def _hash(self, ctx: "Context"):
         md5 = hashlib.md5(type(self).__name__.encode('utf8'))
@@ -262,6 +273,9 @@ class ListInterface(MetaInterface):
     def resolve_meta(self, fn):
         return self.map(fn, self.items)
 
+    def to_simple(self) -> tuple[Any, list[Any]]:
+        return (type(self).__name__, [Interface.to_simple_value(x) for x in self.items])
+
 class DictInterface(MetaInterface):
     'Dict of other interfaces'
     def __init__(self, mapping: dict[str, Interface] | None = None, **interfaces: Interface):
@@ -269,6 +283,9 @@ class DictInterface(MetaInterface):
 
     def resolve_meta(self, fn):
         return ReadonlyNamespace(**{k: fn(v) for k, v in self.interfaces.items()})
+
+    def to_simple(self) -> tuple[Any, dict[str, Any]]:
+        return (type(self).__name__, {k: Interface.to_simple_value(v) for k, v in self.interfaces.items()})
 
 class FileInterface(Interface[Path]):
     def __init__(self, value: str | Path) -> None:
@@ -302,3 +319,10 @@ class SplitFileInterface(FileInterface):
 
     def resolve_input(self, ctx: "Context"):
         return self._input_path
+
+    def to_simple(self) -> tuple[Any, dict[str, Any]]:
+        return (type(self).__name__, {
+            "input_path": Interface.to_simple_value(self._input_path),
+            "output_path": Interface.to_simple_value(self._output_path),
+            "key": Interface.to_simple_value(self._key),
+        })

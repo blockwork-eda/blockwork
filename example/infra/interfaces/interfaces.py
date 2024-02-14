@@ -13,14 +13,21 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 from blockwork.build.interface import Interface, MetaInterface
 from blockwork.common.complexnamespaces import ReadonlyNamespace
 
 class DesignInterface(MetaInterface):
-    def __init__(self, sources: Iterable[Interface[Path]], 
+    def __init__(self, sources: Iterable[Interface[Path]],
                        headers: Iterable[Interface[Path]]) -> None:
         self.sources = list(sources)
+        self.headers = list(headers)
 
     def resolve_meta(self, fn):
         return ReadonlyNamespace(sources=self.map(fn, self.sources))
+
+    def to_simple(self) -> tuple[Any, dict[str, Any]]:
+        return (type(self).__name__, {
+            "sources": [Interface.to_simple_value(x) for x in self.sources],
+            "headers": [Interface.to_simple_value(x) for x in self.headers],
+        })

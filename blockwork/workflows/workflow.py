@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import json
 import logging
 import os
 from datetime import datetime
@@ -211,6 +212,11 @@ class Workflow:
         jgroup = JobGroup("bw_top", env=dict(os.environ))
         nxt_id = count()
 
+        # Create a directory to store specifications and working files
+        gator_dir = ctx.host_scratch / "gator" / datetime.now().isoformat()
+        spec_dir = gator_dir / "specs"
+        spec_dir.mkdir(exist_ok=True, parents=True)
+
         while run_scheduler.incomplete:
             arr_id = next(nxt_id)
             jarray = JobArray(f"bwa_{arr_id}",
@@ -224,10 +230,20 @@ class Workflow:
                     logging.info("Skipped transform (due to cached dependents): %s", transform)
                 else:
                     logging.info("Running transform: %s", transform)
-                    job = Job(id=f"bwa_{arr_id}_{idx}_{type(transform).__name__}",
+                    job_id = f"bwa_{arr_id}_{idx}_{type(transform).__name__}"
+                    job_json = spec_dir / f"{job_id}.json"
+                    with job_json.open("w", encoding="utf-8") as fh:
+                        json.dump({
+                            "id": transform.id(),
+                            "type": type(transform).__name__,
+                            "inputs": {k: v.to_simple() for k, v in transform.input_interfaces.items()},
+                            "outputs": {k: v.to_simple() for k, v in transform.output_interfaces.items()},
+                            "tools": [x.__name__ for x in transform.tools],
+                        }, fh, indent=4)
+                    job = Job(id=job_id,
                               cwd=ctx.host_root.as_posix(),
                               command="bw",
-                              args=["info"])
+                              args=["wf-step", job_json.as_posix()])
                     jarray.jobs.append(job)
                     # NOTE: Not actually launching the job here
                     run_transforms.add(transform)
@@ -235,8 +251,7 @@ class Workflow:
 
         # Launch Gator job graph
         logging.getLogger("websockets").setLevel(logging.CRITICAL)
-        asyncio.run(launch(spec=jgroup,
-                           tracking=ctx.host_scratch / "gator" / datetime.now().isoformat()))
+        asyncio.run(launch(spec=jgroup, tracking=gator_dir))
         breakpoint()
 
 

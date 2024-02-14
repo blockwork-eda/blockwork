@@ -12,8 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import logging
+from pathlib import Path
+
 import click
 
+from ..context import Context
 
 @click.group(name='wf')
 def wf() -> None:
@@ -23,3 +28,13 @@ def wf() -> None:
     In the future we may want to add common options such as --dryrun here
     """
     pass
+
+@click.command(hidden=True)
+@click.argument("step", type=click.Path(exists=True, dir_okay=False))
+@click.pass_obj
+def wf_step(ctx : Context, step : str) -> None:
+    """ Run a step dispatched from a wider workflow """
+    logging.info(f"Reading workflow step specification: {step}")
+    with Path(step).open("r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    logging.info(f"Specification: {data}")

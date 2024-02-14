@@ -18,10 +18,10 @@ from .info import info
 from .exec import exec
 from .shell import shell
 from .tools import tool, tools
-from .workflow import wf
+from .workflow import wf, wf_step
 
 # List all activities
-activities = (bootstrap, info, exec, shell, tool, tools, wf)
+activities = (bootstrap, info, exec, shell, tool, tools, wf, wf_step)
 
 # Lint guard
 assert activities
