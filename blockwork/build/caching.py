@@ -50,7 +50,7 @@ import os
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 if TYPE_CHECKING:
-    from blockwork.build.transform import Transform
+    from ..transforms import Transform
 from ..context import Context
 
 # Switch to never pull or push from the cache, but to instead compare the

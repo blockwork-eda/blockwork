@@ -6,9 +6,9 @@ import pytest
 
 from blockwork.build.caching import Cache
 from blockwork.build.interface import Interface
-from blockwork.build.transform import Transform
 from blockwork.config.api import ConfigApi
 from blockwork.config.base import Config
+from blockwork.transforms import Transform
 from blockwork.workflows.workflow import Workflow
 
 

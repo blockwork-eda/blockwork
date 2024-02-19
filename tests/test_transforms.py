@@ -1,8 +1,8 @@
 import pytest
 
-from blockwork.build.transform import Transform
 from blockwork.config.api import ConfigApi
 from blockwork.containers import ContainerError
+from blockwork.transforms import Transform
 
 
 @pytest.mark.usefixtures("api")

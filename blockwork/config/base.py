@@ -16,11 +16,11 @@ from collections.abc import Iterable
 
 import yaml
 
-from ..build.transform import Transform
 from ..common.checkeddataclasses import dataclass, field
 from ..common.singleton import keyed_singleton
 from ..common.yaml import DataclassConverter
 from ..common.yaml.parsers import Parser
+from ..transforms import Transform
 from .api import ConfigApi
 
 

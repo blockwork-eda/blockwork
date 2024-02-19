@@ -14,8 +14,8 @@
 
 from typing import ClassVar
 
-from blockwork.build import Transform
 from blockwork.tools import Tool
+from blockwork.transforms import Transform
 
 from ..interfaces.interfaces import DesignInterface
 from ..tools.simulators import Verilator

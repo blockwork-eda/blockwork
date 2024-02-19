@@ -14,9 +14,9 @@
 
 from collections.abc import Iterable
 
-from blockwork.build.transform import Transform
 from blockwork.common.checkeddataclasses import field
 from blockwork.config import base
+from blockwork.transforms import Transform
 
 from ..transforms.lint import DesignInterface, VerilatorLintTransform
 from ..transforms.templating import MakoTransform

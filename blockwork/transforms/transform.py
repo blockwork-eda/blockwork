@@ -12,25 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import functools
-from typing import TYPE_CHECKING, Any, Iterable, Protocol, Self
-import hashlib
 
+import functools
+import hashlib
+import typing
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any, Protocol, Self
+
+from ..build.interface import Direction, Interface, Pipe
 from ..common.inithooks import InitHooks
-from ..build.interface import Interface, Direction, Pipe
+from ..tools import Invocation, Tool, Version
+
 if TYPE_CHECKING:
-    from ..tools.tool import Version, Tool, Invocation
     from ..context import Context
 from ..common.complexnamespaces import ReadonlyNamespace
 
 
 class Execute(Protocol):
-    'Interface for the execute method'
-    def __call__(self,
-                 ctx  : "Context",
-                 tools: ReadonlyNamespace["Version"],
-                 iface: ReadonlyNamespace[Any],
-                 /) -> Iterable["Invocation"]: ...
+    "Interface for the execute method"
+
+    def __call__(
+        self, ctx: "Context", tools: ReadonlyNamespace["Version"], iface: ReadonlyNamespace[Any], /
+    ) -> Iterable["Invocation"]:
+        ...
 
 
 @InitHooks()
@@ -41,16 +45,19 @@ class Transform:
     The bind_* methods return the transform object and can thusly be chained,
     together they allow for anonymous transforms, for example::
 
-        yield (Transform().bind_tools(PythonSite)
-                          .bind_inputs(args=ArgsInterface(self.args))
-                          .bind_execute(lambda c, t, i: [
-                              Invocation(version=t.pythonsite,
-                                         execute="cat",
-                                         args=i.args)]))
+        yield (
+            Transform()
+            .bind_tools(PythonSite)
+            .bind_inputs(args=ArgsInterface(self.args))
+            .bind_execute(
+                lambda c, t, i: [Invocation(version=t.pythonsite, execute="cat", args=i.args)]
+            )
+        )
 
     """
+
     # Tools registered to the class
-    tools: list[type["Tool"]] = []
+    tools: typing.ClassVar[list[type["Tool"]]] = []
     # Interfaces represents the "pretty" view of interfaces
     # with meta-interfaces visible for hierarchical access
     _interfaces: dict[str, tuple[Direction, Pipe, Interface]]
@@ -70,7 +77,6 @@ class Transform:
         self.get_hashsource = functools.cache(self.get_hashsource)
 
     @property
-    @functools.lru_cache()
     def output_interfaces(self):
         interfaces: dict[str, Any] = {}
         for name, (direction, _pipe, interface) in self._interfaces.items():
@@ -79,7 +85,6 @@ class Transform:
         return ReadonlyNamespace(**interfaces)
 
     @property
-    @functools.lru_cache()
     def input_interfaces(self):
         interfaces: dict[str, Any] = {}
         for name, (direction, _pipe, interface) in self._interfaces.items():
@@ -88,20 +93,17 @@ class Transform:
         return ReadonlyNamespace(**interfaces)
 
     @property
-    @functools.lru_cache()
     def interfaces(self):
         interfaces: dict[str, Any] = {}
-        for name, (direction, _pipe, interface) in self._interfaces.items():
+        for name, (_direction, _pipe, interface) in self._interfaces.items():
             interfaces[name] = interface
         return ReadonlyNamespace(**interfaces)
 
     @property
-    @functools.lru_cache()
     def real_input_interfaces(self):
         return self._flat_input_interfaces
 
     @property
-    @functools.lru_cache()
     def real_output_interfaces(self):
         return self._flat_output_interfaces
 
@@ -116,9 +118,9 @@ class Transform:
         return f"{self.__class__.__name__}_{id(self)}"
 
     def get_hashsource(self, ctx: "Context") -> str:
-        md5 = hashlib.md5(type(self).__name__.encode('utf8'))
+        md5 = hashlib.md5(type(self).__name__.encode("utf8"))
         for iface in self._flat_input_interfaces:
-            md5.update(iface.get_hashsource(ctx).encode('utf8'))
+            md5.update(iface.get_hashsource(ctx).encode("utf8"))
         return md5.hexdigest()
 
     def _bind_interfaces(self, _direction: Direction, _pipe: Pipe, **kwargs: Interface):
@@ -176,8 +178,7 @@ class Transform:
         self._tools += tools
         return self
 
-    def bind_execute(self,
-                     execute: Execute) -> Self:
+    def bind_execute(self, execute: Execute) -> Self:
         """
         Attach an alternative execute method to the instance - typically only
         used if a transform is used anonymously.
@@ -202,6 +203,7 @@ class Transform:
         # Create  a container
         # Note need to do this import here to avoid circular import
         from ..foundation import Foundation
+
         container = Foundation(ctx)
 
         # Bind tools to container
@@ -214,7 +216,6 @@ class Transform:
         # Bind interfaces to container
         interface_values: dict[str, Any] = {}
         for name, (direction, pipe, interface) in self._interfaces.items():
-
             if pipe is Pipe.HOST:
                 value = interface.resolve(ctx)
             else:
@@ -227,14 +228,14 @@ class Transform:
         iface = ReadonlyNamespace(**interface_values)
 
         for invocation in self.execute(ctx, tools, iface):
-            if exit_code:=container.invoke(ctx, invocation) != 0:
-                raise RuntimeError(f"Invocation `{invocation}` failed with exit code `{exit_code}`.")
+            if exit_code := container.invoke(ctx, invocation) != 0:
+                raise RuntimeError(
+                    f"Invocation `{invocation}` failed with exit code `{exit_code}`."
+                )
 
-
-    def execute(self,
-             ctx  : "Context",
-             tools: ReadonlyNamespace["Version"],
-             iface: ReadonlyNamespace[Any], /) -> Iterable["Invocation"]:
+    def execute(
+        self, ctx: "Context", tools: ReadonlyNamespace["Version"], iface: ReadonlyNamespace[Any], /
+    ) -> Iterable["Invocation"]:
         """
         Execute method to be implemented in subclasses.
         """
