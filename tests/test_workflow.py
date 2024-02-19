@@ -1,8 +1,8 @@
-import pytest
 from collections.abc import Iterable
 from pathlib import Path
-from types import SimpleNamespace
 from typing import ClassVar
+
+import pytest
 
 from blockwork.build.caching import Cache
 from blockwork.build.interface import Interface
@@ -100,9 +100,9 @@ def match_results(results, run, stored, fetched, skipped):
     assert {type(i) for i in results.fetched} == set(fetched)
     assert {type(i) for i in results.skipped} == set(skipped)
 
-@pytest.mark.usefixtures('api')
+
+@pytest.mark.usefixtures("api")
 class TestWorkFlowDeps:
-    
     def test_gather(self, api: ConfigApi):
         workflow = Workflow("test")
 
@@ -258,7 +258,7 @@ class TestWorkFlowDeps:
     def test_run(self, api: ConfigApi):
         workflow = Workflow("test")
 
-        class ctx:
+        class Ctx:
             caches: ClassVar[list[Cache]] = [DummyCache()]
 
         class DummyTransform(Transform):
@@ -302,8 +302,8 @@ class TestWorkFlowDeps:
 
         orig_hash_content = Cache.hash_content
         Cache.hash_content = lambda path: ""
-        results_1 = workflow._run(ctx, *workflow.get_transform_tree(ConfigA()))
-        results_2 = workflow._run(ctx, *workflow.get_transform_tree(ConfigA()))
+        results_1 = workflow._run(Ctx, *workflow.get_transform_tree(ConfigA()))
+        results_2 = workflow._run(Ctx, *workflow.get_transform_tree(ConfigA()))
         Cache.hash_content = orig_hash_content
 
         match_results(

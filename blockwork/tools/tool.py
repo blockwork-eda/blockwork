@@ -448,11 +448,10 @@ class Tool(RegisteredClass, metaclass=Singleton):
         tool.default = tool.get_version(version)
         tool.default.default = True
 
-
     @classmethod
     @contextmanager
     def temp_registry(cls):
-        'Context managed temporary registry for use in tests'
+        "Context managed temporary registry for use in tests"
         with super().temp_registry():
             instance = Tool.INSTANCES
             actions = Tool.ACTIONS

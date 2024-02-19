@@ -75,7 +75,7 @@ class Registry:
     @classmethod
     @contextmanager
     def temp_registry(cls):
-        'Context managed temporary registry for use in tests'
+        "Context managed temporary registry for use in tests"
         lookup_by_name = RegisteredMethod.LOOKUP_BY_NAME[cls]
         lookup_by_obj = RegisteredMethod.LOOKUP_BY_OBJ[cls]
         RegisteredMethod.LOOKUP_BY_NAME[cls] = defaultdict(lambda: {})
@@ -85,7 +85,6 @@ class Registry:
         finally:
             RegisteredMethod.LOOKUP_BY_NAME[cls] = lookup_by_name
             RegisteredMethod.LOOKUP_BY_OBJ[cls] = lookup_by_obj
-
 
 
 class RegisteredMethod(Registry):
