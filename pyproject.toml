@@ -35,7 +35,7 @@ blockwork = "blockwork:__main__.main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "--cov=blockwork --cov-branch --cov-report html --cov-report term -x"
+addopts = "--no-cov-on-fail --cov=blockwork --cov-branch --cov-report html --cov-report term -x"
 testpaths = ["tests"]
 
 [tool.poe.tasks.test]

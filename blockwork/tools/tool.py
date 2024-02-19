@@ -16,6 +16,7 @@ import functools
 import inspect
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
+from contextlib import contextmanager
 from enum import StrEnum, auto
 from pathlib import Path
 from typing import Any, ClassVar, TextIO, Union
@@ -446,6 +447,21 @@ class Tool(RegisteredClass, metaclass=Singleton):
         tool.default.default = False
         tool.default = tool.get_version(version)
         tool.default.default = True
+
+    @classmethod
+    @contextmanager
+    def temp_registry(cls):
+        "Context managed temporary registry for use in tests"
+        with super().temp_registry():
+            instance = Tool.INSTANCES
+            actions = Tool.ACTIONS
+            Tool.INSTANCES = {}
+            Tool.ACTIONS = defaultdict(dict)
+            try:
+                yield None
+            finally:
+                Tool.INSTANCES = instance
+                Tool.ACTIONS = actions
 
 
 class Invocation:

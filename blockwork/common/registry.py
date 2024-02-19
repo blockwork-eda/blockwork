@@ -16,6 +16,7 @@ import importlib
 import sys
 from collections import defaultdict
 from collections.abc import Callable
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -70,6 +71,20 @@ class Registry:
         if name not in base:
             raise RegistryError(f"Unknown {cls.__name__.lower()} for '{name}'")
         return base[name]
+
+    @classmethod
+    @contextmanager
+    def temp_registry(cls):
+        """Context managed temporary registry for use in tests"""
+        lookup_by_name = RegisteredMethod.LOOKUP_BY_NAME[cls]
+        lookup_by_obj = RegisteredMethod.LOOKUP_BY_OBJ[cls]
+        RegisteredMethod.LOOKUP_BY_NAME[cls] = defaultdict(lambda: {})
+        RegisteredMethod.LOOKUP_BY_OBJ[cls] = defaultdict(lambda: {})
+        try:
+            yield None
+        finally:
+            RegisteredMethod.LOOKUP_BY_NAME[cls] = lookup_by_name
+            RegisteredMethod.LOOKUP_BY_OBJ[cls] = lookup_by_obj
 
     @classmethod
     def clear_registry(cls) -> None:
