@@ -1,7 +1,8 @@
 from collections.abc import Iterable
 from pathlib import Path
-from types import SimpleNamespace
 from typing import ClassVar
+
+import pytest
 
 from blockwork.build.caching import Cache
 from blockwork.build.interface import Interface
@@ -100,9 +101,9 @@ def match_results(results, run, stored, fetched, skipped):
     assert {type(i) for i in results.skipped} == set(skipped)
 
 
-class TestC:
-    @ConfigApi(SimpleNamespace())
-    def test_gather(self):
+@pytest.mark.usefixtures("api")
+class TestWorkFlowDeps:
+    def test_gather(self, api: ConfigApi):
         workflow = Workflow("test")
 
         class TransformA(Transform):
@@ -173,8 +174,7 @@ class TestC:
             [(ConfigA, [TransformA], [TransformA]), (ConfigE, [], [])],
         )
 
-    @ConfigApi(SimpleNamespace())
-    def test_transform_tree(self):
+    def test_transform_tree(self, api: ConfigApi):
         workflow = Workflow("test")
 
         class TransformA(Transform):
@@ -255,8 +255,7 @@ class TestC:
             ),
         )
 
-    @ConfigApi(SimpleNamespace())
-    def test_run(self):
+    def test_run(self, api: ConfigApi):
         workflow = Workflow("test")
 
         class Ctx:
