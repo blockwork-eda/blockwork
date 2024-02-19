@@ -1,3 +1,4 @@
+import pytest
 from collections.abc import Iterable
 from pathlib import Path
 from types import SimpleNamespace
@@ -99,10 +100,10 @@ def match_results(results, run, stored, fetched, skipped):
     assert {type(i) for i in results.fetched} == set(fetched)
     assert {type(i) for i in results.skipped} == set(skipped)
 
-
-class TestC:
-    @ConfigApi(SimpleNamespace())
-    def test_gather(self):
+@pytest.mark.usefixtures('api')
+class TestWorkFlowDeps:
+    
+    def test_gather(self, api: ConfigApi):
         workflow = Workflow("test")
 
         class TransformA(Transform):
@@ -173,8 +174,7 @@ class TestC:
             [(ConfigA, [TransformA], [TransformA]), (ConfigE, [], [])],
         )
 
-    @ConfigApi(SimpleNamespace())
-    def test_transform_tree(self):
+    def test_transform_tree(self, api: ConfigApi):
         workflow = Workflow("test")
 
         class TransformA(Transform):
@@ -255,11 +255,10 @@ class TestC:
             ),
         )
 
-    @ConfigApi(SimpleNamespace())
-    def test_run(self):
+    def test_run(self, api: ConfigApi):
         workflow = Workflow("test")
 
-        class Ctx:
+        class ctx:
             caches: ClassVar[list[Cache]] = [DummyCache()]
 
         class DummyTransform(Transform):
@@ -303,8 +302,8 @@ class TestC:
 
         orig_hash_content = Cache.hash_content
         Cache.hash_content = lambda path: ""
-        results_1 = workflow._run(Ctx, *workflow.get_transform_tree(ConfigA()))
-        results_2 = workflow._run(Ctx, *workflow.get_transform_tree(ConfigA()))
+        results_1 = workflow._run(ctx, *workflow.get_transform_tree(ConfigA()))
+        results_2 = workflow._run(ctx, *workflow.get_transform_tree(ConfigA()))
         Cache.hash_content = orig_hash_content
 
         match_results(

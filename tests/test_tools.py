@@ -34,13 +34,10 @@ class TestTools:
     """Exercise tool and version definitions"""
 
     @pytest.fixture(autouse=True)
-    def reset_tool(self) -> None:
-        """Clear registrations/singleton instances after each test"""
-        Tool.clear_registry()
-        Tool.INSTANCES.clear()
-        Tool.ACTIONS.clear()
-        yield
-        Tool.clear_registry()
+    def reset_tool(self):
+        "Use a temporary tool registry"
+        with Tool.temp_registry():
+            yield
 
     def test_tool(self, tmp_path: Path) -> None:
         """Basic functionality"""

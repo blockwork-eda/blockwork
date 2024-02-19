@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from contextlib import contextmanager
 import functools
 import inspect
 from collections import defaultdict
@@ -446,6 +447,22 @@ class Tool(RegisteredClass, metaclass=Singleton):
         tool.default.default = False
         tool.default = tool.get_version(version)
         tool.default.default = True
+
+
+    @classmethod
+    @contextmanager
+    def temp_registry(cls):
+        'Context managed temporary registry for use in tests'
+        with super(Tool, cls).temp_registry():
+            instance = Tool.INSTANCES
+            actions = Tool.ACTIONS
+            Tool.INSTANCES = {}
+            Tool.ACTIONS = defaultdict(dict)
+            try:
+                yield None
+            finally:
+                Tool.INSTANCES = instance
+                Tool.ACTIONS = actions
 
 
 class Invocation:
