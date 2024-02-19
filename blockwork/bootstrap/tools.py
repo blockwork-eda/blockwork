@@ -14,7 +14,6 @@
 
 import inspect
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -57,7 +56,7 @@ def install_tools(context: Context, last_run: datetime) -> bool:
         host_loc.mkdir(exist_ok=True, parents=True)
         # Select a touch file location, this is used to determine if the tool
         # installation is up to date
-        touch_file = host_loc / "bw.touch"
+        touch_file = host_loc / Tool.TOUCH_FILE
         # If the touch file exists and install has been run more recently than
         # the definition file was updated, then skip
         if touch_file.exists():
@@ -86,7 +85,7 @@ def install_tools(context: Context, last_run: datetime) -> bool:
             logging.debug(f" - {idx}: Installation of {tool_id} succeeded")
             # Touch the install folder to ensure its datetime is updated
             try:
-                os.utime(touch_file)
+                touch_file.touch()
             except PermissionError as e:
                 logging.debug(f" - Could not update modified time of {touch_file}: {e}")
                 pass
