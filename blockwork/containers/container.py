@@ -133,7 +133,7 @@ class Container:
                 )
                 raise ContainerError(e_str)
         if mkdir and not host.exists():
-            host.mkdir(parents=True)
+            host.mkdir(parents=True, exist_ok=True)
         self.__binds.append(ContainerBind(host, container, readonly))
         return container
 
@@ -333,7 +333,7 @@ class Container:
         mounts = []
         for bind in self.__binds:
             if not bind.host_path.exists():
-                bind.host_path.mkdir(parents=True)
+                bind.host_path.mkdir(parents=True, exist_ok=True)
             mounts.append(bind.as_configuration())
         # Merge baseline environment with provided environment
         env = {**self.__environment, **(env or {})}
@@ -378,7 +378,7 @@ class Container:
                     container_path=Path(implicit_path),
                     readonly=False,
                 )
-                bind.host_path.mkdir(parents=True)
+                bind.host_path.mkdir(parents=True, exist_ok=True)
                 mounts.append(bind.as_configuration())
             # Create a thread-safe event to mark when container finishes
             e_done = Event()
