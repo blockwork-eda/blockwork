@@ -31,9 +31,9 @@ jobs:
     - name: Run Ruff linting check
       run: poetry run ruff check .
     - name: Run precommit checks
-      run: |
-        export SKIP=no-commit-to-branch
-        poetry run pre-commit run --all-files
+      env:
+        SKIP: no-commit-to-branch
+      run: poetry run pre-commit run --all-files
 
   build_docs:
     runs-on: ubuntu-latest
