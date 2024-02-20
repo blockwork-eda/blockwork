@@ -51,7 +51,7 @@ def install_tools(context: Context, last_run: datetime) -> bool:
     for idx, tool in enumerate(resolved):
         tool_id = " ".join(tool.id_tuple)
         tool_file = Path(inspect.getfile(type(tool.tool)))
-        host_loc = tool.get_host_path(context)
+        host_loc = tool.get_host_path(context, absolute=False)
         # Ensure the host file path exists
         host_loc.mkdir(exist_ok=True, parents=True)
         # Select a touch file location, this is used to determine if the tool
