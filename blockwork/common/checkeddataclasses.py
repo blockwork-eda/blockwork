@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import dataclasses
-from typing import Generic, Literal, TypeVar, Callable, cast, Self, Any, dataclass_transform
 import warnings
+from collections.abc import Callable
+from typing import Any, Generic, Literal, Self, TypeVar, cast, dataclass_transform
 
 import typeguard
 
@@ -30,14 +31,19 @@ class FieldError(TypeError):
         return self.msg
 
 
-F = TypeVar('F', bound=Callable[..., Any])
-class copy_signature(Generic[F]):
-    def __init__(self, target: F) -> None: ...
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+class CopySignature(Generic[F]):
+    def __init__(self, target: F) -> None:
+        ...
+
     def __call__(self, wrapped: Callable[..., Any]) -> F:
         return cast(F, wrapped)
 
 
 DCLS = TypeVar("DCLS")
+
 
 def _dataclass_inner(cls: DCLS) -> DCLS:
     "Subclasses a dataclass, adding checking after initialisation."
@@ -68,7 +74,6 @@ def _dataclass_inner(cls: DCLS) -> DCLS:
     return cls
 
 
-
 class Field(dataclasses.Field):
     "Checked version of Field. See field."
 
@@ -91,11 +96,14 @@ class Field(dataclasses.Field):
             except TypeError as ex:
                 raise FieldError(str(ex), self.name) from None
 
-T_Field = TypeVar('T_Field')
+
+T_Field = TypeVar("T_Field")
+
+
 def field(
     *,
     default: T_Field | Literal[dataclasses.MISSING] = dataclasses.MISSING,
-    default_factory: Callable[[], T_Field] | Literal[dataclasses.MISSING]=dataclasses.MISSING,
+    default_factory: Callable[[], T_Field] | Literal[dataclasses.MISSING] = dataclasses.MISSING,
     init=True,
     repr=True,  # noqa: A002
     hash=None,  # noqa: A002
@@ -122,14 +130,19 @@ def field(
     """
     if default is not dataclasses.MISSING and default_factory is not dataclasses.MISSING:
         raise ValueError("cannot specify both default and default_factory")
-    return cast(T_Field, Field(default, default_factory, init, repr, hash, compare, metadata, kw_only))
+    return cast(
+        T_Field, Field(default, default_factory, init, repr, hash, compare, metadata, kw_only)
+    )
 
 
-@copy_signature(dataclasses.dataclass)
-@dataclass_transform(kw_only_default=True, frozen_default=True, eq_default=False, field_specifiers=(field,))
+@CopySignature(dataclasses.dataclass)
+@dataclass_transform(
+    kw_only_default=True, frozen_default=True, eq_default=False, field_specifiers=(field,)
+)
 def dataclass(__cls=None, /, **kwargs):
     "Checked version of the dataclass decorator which adds runtime type checking."
     if __cls is None:
+
         def wrap(cls):
             dc = dataclasses.dataclass(**kwargs)(cls)
             return _dataclass_inner(dc)
