@@ -195,6 +195,9 @@ class Tool(RegisteredClass, metaclass=Singleton):
     # Default vendor
     NO_VENDOR = "N/A"
 
+    # Touch file name
+    TOUCH_FILE: str = "bw.touch"
+
     # Action registration
     ACTIONS: ClassVar[dict[str, Callable]] = defaultdict(dict)
     RESERVED = ("installer", "default")
