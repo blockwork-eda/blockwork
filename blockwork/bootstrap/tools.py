@@ -51,12 +51,13 @@ def install_tools(context: Context, last_run: datetime) -> bool:
     for idx, tool in enumerate(resolved):
         tool_id = " ".join(tool.id_tuple)
         tool_file = Path(inspect.getfile(type(tool.tool)))
-        host_loc = tool.get_host_path(context)
-        # Ensure the host file path exists
+        host_loc = tool.get_host_path(context, absolute=False)
+        # Ensure the host folder path exists
         host_loc.mkdir(exist_ok=True, parents=True)
         # Select a touch file location, this is used to determine if the tool
         # installation is up to date
-        touch_file = host_loc / Tool.TOUCH_FILE
+        touch_file = context.host_state / host_loc.relative_to(context.host_tools) / Tool.TOUCH_FILE
+        touch_file.parent.mkdir(exist_ok=True, parents=True)
         # If the touch file exists and install has been run more recently than
         # the definition file was updated, then skip
         if touch_file.exists():
