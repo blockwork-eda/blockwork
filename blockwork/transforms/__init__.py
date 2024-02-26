@@ -1,6 +1,6 @@
 # Expose various definitions
 from . import transforms
-from .transform import Transform
+from .transform import IN, OUT, IEnv, Interface, IPath, Transform
 
 # Unused import lint guards
-assert all((Transform, transforms))
+assert all((IEnv, Interface, IN, IPath, OUT, Transform, transforms))

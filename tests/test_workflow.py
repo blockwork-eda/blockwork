@@ -5,10 +5,10 @@ from typing import ClassVar
 import pytest
 
 from blockwork.build.caching import Cache
-from blockwork.build.interface import Interface
 from blockwork.config.api import ConfigApi
 from blockwork.config.base import Config
-from blockwork.transforms import Transform
+from blockwork.tools import Invocation, tools
+from blockwork.transforms import Transform, transforms
 from blockwork.workflows.workflow import Workflow
 
 
@@ -103,26 +103,41 @@ def match_results(results, run, stored, fetched, skipped):
 
 @pytest.mark.usefixtures("api")
 class TestWorkFlowDeps:
+    class DummyTransform(Transform):
+        def run(self, *args, **kwargs):
+            ...
+
+    class TFAutoA(DummyTransform):
+        test_ip: Path = Transform.IN()
+        test_op: Path = Transform.OUT()
+
+    class TFAutoB(DummyTransform):
+        test_ip: Path = Transform.IN()
+        test_op: Path = Transform.OUT()
+
+    class TFControlled(DummyTransform):
+        test_ip: Path = Transform.IN()
+        test_op: Path = Transform.OUT(init=True)
+
     def test_gather(self, api: ConfigApi):
         workflow = Workflow("test")
 
-        class TransformA(Transform):
-            ...
+        TransformA, TransformB = self.TFAutoA, self.TFAutoB  # noqa N806
 
-        class TransformB(Transform):
-            ...
+        test_ip = api.ctx.host_scratch / "x"
+        test_ip.touch()
 
         # Does it yield transforms and where they came from
         class ConfigA(Config):
             def iter_transforms(self) -> Iterable[Transform]:
-                yield TransformA()
+                yield TransformA(test_ip=test_ip)
 
         match_gather(workflow.gather(ConfigA()), [(ConfigA, [TransformA], [TransformA])])
 
         # Does the transform filter correctly identify targets
         class ConfigB(Config):
             def iter_transforms(self) -> Iterable[Transform]:
-                yield TransformA()
+                yield TransformA(test_ip=test_ip)
 
             def transform_filter(self, transform: Transform, config: Config):
                 return isinstance(transform, TransformB)
@@ -177,16 +192,15 @@ class TestWorkFlowDeps:
     def test_transform_tree(self, api: ConfigApi):
         workflow = Workflow("test")
 
-        class TransformA(Transform):
-            ...
+        TransformA, TransformB = self.TFControlled, self.TFAutoB  # noqa N806
 
-        class TransformB(Transform):
-            ...
+        test_ip = api.ctx.host_scratch / "x"
+        test_ip.touch()
 
         # Do we get a single transform come out
         class ConfigA(Config):
             def iter_transforms(self) -> Iterable[Transform]:
-                yield TransformA()
+                yield TransformA(test_ip=test_ip, test_op=api.path("y"))
 
         match_transform_tree(
             workflow.get_transform_tree(ConfigA()),
@@ -201,11 +215,10 @@ class TestWorkFlowDeps:
         # Do we see a dependency tree come out
         class ConfigB(Config):
             def iter_transforms(self) -> Iterable[Transform]:
-                test_iface = Interface("test")
-                b = TransformB()
-                b.bind_inputs(test_ip=test_iface)
-                a = TransformA()
-                a.bind_outputs(test_op=test_iface)
+                # test_iface = Interface("test")
+                test_path = api.ctx.host_scratch / "test0"
+                b = TransformB(test_ip=test_path)
+                a = TransformA(test_ip=api.path("_"), test_op=test_path)
                 yield b
                 yield a
 
@@ -223,12 +236,11 @@ class TestWorkFlowDeps:
         )
 
         # Do we see a dependency tree come out across configs
-        test_iface = Interface("test")
+        test_path = api.ctx.host_scratch / "test1"
 
         class ConfigC(Config):
             def iter_transforms(self) -> Iterable[Transform]:
-                a = TransformA()
-                a.bind_outputs(test_op=test_iface)
+                a = TransformA(test_ip=api.path("_"), test_op=test_path)
                 yield a
 
         class ConfigD(Config):
@@ -238,8 +250,7 @@ class TestWorkFlowDeps:
                 yield self.child
 
             def iter_transforms(self) -> Iterable[Transform]:
-                b = TransformB()
-                b.bind_inputs(test_ip=test_iface)
+                b = TransformB(test_ip=test_path)
                 yield b
 
         match_transform_tree(
@@ -261,26 +272,16 @@ class TestWorkFlowDeps:
         class Ctx:
             caches: ClassVar[list[Cache]] = [DummyCache()]
 
-        class DummyTransform(Transform):
-            def run(self, *args, **kwargs):
-                ...
+        TransformA, TransformB = self.TFAutoA, self.TFAutoB  # noqa N806
 
-        class TransformA(DummyTransform):
-            ...
-
-        class TransformB(DummyTransform):
-            ...
+        test_ip = api.ctx.host_scratch / "ip"
+        test_ip.touch()
 
         # Do we see a dependency tree come out
         class ConfigA(Config):
             def iter_transforms(self) -> Iterable[Transform]:
-                test_iface = Interface(Path("xyztestpath"))
-                b = TransformB()
-                b.bind_inputs(test_ip=test_iface)
-                yield b
-                a = TransformA()
-                a.bind_outputs(test_op=test_iface)
-                yield a
+                yield (a := TransformA(test_ip=test_ip))
+                yield TransformB(test_ip=a.test_op)
 
             def transform_filter(self, transform: Transform, config: Config):
                 return isinstance(transform, TransformB)
@@ -321,3 +322,41 @@ class TestWorkFlowDeps:
             fetched=[TransformA],
             skipped=[],
         )
+
+    class TFCp(Transform):
+        file: Path = Transform.IN()
+        result: Path = Transform.OUT()
+        tools = (tools.Bash,)
+
+        def execute(self, ctx, tools, iface) -> Iterable[Invocation]:
+            yield tools.bash.get_action("cp")(ctx, frm=iface.file, to=iface.result)
+
+    def test_multistep(self, api: ConfigApi):
+        "Test chain of transforms with multiple steps"
+        cp = self.TFCp
+
+        class MyConfig(Config):
+            input_path: str
+            output_path: str | None
+
+            def iter_transforms(self):
+                # Run step1 on the input_path
+                yield (step1 := cp(file=Path(self.input_path)))
+                # Run step2 with the output from step1
+                yield (step2 := cp(file=step1.result))
+                # Expose the output of the chain (need to think about the syntax for this more)
+                if self.output_path:
+                    yield transforms.Copy(frm=step2.result, to=Path(self.output_path))
+
+        i = api.ctx.host_root / "in"
+        o = api.ctx.host_root / "out"
+
+        text = "this is some text"
+        i.write_text(text)
+
+        workflow = Workflow("test")
+        with ConfigApi(api.ctx):
+            cfg = MyConfig(input_path=i.as_posix(), output_path=o.as_posix())
+        workflow._run(api.ctx, *workflow.get_transform_tree(cfg))
+
+        assert o.read_text() == text

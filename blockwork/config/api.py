@@ -1,6 +1,6 @@
 from abc import ABC
 from pathlib import Path
-from typing import TYPE_CHECKING, Generic, Optional, TypeVar
+from typing import TYPE_CHECKING, Generic, Optional, TypeVar, cast
 
 import yaml
 
@@ -8,10 +8,8 @@ from ..common.scopes import Scope
 
 if TYPE_CHECKING:
     from ..context import Context
+    from ..transforms import Transform
     from .base import Config, Project, Site
-
-from ..build.interface import FileInterface, SplitFileInterface
-
 
 class ApiAccessError(Exception):
     def __init__(self, api: str):
@@ -34,12 +32,14 @@ class ConfigApi(Scope):
         project: Optional["ProjectApi"] = None,
         target: Optional["TargetApi"] = None,
         node: Optional["NodeApi"] = None,
+        transform: Optional["TransformApi"] = None,
     ) -> None:
         self.ctx = ctx
         self._site = site
         self._project = project
         self._target = target
         self._node = node
+        self._transform = transform
 
     def __call__(self, fn):
         "Allow to be used as a decorator"
@@ -65,18 +65,21 @@ class ConfigApi(Scope):
         project: "type[FORK_UNSET] | ProjectApi | None" = FORK_UNSET,
         target: "type[FORK_UNSET] | TargetApi | None" = FORK_UNSET,
         node: "type[FORK_UNSET] | NodeApi | None" = FORK_UNSET,
+        transform: "type[FORK_UNSET] | TransformApi | None" = FORK_UNSET,
     ):
         "Create a new api object from this one"
         forked_site = self._site if site is self.FORK_UNSET else site
         forked_project = self._project if project is self.FORK_UNSET else project
         forked_target = self._target if target is self.FORK_UNSET else target
         forked_node = self._node if node is self.FORK_UNSET else node
+        forked_transform = self._transform if transform is self.FORK_UNSET else transform
         return ConfigApi(
             ctx=self.ctx,
-            site=forked_site,
-            project=forked_project,
-            target=forked_target,
-            node=forked_node,
+            site=cast(SiteApi, forked_site),
+            project=cast(ProjectApi, forked_project),
+            target=cast(TargetApi, forked_target),
+            node=cast(NodeApi, forked_node),
+            transform=cast(TransformApi, forked_transform),
         )
 
     def with_site(self, path, typ):
@@ -94,6 +97,10 @@ class ConfigApi(Scope):
     def with_target(self, spec: str, typ: "type[Config]"):
         "Extend with a target api"
         return TargetApi(self, spec, typ).api
+
+    def with_transform(self, transform: "Transform"):
+        "Extend with a transform api"
+        return TransformApi(self, transform).api
 
     @property
     def site(self):
@@ -119,10 +126,25 @@ class ConfigApi(Scope):
             raise ApiAccessError("node")
         return self._node
 
+    @property
+    def transform(self):
+        if self._transform is None:
+            raise ApiAccessError("transform")
+        return self._transform
+
     def file_interface(self, path: str | Path):
+        if self._transform:
+            return self._transform.file_interface(path)
         if self._target:
             return self._target.file_interface(path)
         return FileInterface(path)
+
+    def path(self, path: str | Path) -> Path:
+        if self._transform:
+            return self._transform.path(path)
+        if self._target:
+            return self._target.path(path)
+        return Path(path).absolute()
 
 
 ConfigType = TypeVar("ConfigType")
@@ -141,18 +163,18 @@ class ConfigApiBase(Generic[ConfigType], ABC):
 class SiteApi(ConfigApiBase["Site"]):
     def __init__(self, api: ConfigApi, path: Path, typ: "type[Site]") -> None:
         self.api = api.fork(site=self, project=None, target=None)
-        self.path = path
+        self.config_path = path
         with self.api:
-            self._config = typ.parser.parse(self.path)
+            self._config = typ.parser.parse(self.config_path)
 
 
 class ProjectApi(ConfigApiBase["Project"]):
     def __init__(self, api: ConfigApi, spec: str, typ: "type[Project]") -> None:
         self.api = api.fork(project=self, target=None)
         self.name = spec
-        self.path = self.find_config(self.name)
+        self.config_path = self.find_config(self.name)
         with self.api:
-            self._config = typ.parser.parse(self.path)
+            self._config = typ.parser.parse(self.config_path)
 
     def find_config(self, name):
         return self.api.ctx.host_root / self.api.site.config.projects[name]
@@ -163,9 +185,9 @@ class TargetApi(ConfigApiBase["Config"]):
         self._context_unit = None if api._target is None else api._target.unit
         self.api = api.fork(target=self)
         self.unit, self.target = self.split_spec(spec)
-        self.path = self.find_config(self.unit, self.target, typ)
+        self.config_path = self.find_config(self.unit, self.target, typ)
         with self.api:
-            self._config = typ.parser.parse(self.path)
+            self._config = typ.parser.parse(self.config_path)
 
         self.project_path = self.api.ctx.host_root / self.api.project.config.units[self.unit]
         self.scratch_path = (
@@ -240,6 +262,11 @@ class TargetApi(ConfigApiBase["Config"]):
             key=(self.unit, path),
         )
 
+    def path(self, path: str | Path):
+        project_path = self.project_path / path
+        scratch_path = self.scratch_path / path
+        return project_path if project_path.exists() else scratch_path
+
 
 class NodeApi:
     def __init__(self, api: ConfigApi, node: yaml.Node) -> None:
@@ -255,3 +282,20 @@ class NodeApi:
                 ),
             )
         )
+
+
+class TransformApi:
+    def __init__(self, api: ConfigApi, transform: "Transform") -> None:
+        self.api = api.fork(transform=self)
+        self.transform = transform
+        self.id = f"{type(transform).__name__}-{id(transform)}"
+
+    def file_interface(self, path: str | Path):
+        if target := self.api._target:
+            return FileInterface(target.scratch_path / self.id / path)
+        return FileInterface(self.api.ctx.host_scratch / self.id / path)
+
+    def path(self, path: str | Path) -> Path:
+        if target := self.api._target:
+            return target.scratch_path / self.id / path
+        return self.api.ctx.host_scratch / self.id / path

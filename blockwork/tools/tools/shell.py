@@ -11,6 +11,10 @@ class Bash(Tool):
         ),
     )
 
+    @Tool.action("Bash", default=True)
+    def script(self, ctx, version, *script: str) -> Invocation:
+        return Invocation(version=version, execute="bash", args=["-c", " && ".join(script)])
+
     @Tool.action("Bash")
     def cp(self, ctx, version, frm: str, to: str) -> Invocation:
         return Invocation(version=version, execute="cp", args=[frm, to])

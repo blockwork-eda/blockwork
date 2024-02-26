@@ -184,6 +184,26 @@ class Version:
         else:
             return base
 
+    def as_interface(self, ctx: Context):
+        from ..transforms import IEnv, IPath
+
+        def normalise(value):
+            if isinstance(value, Path):
+                if value.is_relative_to(Tool.CNTR_ROOT) or value.is_relative_to(Tool.HOST_ROOT):
+                    value = value.relative_to(Tool.CNTR_ROOT)
+                    value = IPath(
+                        self.get_host_path(ctx) / value, self.get_container_path(ctx) / value
+                    )
+            return value
+
+        env = []
+        for key, value in self.env.items():
+            env.append(IEnv(key, normalise(value), policy="conflict"))
+        for key, values in self.paths.items():
+            env.append(IEnv(key, list(map(normalise, values)), policy="prepend"))
+
+        return {"env": env, "root": IPath(self.get_host_path(ctx), self.get_container_path(ctx))}
+
 
 class Tool(RegisteredClass, metaclass=Singleton):
     """Base class for tools"""
@@ -399,7 +419,7 @@ class Tool(RegisteredClass, metaclass=Singleton):
         vend_or_name: str,
         name: str | None = None,
         version: str | None = None,
-    ) -> Union["Tool", None]:
+    ) -> Union["Version", None]:
         """
         Retrieve a tool registered for a given vendor, name, and version. If only a
         name is given, then NO_VENDOR is assumed for the vendor field. If no version
@@ -412,7 +432,7 @@ class Tool(RegisteredClass, metaclass=Singleton):
         """
         vendor = vend_or_name.lower() if name else Tool.NO_VENDOR.lower()
         name = (name if name else vend_or_name).lower()
-        tool_def: Tool = cls.get_by_name((vendor, name))
+        tool_def: type[Tool] = cls.get_by_name((vendor, name))
         if not tool_def:
             return None
         tool = tool_def()

@@ -18,7 +18,6 @@ from pathlib import Path
 
 import click
 
-from blockwork.build.interface import ArgsInterface, FileInterface
 from blockwork.common.checkeddataclasses import field
 from blockwork.config.base import Config
 from blockwork.tools.tool import Invocation

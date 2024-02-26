@@ -38,6 +38,18 @@ class ContainerError(Exception):
     pass
 
 
+class ContainerBindError(ContainerError):
+    def __init__(self, host, container, readonly, bind):
+        e_str = (
+            f"Cannot bind {host} to {container} "
+            f"(as {'readonly' if readonly else 'writable'}) "
+            "due to collision with existing "
+            f"bind {bind.host_path} to {bind.container_path} "
+            f"(as {'readonly' if bind.readonly else 'writable'})"
+        )
+        super().__init__(e_str)
+
+
 @dataclasses.dataclass
 class ContainerBind:
     """Describes a bind to apply to the container"""
@@ -118,21 +130,21 @@ class Container:
         container = container.resolve()
         # Check for duplicate bind inside the container
         for bind in self.__binds:
-            c_match = bind.container_path == container
-            # If exact match, silently allow
-            if c_match and bind.host_path.samefile(host) and (bind.readonly == readonly):
-                return container
-            # Otherwise if a match or a parent, fail
-            elif c_match or container in bind.container_path.parents:
-                e_str = (
-                    f"Cannot bind {host} to {container} "
-                    f"(as {'readonly' if readonly else 'writable'}) "
-                    "due to collision with existing "
-                    f"bind {bind.host_path} to {bind.container_path} "
-                    f"(as {'readonly' if bind.readonly else 'writable'})"
-                )
-                raise ContainerError(e_str)
-        if mkdir and not host.exists():
+            # If new bind exact match to existing bind, allow and skip
+            if bind.container_path == container:
+                if bind.host_path.samefile(host) and (bind.readonly == readonly):
+                    return container
+                else:
+                    raise ContainerBindError(host, container, readonly, bind)
+
+            # If new bind parent of existing bind, allow if the relationship
+            # between the host and container path is the same
+            if bind.container_path.is_relative_to(container):
+                cont_relative = bind.container_path.relative_to(container)
+                host_relative = bind.host_path.relative_to(host)
+                if not cont_relative == host_relative:
+                    raise ContainerBindError(host, container, readonly, bind)
+
             host.mkdir(parents=True, exist_ok=True)
         self.__binds.append(ContainerBind(host, container, readonly))
         return container
