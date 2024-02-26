@@ -7,7 +7,7 @@ import pytest
 from blockwork.config.api import ConfigApi
 from blockwork.containers import ContainerBindError
 from blockwork.tools import tools
-from blockwork.transforms import IEnv, Interface, Transform, transforms
+from blockwork.transforms import IEnv, IFace, Transform, transforms
 
 
 def create_with_text(path: Path, text: str):
@@ -16,7 +16,7 @@ def create_with_text(path: Path, text: str):
     return path
 
 
-class ComplexOutIface(Interface):
+class ComplexOutIface(IFace):
     base: Path
 
     def resolve(self):

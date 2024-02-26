@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from ..transforms import Transform
     from .base import Config, Project, Site
 
+
 class ApiAccessError(Exception):
     def __init__(self, api: str):
         super().__init__(

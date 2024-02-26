@@ -15,14 +15,12 @@
 from collections.abc import Iterable
 from pathlib import Path
 
-from blockwork.transforms import Interface
+from blockwork.transforms import IFace
 from blockwork.common.complexnamespaces import ReadonlyNamespace
 
 
-class DesignInterface(Interface):
-    def __init__(
-        self, sources: Iterable[Path], headers: Iterable[Path]
-    ) -> None:
+class DesignInterface(IFace):
+    def __init__(self, sources: Iterable[Path], headers: Iterable[Path]) -> None:
         self.sources = sources
         self.headers = headers
 

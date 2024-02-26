@@ -215,7 +215,6 @@ class TestWorkFlowDeps:
         # Do we see a dependency tree come out
         class ConfigB(Config):
             def iter_transforms(self) -> Iterable[Transform]:
-                # test_iface = Interface("test")
                 test_path = api.ctx.host_scratch / "test0"
                 b = TransformB(test_ip=test_path)
                 a = TransformA(test_ip=api.path("_"), test_op=test_path)
