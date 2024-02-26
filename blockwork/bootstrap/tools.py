@@ -14,7 +14,6 @@
 
 import inspect
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -52,13 +51,19 @@ def install_tools(context: Context, last_run: datetime) -> bool:
     for idx, tool in enumerate(resolved):
         tool_id = " ".join(tool.id_tuple)
         tool_file = Path(inspect.getfile(type(tool.tool)))
-        host_loc = tool.get_host_path(context)
-        # If the tool install location already exists and install has been run
-        # more recently than the definition file was updated, then skip
-        if host_loc.exists():
-            loc_date = datetime.fromtimestamp(host_loc.stat().st_mtime)
+        host_loc = tool.get_host_path(context, absolute=False)
+        # Ensure the parent of the tool's folder exists
+        host_loc.parent.mkdir(exist_ok=True, parents=True)
+        # Select a touch file location, this is used to determine if the tool
+        # installation is up to date
+        touch_file = context.host_state / "tools" / tool.tool.name / tool.version / Tool.TOUCH_FILE
+        touch_file.parent.mkdir(exist_ok=True, parents=True)
+        # If the touch file exists and install has been run more recently than
+        # the definition file was updated, then skip
+        if touch_file.exists():
+            tch_date = datetime.fromtimestamp(touch_file.stat().st_mtime)
             def_date = datetime.fromtimestamp(tool_file.stat().st_mtime)
-            if loc_date >= def_date:
+            if tch_date >= def_date:
                 logging.debug(f" - {idx}: Tool {tool_id} is already installed")
                 continue
         # Attempt to install
@@ -77,11 +82,11 @@ def install_tools(context: Context, last_run: datetime) -> bool:
                 if exit_code != 0:
                     raise ToolError(f"Installation of {tool_id} failed")
             else:
-                logging.debug(f" - {idx}: Installation of {tool_id} produced " f"a null invocation")
+                logging.debug(f" - {idx}: Installation of {tool_id} produced a null invocation")
             logging.debug(f" - {idx}: Installation of {tool_id} succeeded")
             # Touch the install folder to ensure its datetime is updated
             try:
-                os.utime(host_loc)
+                touch_file.touch()
             except PermissionError as e:
-                logging.debug(f" - Could not update modified time of {host_loc}: {e}")
+                logging.debug(f" - Could not update modified time of {touch_file}: {e}")
                 pass
