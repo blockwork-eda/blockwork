@@ -150,19 +150,20 @@ class Version:
             except ToolActionError:
                 raise e from None
 
-    def get_host_path(self, ctx: Context) -> Path:
+    def get_host_path(self, ctx: Context, absolute: bool = True) -> Path:
         """
         Expand the location to get the full path to the tool on the host system.
         Substitutes Tool.HOST_ROOT for the 'host_tools' path from Context.
 
-        :param ctx: Context object
-        :returns:   Resolved path
+        :param ctx:      Context object
+        :param absolute: When enabled this will flatten symlinks in the hierarchy
+        :returns:        Resolved path
         """
         if self.location.is_relative_to(Tool.HOST_ROOT):
             path = ctx.host_tools / self.location.relative_to(Tool.HOST_ROOT)
         else:
             path = self.location
-        return path.absolute()
+        return path.absolute() if absolute else path
 
     def get_container_path(self, ctx: Context, path: Path | None = None) -> Path:
         """
@@ -194,6 +195,9 @@ class Tool(RegisteredClass, metaclass=Singleton):
 
     # Default vendor
     NO_VENDOR = "N/A"
+
+    # Touch file name
+    TOUCH_FILE: str = "bw.touch"
 
     # Action registration
     ACTIONS: ClassVar[dict[str, Callable]] = defaultdict(dict)
