@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import dataclasses
-import typing
 import warnings
+from collections.abc import Callable
+from typing import Any, Generic, Literal, Self, TypeVar, cast, dataclass_transform
 
 import typeguard
 
@@ -30,20 +31,18 @@ class FieldError(TypeError):
         return self.msg
 
 
-CTP = typing.ParamSpec("CTP")
-CTR = typing.TypeVar("CTR")
+FunctionType = TypeVar("FunctionType", bound=Callable[..., Any])
 
 
-def _copytypes(_frm: typing.Callable[CTP, CTR]):
-    "Utility to copy the parameter types and return from one function to another"
+class CopySignature(Generic[FunctionType]):
+    def __init__(self, target: FunctionType) -> None:
+        ...
 
-    def wrap(to) -> typing.Callable[CTP, CTR]:
-        return typing.cast(typing.Callable[CTP, CTR], to)
-
-    return wrap
+    def __call__(self, wrapped: Callable[..., Any]) -> FunctionType:
+        return cast(FunctionType, wrapped)
 
 
-DCLS = typing.TypeVar("DCLS")
+DCLS = TypeVar("DCLS")
 
 
 def _dataclass_inner(cls: DCLS) -> DCLS:
@@ -75,27 +74,12 @@ def _dataclass_inner(cls: DCLS) -> DCLS:
     return cls
 
 
-@_copytypes(dataclasses.dataclass)
-def dataclass(__cls=None, /, **kwargs):
-    "Checked version of the dataclass decorator which adds runtime type checking."
-    if __cls is None:
-
-        def wrap(cls):
-            dc = dataclasses.dataclass(**kwargs)(cls)
-            return _dataclass_inner(dc)
-
-        return wrap
-    else:
-        dc = dataclasses.dataclass()(__cls)
-        return _dataclass_inner(dc)
-
-
 class Field(dataclasses.Field):
     "Checked version of Field. See field."
 
-    checkers: list[typing.Callable[[typing.Self, typing.Any], None]]
+    checkers: list[Callable[[Self, Any], None]]
 
-    def check(self, checker: typing.Callable[[typing.Any], None]):
+    def check(self, checker: Callable[[Any], None]):
         """
         Register a checking function for this field.
         Intended for use as a decorator.
@@ -113,17 +97,20 @@ class Field(dataclasses.Field):
                 raise FieldError(str(ex), self.name) from None
 
 
+T_Field = TypeVar("T_Field")
+
+
 def field(
     *,
-    default=dataclasses.MISSING,
-    default_factory=dataclasses.MISSING,
+    default: T_Field | Literal[dataclasses.MISSING] = dataclasses.MISSING,
+    default_factory: Callable[[], T_Field] | Literal[dataclasses.MISSING] = dataclasses.MISSING,
     init=True,
     repr=True,  # noqa: A002
     hash=None,  # noqa: A002
     compare=True,
     metadata=None,
     kw_only=dataclasses.MISSING,
-):
+) -> T_Field:
     """
     Checked version of field which allows addictional checking functions to be
     registered to a field. Checking functions should raise type errors if the
@@ -143,4 +130,24 @@ def field(
     """
     if default is not dataclasses.MISSING and default_factory is not dataclasses.MISSING:
         raise ValueError("cannot specify both default and default_factory")
-    return Field(default, default_factory, init, repr, hash, compare, metadata, kw_only)
+    return cast(
+        T_Field, Field(default, default_factory, init, repr, hash, compare, metadata, kw_only)
+    )
+
+
+@CopySignature(dataclasses.dataclass)
+@dataclass_transform(
+    kw_only_default=True, frozen_default=True, eq_default=False, field_specifiers=(field,)
+)
+def dataclass(__cls=None, /, **kwargs):
+    "Checked version of the dataclass decorator which adds runtime type checking."
+    if __cls is None:
+
+        def wrap(cls):
+            dc = dataclasses.dataclass(**kwargs)(cls)
+            return _dataclass_inner(dc)
+
+        return wrap
+    else:
+        dc = dataclasses.dataclass()(__cls)
+        return _dataclass_inner(dc)
