@@ -33,7 +33,7 @@ from ..containers.container import Container
 
 if TYPE_CHECKING:
     from ..context import Context
-    from .transform import Transform
+    from ..transforms import Transform
 
 
 class InterfaceError(Exception): ...

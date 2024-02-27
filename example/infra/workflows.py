@@ -19,10 +19,10 @@ from pathlib import Path
 import click
 
 from blockwork.build.interface import ArgsInterface, FileInterface
-from blockwork.build.transform import Transform
 from blockwork.common.checkeddataclasses import field
 from blockwork.config.base import Config
 from blockwork.tools.tool import Invocation
+from blockwork.transforms import Transform
 from blockwork.workflows.workflow import Workflow
 
 from .tools.misc import PythonSite

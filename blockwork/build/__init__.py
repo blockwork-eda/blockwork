@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from .file import FileType
-from .transform import Transform
 from .interface import Interface
 
-assert all((FileType, Transform, Interface))
+assert all((FileType, Interface))

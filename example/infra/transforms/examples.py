@@ -17,10 +17,11 @@ from typing import Any, ClassVar
 
 from infra.tools.misc import PythonSite
 
-from blockwork.build import Interface, Transform
+from blockwork.build.interface import Interface
 from blockwork.common.complexnamespaces import ReadonlyNamespace
 from blockwork.context import Context
-from blockwork.tools.tool import Tool, Version
+from blockwork.tools import Tool, Version
+from blockwork.transforms import Transform
 
 
 class CapturedTransform(Transform):

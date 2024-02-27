@@ -28,7 +28,6 @@ class Blockwork:
     config: list[str] = field(default_factory=list)
     bootstrap: list[str] = field(default_factory=list)
     tooldefs: list[str] = field(default_factory=list)
-    transforms: list[str] = field(default_factory=list)
     workflows: list[str] = field(default_factory=list)
     caches: list[str] = field(default_factory=list)
     "Caches in order of fetch preference (fastest should be first)"

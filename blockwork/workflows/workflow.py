@@ -24,11 +24,11 @@ import click
 from ..activities.workflow import wf
 from ..build.caching import Cache
 from ..build.interface import Interface
-from ..build.transform import Transform
 from ..config.api import ConfigApi
 from ..config.base import Config, Project, Site
 from ..config.scheduler import Scheduler
 from ..context import Context
+from ..transforms.transform import Transform
 
 
 class Workflow:
