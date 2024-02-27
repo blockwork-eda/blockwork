@@ -31,15 +31,15 @@ class FieldError(TypeError):
         return self.msg
 
 
-F = TypeVar("F", bound=Callable[..., Any])
+FunctionType = TypeVar("FunctionType", bound=Callable[..., Any])
 
 
-class CopySignature(Generic[F]):
-    def __init__(self, target: F) -> None:
+class CopySignature(Generic[FunctionType]):
+    def __init__(self, target: FunctionType) -> None:
         ...
 
-    def __call__(self, wrapped: Callable[..., Any]) -> F:
-        return cast(F, wrapped)
+    def __call__(self, wrapped: Callable[..., Any]) -> FunctionType:
+        return cast(FunctionType, wrapped)
 
 
 DCLS = TypeVar("DCLS")
