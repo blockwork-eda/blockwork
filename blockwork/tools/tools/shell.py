@@ -13,4 +13,4 @@ class Bash(Tool):
 
     @Tool.action("Bash")
     def cp(self, ctx, version, frm: str, to: str) -> Invocation:
-        return Invocation(version=version, execute="cp", args=[frm, to])
+        return Invocation(version=version, execute="cp", args=['-r', frm, to])
