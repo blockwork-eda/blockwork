@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Iterable
+from typing import dataclass_transform
 
 import yaml
 
@@ -38,6 +39,9 @@ class ConfigConverter(DataclassConverter["Config", "Parser"]):
             return super().construct_mapping(loader, node)
 
 
+@dataclass_transform(
+    kw_only_default=True, frozen_default=True, eq_default=False, field_specifiers=(field,)
+)
 class Config(metaclass=keyed_singleton(inst_key=lambda i: hash(i))):
     """
     Base class for all config.
