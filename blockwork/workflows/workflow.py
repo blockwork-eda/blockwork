@@ -195,21 +195,25 @@ class Workflow:
         # And those that made it into the cache
         stored_transforms: OrderedSet[Transform] = OrderedSet([])
 
+        # Whether a cache is in place
+        is_caching = Cache.enabled(ctx)
+
         # Run in reverse order, pulling from the cache if items exits
-        cache_scheduler = Scheduler(dependency_map, targets=targets, reverse=True)
-        while cache_scheduler.incomplete:
-            for transform in cache_scheduler.schedulable:
-                cache_scheduler.schedule(transform)
-                if transform not in targets:
-                    if not (
-                        dependent_map[transform] - skipped_transforms
-                        or dependent_map[transform] - fetched_transforms
-                    ):
-                        skipped_transforms.add(transform)
-                    elif Cache.fetch_transform(ctx, transform):
-                        logging.info("Fetched transform from cache: %s", transform)
-                        fetched_transforms.add(transform)
-                cache_scheduler.finish(transform)
+        if is_caching:
+            cache_scheduler = Scheduler(dependency_map, targets=targets, reverse=True)
+            while cache_scheduler.incomplete:
+                for transform in cache_scheduler.schedulable:
+                    cache_scheduler.schedule(transform)
+                    if transform not in targets:
+                        if not (
+                            dependent_map[transform] - skipped_transforms
+                            or dependent_map[transform] - fetched_transforms
+                        ):
+                            skipped_transforms.add(transform)
+                        elif Cache.fetch_transform(ctx, transform):
+                            logging.info("Fetched transform from cache: %s", transform)
+                            fetched_transforms.add(transform)
+                    cache_scheduler.finish(transform)
 
         # Run everything in order, skipping cached entries, and pushing to the cache when possible
         run_scheduler = Scheduler(dependency_map, targets=targets)
@@ -224,7 +228,7 @@ class Workflow:
                     logging.info("Running transform: %s", transform)
                     transform.run(ctx)
                     run_transforms.add(transform)
-                    if Cache.store_transform(ctx, transform):
+                    if is_caching and Cache.store_transform(ctx, transform):
                         stored_transforms.add(transform)
                         logging.info("Stored transform to cache: %s", transform)
                 run_scheduler.finish(transform)

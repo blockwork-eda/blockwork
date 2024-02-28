@@ -59,6 +59,14 @@ from ..context import Context
 CACHE_CONSISTENCY_MODE = False
 
 class Cache(ABC):
+
+    @staticmethod
+    def enabled(ctx: Context):
+        '''
+        True if any cache is configured
+        '''
+        return len(ctx.caches) > 0
+
     @staticmethod
     def hash_content(path: Path) -> str:
         '''

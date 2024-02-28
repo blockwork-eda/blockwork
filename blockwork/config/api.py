@@ -133,13 +133,6 @@ class ConfigApi(Scope):
             raise ApiAccessError("transform")
         return self._transform
 
-    def file_interface(self, path: str | Path):
-        if self._transform:
-            return self._transform.file_interface(path)
-        if self._target:
-            return self._target.file_interface(path)
-        return FileInterface(path)
-
     def path(self, path: str | Path) -> Path:
         if self._transform:
             return self._transform.path(path)
@@ -256,13 +249,6 @@ class TargetApi(ConfigApiBase["Config"]):
             )
         return config_path
 
-    def file_interface(self, path: str | Path):
-        return SplitFileInterface(
-            input_path=self.project_path / path,
-            output_path=self.scratch_path / path,
-            key=(self.unit, path),
-        )
-
     def path(self, path: str | Path):
         project_path = self.project_path / path
         scratch_path = self.scratch_path / path
@@ -290,11 +276,6 @@ class TransformApi:
         self.api = api.fork(transform=self)
         self.transform = transform
         self.id = f"{type(transform).__name__}-{id(transform)}"
-
-    def file_interface(self, path: str | Path):
-        if target := self.api._target:
-            return FileInterface(target.scratch_path / self.id / path)
-        return FileInterface(self.api.ctx.host_scratch / self.id / path)
 
     def path(self, path: str | Path) -> Path:
         if target := self.api._target:

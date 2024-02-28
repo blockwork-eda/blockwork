@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any
 
 from infra.tools.misc import PythonSite
 

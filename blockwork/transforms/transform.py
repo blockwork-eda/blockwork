@@ -13,14 +13,14 @@
 # limitations under the License.
 
 
-from enum import Enum, auto
 import hashlib
 import json
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import Field, dataclass, fields
 from dataclasses import field as dc_field
+from enum import Enum, auto
 from pathlib import Path
-from types import EllipsisType, GenericAlias, MethodType, NoneType
+from types import EllipsisType, GenericAlias, NoneType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -32,8 +32,8 @@ from typing import (
     TypeVar,
     cast,
     dataclass_transform,
-    get_origin,
     get_args,
+    get_origin,
 )
 
 from blockwork.common.singleton import Singleton
@@ -165,7 +165,8 @@ class PrimitiveSerializer(Generic[TIPrimitive, TIType]):
         if type(token) is not GenericAlias or (type_str := get_origin(token)) is None:
             type_str = token.__name__
         raise RuntimeError(
-            f"Can't automatically set default for field for {transform_str}: `{name}: {type_str} = {field_str}`"
+            "Can't automatically set default for field for "
+            f"{transform_str}: `{name}: {type_str} = {field_str}`"
         )
 
     @classmethod
@@ -898,6 +899,8 @@ class Transform:
         # must be cached.
         for field in fields(cast(Any, self)):
             if not isinstance(field.default, IField):
+                if field.name == "tools":
+                    continue
                 raise ValueError(
                     "All transform interfaces must be specified with a direction"
                     ", e.g. `myinput: Path = Transform.IN()`"
@@ -957,6 +960,8 @@ class Transform:
 
         for field in fields(cast(Any, self)):
             if not isinstance(field.default, IField):
+                if field.name == "tools":
+                    continue
                 raise ValueError(
                     "All transform interfaces must be specified with a direction"
                     ", e.g. `myinput: Path = Transform.IN()`"

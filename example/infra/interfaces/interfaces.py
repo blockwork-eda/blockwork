@@ -16,13 +16,11 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from blockwork.transforms import IFace
-from blockwork.common.complexnamespaces import ReadonlyNamespace
 
 
 class DesignInterface(IFace):
-    def __init__(self, sources: Iterable[Path], headers: Iterable[Path]) -> None:
-        self.sources = sources
-        self.headers = headers
+    sources: Iterable[Path] = IFace.FIELD(default_factory=list)
+    headers: Iterable[Path] = IFace.FIELD(default_factory=list)
 
     def resolve(self):
         return {

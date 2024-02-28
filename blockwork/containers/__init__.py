@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Expose various definitions
-from .container import Container, ContainerError, ContainerBindError
+from .container import Container, ContainerBindError, ContainerError
 from .runtime import Runtime
 
 # Unused import lint guards

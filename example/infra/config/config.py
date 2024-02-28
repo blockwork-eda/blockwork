@@ -36,8 +36,8 @@ class Mako(base.Config):
 
     def iter_transforms(self):
         yield MakoTransform(
-            template=self.api.file_interface(self.template),
-            output=self.api.file_interface(self.output),
+            template=self.api.path(self.template),
+            output=self.api.path(self.output),
         )
 
 
@@ -50,8 +50,8 @@ class Design(base.Config):
         yield from self.transforms
 
     def iter_transforms(self) -> Iterable[Transform]:
-        idesign = DesignInterface(sources=map(self.api.file_interface, self.sources), headers=[])
-        yield VerilatorLintTransform(idesign)
+        idesign = DesignInterface(sources=map(self.api.path, self.sources), headers=[])
+        yield VerilatorLintTransform(design=idesign)
 
 
 class Testbench(base.Config):
