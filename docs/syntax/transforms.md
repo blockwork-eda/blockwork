@@ -1,7 +1,7 @@
 # Transform Syntax
 
-Transforms are a definition of how to process a set of inputs to get a set 
-of outputs. The inputs and outputs to transforms are collectively termed 
+Transforms are a definition of how to process a set of inputs to get a set
+of outputs. The inputs and outputs to transforms are collectively termed
 "interfaces" and should include everything a transform needs to run.
 
 This document covers the syntax of transforms. We will start with a simple
@@ -30,7 +30,7 @@ Next we have some class variables.
 ```python
 tools = (Bash,)
 ```
-> Here `tools` is a reserved class variable, and should be a a tuple listing the 
+> Here `tools` is a reserved class variable, and should be a a tuple listing the
 tools the transform uses. In this case, the transform uses the Bash tool.
 
 ```python
@@ -83,7 +83,7 @@ tf.run(ctx)
 Interfaces are defined with a *name*, a *type*, a *direction*, and *options*.
 The *name* and *direction* are trivial and indicated by the property name, and
 the `IN` and `OUT` in `Transform.IN()` and `Transform.OUT()` respectively. The
-*type* and *options* have more depth and will be the focus of this 
+*type* and *options* have more depth and will be the focus of this
 section, starting with options.
 
 ### Options
@@ -94,20 +94,20 @@ are best described by example.
 ```python
 files: dict[str, Path] = Transform.IN()
 ```
-> An input interface which accepts a dictionary of paths and exposes them 
+> An input interface which accepts a dictionary of paths and exposes them
 inside the container
 
 ```python
 name: str = Transform.IN(env="NAME", default="Blocky")
 ```
 > An optional input interface with a default value, and which additionally
-exposes the value in an environement variable `$NAME`. 
+exposes the value in an environement variable `$NAME`.
 
 ```python
 pypath: list[Path] = Transform.IN(env="PYTHONPATH", env_policy="append", default_factory=list)
 ```
 > An optional input interface with a default which accepts a list of paths
-and exposes them in an environment variable `$PYTHONPATH`. The specified 
+and exposes them in an environment variable `$PYTHONPATH`. The specified
 `env_policy` indicates the new items should be added to the env of the env
 variable if it is already set, see the section on `IEnv` for detail.
 
@@ -122,7 +122,7 @@ cannot be set when instancing the transform.
 result: Path = Transform.OUT(init=True)
 ```
 > A required output interface. The output path must be specified when the
-transform is instanced. 
+transform is instanced.
 
 ```python
 result: Path = Transform.OUT(init=True, default=...)
@@ -145,7 +145,7 @@ Along with the additional interface primitives:
  - `IPath` (`Blockwork.transforms.IPath`)
  - `IEnv` (`Blockwork.transforms.IEnv`)
  - `IFace` (`Blockwork.transforms.IFace`)
- 
+
 And the collection types (which can contain any of the above):
  - `list`
  - `dict` (keys must be strings)
@@ -159,7 +159,7 @@ The interface primitives require further discussion.
 
 When `Path` is used, the value specified will taken as a path on the host
 machine. When the execute method is called, the path is mapped into the
-container (the directory becomes available in the container under a 
+container (the directory becomes available in the container under a
 different name), and the mapped container path is exposed in the `iface`
 argument. The directory where the path is bound is selected automatically.
 
@@ -178,7 +178,7 @@ MyTF(inbound=IPath(host='/some/host/path', cont='/some/cont/path'))
 
 ### IEnv
 
-`IEnv` is used to pass arbitrary environment into the container when the, as 
+`IEnv` is used to pass arbitrary environment into the container when the, as
 opposed to the `env='NAME'` field option which is used to pass specific
 environment variables with a name known when the transform is defined. This is
 useful for writing generic and reusable transforms. `IEnv` accepts the
