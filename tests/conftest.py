@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
+from blockwork.bootstrap import build_foundation
 from blockwork.config.api import ConfigApi
 from blockwork.context import Context
-from blockwork.bootstrap import build_foundation
 
 
 @pytest.fixture(name="api")

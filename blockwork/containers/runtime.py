@@ -50,6 +50,11 @@ class Runtime:
 
     @classmethod
     @functools.lru_cache
+    def is_ubuntu(cls) -> bool:
+        return "ubuntu" in platform.version().lower()
+
+    @classmethod
+    @functools.lru_cache
     def is_orbstack_available(cls) -> bool:
         if shutil.which("orbctl") is None:
             return False
@@ -243,7 +248,7 @@ class Runtime:
             client.close()
 
     @classmethod
-    def get_uid(cls) -> str:
+    def get_uid(cls) -> str | None:
         """
         Determine the UID to use - on a macOS system this should remain fixed
         to the root user (UID=0), while on a Linux box it should map to the UID
@@ -251,4 +256,6 @@ class Runtime:
 
         :returns:   The UID:GID pair to use
         """
-        return "0:0" if cls.is_macos() else f"{os.getuid()}:{os.getgid()}"
+        if cls.is_macos() or cls.is_ubuntu():
+            return "0:0"
+        return f"{os.getuid()}:{os.getgid()}"
