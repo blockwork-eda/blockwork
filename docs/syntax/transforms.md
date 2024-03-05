@@ -101,7 +101,7 @@ inside the container
 name: str = Transform.IN(env="NAME", default="Blocky")
 ```
 > An optional input interface with a default value, and which additionally
-exposes the value in an environement variable `$NAME`.
+exposes the value in an environment variable `$NAME`.
 
 ```python
 pypath: list[Path] = Transform.IN(env="PYTHONPATH", env_policy="append", default_factory=list)
@@ -121,13 +121,13 @@ cannot be set when instancing the transform.
 ```python
 result: Path = Transform.OUT(init=True)
 ```
-> A required output interface. The output path must be specified when the
-transform is instanced.
+> An initialised output interface. The output path must be specified when the
+transform is instanced. It will not be set automatically if not supplied.
 
 ```python
 result: Path = Transform.OUT(init=True, default=...)
 ```
-> An optional output interface with an automatic default if a value is not
+> An initialisable output interface with an automatic default if a value is not
 specified. The magic value '...' can also be used with input interfaces
 for list and dict types to create an empty list or dict.
 
@@ -157,7 +157,7 @@ The interface primitives require further discussion.
 
 ### Path and IPath
 
-When `Path` is used, the value specified will taken as a path on the host
+When `Path` is used, the value specified will be taken as a path on the host
 machine. When the execute method is called, the path is mapped into the
 container (the directory becomes available in the container under a
 different name), and the mapped container path is exposed in the `iface`

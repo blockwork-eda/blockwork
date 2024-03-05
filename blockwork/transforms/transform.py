@@ -54,23 +54,26 @@ class Medial:
     Medials represent values passed between transforms.
     """
 
+    val: str
+    "Medial value"
+    _producers: "list[Transform] | None"
+    "The transforms that produce this medial"
+    _consumers: "list[Transform] | None"
+    "The transfoms that consume this medial (implemented but unused)"
+    _cached_input_hash: str | None
+    "The (cached) hash of this medials inputs"
+
     def __init__(self, val: str):
         self.val = val
-        "Medial value"
-        self._producers: "list[Transform]" = []
-        "The transforms that produces this medial"
-        self._consumers: "list[Transform]" = []
-        "The transfoms that consume this medial (implemented but unused)"
-        self._cached_input_hash: str | None = None
-        "The (cached) hash of this medials inputs"
+        self._producers = None
+        self._consumers = None
+        self._cached_input_hash = None
 
     def __hash__(self) -> int:
         return hash(self.val)
 
     def __eq__(self, other: "Medial"):
-        if isinstance(other, Medial):
-            return (self.val) == (other.val)
-        return False
+        return isinstance(other, Medial) and (self.val == other.val)
 
     def bind_consumers(self, consumers: list["Transform"]):
         """
@@ -81,6 +84,8 @@ class Medial:
               up
             - Currently unused but could be used for graphing later
         """
+        if self._consumers is not None:
+            raise RuntimeError("Consumers already bound to medial!")
         self._consumers = consumers
 
     def bind_producers(self, producers: list["Transform"]):
@@ -91,6 +96,8 @@ class Medial:
             - This deliberately binds a list by reference as it is built
               up
         """
+        if self._producers is not None:
+            raise RuntimeError("Producers already bound to medial!")
         if len(producers) > 1:
             raise RuntimeError(f"Medial `{self}` produced by more than one transform `{producers}`")
         self._producers = producers
@@ -288,12 +295,13 @@ class IPath:
 class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
     @classmethod
     def serialize(cls, token: "Path | IPath") -> "TIPathSerial":
+        "Serialize a path into the interface spec format"
+
         if isinstance(token, Path):
             host_path, cont_path, is_dir = token, None, False
         else:
             host_path, cont_path, is_dir = token.host, token.cont, token.is_dir
 
-        "Serialize a path into the interface spec format"
         if host_path is not None:
             if not host_path.is_absolute():
                 raise RuntimeError(f"Interface paths must be absolute! Got: `{token}`")
