@@ -32,7 +32,6 @@ from typing import (
     TypeVar,
     cast,
     dataclass_transform,
-    get_args,
     get_origin,
 )
 
@@ -142,8 +141,34 @@ class Direction(Enum):
         return self is Direction.OUTPUT
 
 
+class EnvPolicy(Enum):
+    "Controls behaviour when an env variable is already set"
+
+    APPEND = auto()
+    """
+    Append to the existing value with '`:`' separator.
+    """
+
+    PREPEND = auto()
+    """
+    Prepend to the existing value with '`:`' separator. Note, when a list
+    of values `['a','b','c']` is provided the resultant env string will be
+    reversed `c:b:a`.
+    """
+
+    REPLACE = auto()
+    """
+    Replace the existing value with the new one. Note, when a list of values
+    is provided, this will result in only the last value being used.
+    """
+
+    CONFLICT = auto()
+    "The default, raise an error if the variable is already set"
+
+
 TIPrimitive = TypeVar("TIPrimitive", bound="TISerialAny")
 TIType = TypeVar("TIType", bound="TIAny")
+TIEnvPolicy = Literal["APPEND", "PREPEND", "REPLACE", "CONFLICT"]
 
 
 class PrimitiveSerializer(Generic[TIPrimitive, TIType]):
@@ -362,7 +387,7 @@ class IEnv:
     """
 
     def __init__(
-        self, key: str, val: "TIEnv", policy: "TIEnvPolicy" = "conflict", _wrap: bool = True
+        self, key: str, val: "TIEnv", policy: EnvPolicy = EnvPolicy.CONFLICT, _wrap: bool = True
     ):
         """
         :param key: The environment variable name
@@ -379,14 +404,11 @@ class IEnv:
                     f"Value `{val}` is not valid in IEnv, only str, int"
                     " float, None, Path, IPath, and lists thereof are allowed."
                 )
-        if policy not in get_args(TIEnvPolicy):
-            raise ValueError(
-                f"Policy `{policy}` is not valid in IEnv, valid policies"
-                f" are: {get_args(TIEnvPolicy)}"
-            )
+        if not isinstance(policy, EnvPolicy):
+            raise ValueError(f"Policy `{policy}` is not valid in IEnv, use the EnvPolicy enum.")
         self.key = key
         self.val = val
-        self.policy: TIEnvPolicy = policy
+        self.policy = policy
         # Wrap determines what we expose in the container.
         #   True: An instance of IEnv with key and value.
         #   False: The value only.
@@ -412,7 +434,7 @@ class EnvSerializer(PrimitiveSerializer["TIEnvSerial", "IEnv"]):
             "typ": "env",
             "key": token.key,
             "val": val,
-            "policy": token.policy,
+            "policy": token.policy.name,
             "wrap": token._wrap,
         }
 
@@ -436,7 +458,10 @@ class EnvSerializer(PrimitiveSerializer["TIEnvSerial", "IEnv"]):
         "Resolve env against a container, binding values in as required"
         key = token["key"]
         val = cast(TIEnv, InterfaceSerializer.resolve(token["val"], ctx, container, direction))
-        policy = token["policy"]
+        try:
+            policy = EnvPolicy[token["policy"]]
+        except KeyError as e:
+            raise ValueError(f"Invalid env policy {token['policy']}") from e
         wrap = token["wrap"]
 
         items = val if isinstance(val, list) else [val]
@@ -446,13 +471,13 @@ class EnvSerializer(PrimitiveSerializer["TIEnvSerial", "IEnv"]):
                 continue
             item = str(item)
             match policy:
-                case "append":
+                case EnvPolicy.APPEND:
                     container.append_env_path(key, item)
-                case "prepend":
+                case EnvPolicy.PREPEND:
                     container.prepend_env_path(key, item)
-                case "replace":
+                case EnvPolicy.REPLACE:
                     container.set_env(key, item)
-                case "conflict":
+                case EnvPolicy.CONFLICT:
                     current_val = container.get_env(key)
                     if current_val is not None and item != current_val:
                         raise ValueError(
@@ -620,7 +645,6 @@ TIConstLeaf = str | int | float | bool | NoneType
 TIConst = TIConstLeaf | dict[str, "TIConst"] | Sequence["TIConst"]
 TIPrimitives = Path | IEnv | IPath
 TIEnv = TIConstLeaf | Path | IPath | Sequence[TIConstLeaf | Path | IPath]
-TIEnvPolicy = Literal["append", "prepend", "replace", "conflict"]
 
 
 TIAny = TIConstLeaf | TIPrimitives | IFace | Sequence["TIAny"] | dict[str, "TIAny"]
@@ -743,7 +767,7 @@ class IField(Generic[TIField]):
         default_factory: Callable[[], TIField] | None = None,
         direction: Direction,
         env: str | EllipsisType = ...,
-        env_policy: TIEnvPolicy = "conflict",
+        env_policy: EnvPolicy = EnvPolicy.CONFLICT,
     ):
         self.init = init
         self.default = default
@@ -754,7 +778,7 @@ class IField(Generic[TIField]):
         if direction.is_output and env is not ...:
             raise ValueError("IEnv can only be set for input interfaces")
         self.env = env
-        self.env_policy: TIEnvPolicy = env_policy
+        self.env_policy = env_policy
 
     def resolve(self, transform: "Transform", field: Field[TIField]) -> SerialInterface:
         field_value = getattr(transform, field.name)
@@ -792,7 +816,7 @@ def IN(  # noqa: N802
     default_factory: Callable[[], TIField] | None = None,
     init: bool = True,
     env: str | EllipsisType = ...,
-    env_policy: TIEnvPolicy = "conflict",
+    env_policy: EnvPolicy = EnvPolicy.CONFLICT,
 ) -> TIField:
     """
     Marks a transform field as an input interface.
@@ -824,7 +848,7 @@ def OUT(  # noqa: N802
     default: TIField | EllipsisType = ...,
     default_factory: Callable[[], TIField] | None = None,
     env: str | EllipsisType = ...,
-    env_policy: TIEnvPolicy = "conflict",
+    env_policy: EnvPolicy = EnvPolicy.CONFLICT,
 ) -> TIField:
     """
     Marks a transform field as an output interface.

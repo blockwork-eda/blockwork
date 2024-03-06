@@ -7,7 +7,7 @@ import pytest
 from blockwork.config.api import ConfigApi
 from blockwork.containers import ContainerBindError
 from blockwork.tools import tools
-from blockwork.transforms import IEnv, IFace, Transform, transforms
+from blockwork.transforms import EnvPolicy, IEnv, IFace, Transform, transforms
 
 
 def create_with_text(path: Path, text: str):
@@ -107,7 +107,7 @@ class TestTransforms:
 
     class TFComplexFieldEnvAppend(Transform):
         frm: str = Transform.IN(env="TEST")
-        frm2: str = Transform.IN(env="TEST", env_policy="append")
+        frm2: str = Transform.IN(env="TEST", env_policy=EnvPolicy.APPEND)
         to: Path = Transform.OUT()
         tools = (tools.Bash,)
 
@@ -116,7 +116,7 @@ class TestTransforms:
 
     class TFComplexFieldEnvPrepend(Transform):
         frm: str = Transform.IN(env="TEST")
-        frm2: list[str] = Transform.IN(env="TEST", env_policy="prepend")
+        frm2: list[str] = Transform.IN(env="TEST", env_policy=EnvPolicy.PREPEND)
         to: Path = Transform.OUT()
         tools = (tools.Bash,)
 
@@ -125,7 +125,7 @@ class TestTransforms:
 
     class TFComplexFieldEnvReplace(Transform):
         frm: str = Transform.IN(env="TEST")
-        frm2: list[str] = Transform.IN(env="TEST", env_policy="replace")
+        frm2: list[str] = Transform.IN(env="TEST", env_policy=EnvPolicy.REPLACE)
         to: Path = Transform.OUT()
         tools = (tools.Bash,)
 
@@ -134,7 +134,7 @@ class TestTransforms:
 
     class TFComplexFieldEnvConflict(Transform):
         frm: str = Transform.IN(env="TEST")
-        frm2: str = Transform.IN(env="TEST", env_policy="conflict")
+        frm2: str = Transform.IN(env="TEST", env_policy=EnvPolicy.CONFLICT)
         to: Path = Transform.OUT()
         tools = (tools.Bash,)
 

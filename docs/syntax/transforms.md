@@ -104,7 +104,7 @@ name: str = Transform.IN(env="NAME", default="Blocky")
 exposes the value in an environment variable `$NAME`.
 
 ```python
-pypath: list[Path] = Transform.IN(env="PYTHONPATH", env_policy="append", default_factory=list)
+pypath: list[Path] = Transform.IN(env="PYTHONPATH", env_policy=EnvPolicy.APPEND, default_factory=list)
 ```
 > An optional input interface with a default which accepts a list of paths
 and exposes them in an environment variable `$PYTHONPATH`. The specified

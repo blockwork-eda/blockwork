@@ -93,7 +93,7 @@ class Runtime:
         """
         Identify if we're running on a github hosted runner.
         """
-        return os.environ.get('RUNNER_ENVIRONMENT', None) == 'github-hosted'
+        return os.environ.get("RUNNER_ENVIRONMENT", None) == "github-hosted"
 
     @classmethod
     @functools.lru_cache
