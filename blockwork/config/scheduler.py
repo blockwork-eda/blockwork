@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Hashable, Iterable
 from typing import Generic, TypeVar
 
-from ordered_set import OrderedSet
+from ordered_set import OrderedSet as OSet
 
 
 class SchedulingError(RuntimeError):
@@ -35,7 +35,7 @@ class Scheduler(Generic[_Schedulable]):
 
     Usage example::
 
-        dependant_map = {"x": OrderedSet(("y")), "y": OrderedSet(("z"))}
+        dependant_map = {"x": OSet(("y", )), "y": OSet(("z", ))}
         scheduler = Schedular(dependant_map)
         while scheduler.incomplete:
             for item in scheduler.schedulable:
@@ -46,7 +46,7 @@ class Scheduler(Generic[_Schedulable]):
 
     def __init__(
         self,
-        dependency_map: dict[_Schedulable, OrderedSet[_Schedulable]],
+        dependency_map: dict[_Schedulable, OSet[_Schedulable]],
         targets: Iterable[_Schedulable] | None = None,
         reverse: bool = False,
     ):
@@ -60,29 +60,29 @@ class Scheduler(Generic[_Schedulable]):
         """
         if targets is None:
             # Assume any item in the dependency map needs to be built
-            level_targets = OrderedSet(dependency_map.keys())
+            level_targets = OSet(dependency_map.keys())
         else:
-            level_targets = OrderedSet(targets)
+            level_targets = OSet(targets)
 
         # Navigate down the tree and find all items that need to
         # be scheduled based on the targets
-        self._all: OrderedSet[_Schedulable] = OrderedSet([])
+        self._all: OSet[_Schedulable] = OSet()
         count = 0
         while True:
             self._all |= level_targets
             if count == (count := len(self._all)):
                 break
-            next_level_targets = OrderedSet([])
+            next_level_targets = OSet()
             for level_target in level_targets:
-                next_level_targets |= dependency_map.get(level_target, OrderedSet([]))
+                next_level_targets |= dependency_map.get(level_target, OSet())
             level_targets = next_level_targets
             if not level_targets:
                 break
 
         # Iterate over the dependency map and prune it to the items that
         # we need to schedule for the targets
-        self._dependent_map: dict[_Schedulable, OrderedSet[_Schedulable]] = defaultdict(OrderedSet)
-        self._dependency_map: dict[_Schedulable, OrderedSet[_Schedulable]] = defaultdict(OrderedSet)
+        self._dependent_map: dict[_Schedulable, OSet[_Schedulable]] = defaultdict(OSet)
+        self._dependency_map: dict[_Schedulable, OSet[_Schedulable]] = defaultdict(OSet)
         for dependant, dependencies in dependency_map.items():
             if dependant not in self._all:
                 continue
@@ -97,23 +97,23 @@ class Scheduler(Generic[_Schedulable]):
                 self._dependency_map,
             )
 
-        self._remaining = OrderedSet(self._all)
-        self._unscheduled = OrderedSet(self._all)
-        self._scheduled: OrderedSet[_Schedulable] = OrderedSet([])
-        self._complete: OrderedSet[_Schedulable] = OrderedSet([])
+        self._remaining = OSet(self._all)
+        self._unscheduled = OSet(self._all)
+        self._scheduled: OSet[_Schedulable] = OSet()
+        self._complete: OSet[_Schedulable] = OSet()
 
     @property
-    def leaves(self) -> OrderedSet[_Schedulable]:
+    def leaves(self) -> OSet[_Schedulable]:
         """
         Get leaf items which don't depend on anything else.
         Note: dependencies are dropped as items finish so this
               will change as the scheduler runs.
         """
-        dependents = OrderedSet(self._dependency_map.keys())
+        dependents = OSet(self._dependency_map.keys())
         return self._remaining - dependents
 
     @property
-    def schedulable(self) -> OrderedSet[_Schedulable]:
+    def schedulable(self) -> OSet[_Schedulable]:
         "Get schedulable items (leaves which haven't been scheduled)"
         leaves = self.leaves
         if not leaves and not self._scheduled and self.incomplete:
@@ -122,29 +122,29 @@ class Scheduler(Generic[_Schedulable]):
         return leaves - self._scheduled
 
     @property
-    def blocked(self) -> OrderedSet[_Schedulable]:
+    def blocked(self) -> OSet[_Schedulable]:
         "Get non-leaf items which depend on something else"
         return self._unscheduled - self.leaves
 
     @property
-    def unscheduled(self) -> OrderedSet[_Schedulable]:
+    def unscheduled(self) -> OSet[_Schedulable]:
         "Get any items that haven't been scheduled yet"
-        return OrderedSet(self._unscheduled)
+        return OSet(self._unscheduled)
 
     @property
-    def scheduled(self) -> OrderedSet[_Schedulable]:
+    def scheduled(self) -> OSet[_Schedulable]:
         "Get any items that have been scheduled, but are not complete"
-        return OrderedSet(self._scheduled)
+        return OSet(self._scheduled)
 
     @property
-    def incomplete(self) -> OrderedSet[_Schedulable]:
+    def incomplete(self) -> OSet[_Schedulable]:
         "Get any items that are not complete"
         return self._unscheduled | self._scheduled
 
     @property
-    def complete(self) -> OrderedSet[_Schedulable]:
+    def complete(self) -> OSet[_Schedulable]:
         "Get any items that are complete"
-        return OrderedSet(self._complete)
+        return OSet(self._complete)
 
     def schedule(self, item: _Schedulable):
         """

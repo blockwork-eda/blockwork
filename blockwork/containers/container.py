@@ -144,7 +144,7 @@ class Container:
                 host_relative = bind.host_path.relative_to(host)
                 if not cont_relative == host_relative:
                     raise ContainerBindError(host, container, readonly, bind)
-
+        if mkdir and not host.exists():
             host.mkdir(parents=True, exist_ok=True)
         self.__binds.append(ContainerBind(host, container, readonly))
         return container

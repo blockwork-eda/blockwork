@@ -178,11 +178,11 @@ MyTF(inbound=IPath(host='/some/host/path', cont='/some/cont/path'))
 
 ### IEnv
 
-`IEnv` is used to pass arbitrary environment into the container when the, as
-opposed to the `env='NAME'` field option which is used to pass specific
-environment variables with a name known when the transform is defined. This is
-useful for writing generic and reusable transforms. `IEnv` accepts the
-following value types:
+`IEnv` is used to pass arbitrary environment into the container, as opposed
+to the `env='NAME'` field option which is used to pass specific environment
+variables with a name known when the transform is defined. This is useful for
+writing generic and reusable transforms. `IEnv` accepts the following value
+types:
 
  - `str`
  - `int`/`float` (coerced to `str`)

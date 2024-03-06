@@ -20,7 +20,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import click
-from ordered_set import OrderedSet
+from ordered_set import OrderedSet as OSet
 
 from ..activities.workflow import wf
 from ..build.caching import Cache
@@ -129,9 +129,9 @@ class Workflow:
     def get_transform_tree(
         self, root: Config
     ) -> tuple[
-        OrderedSet[Transform],
-        dict[Transform, OrderedSet[Transform]],
-        dict[Transform, OrderedSet[Transform]],
+        OSet[Transform],
+        dict[Transform, OSet[Transform]],
+        dict[Transform, OSet[Transform]],
     ]:
         """
         Gather transform dependency data.
@@ -142,14 +142,14 @@ class Workflow:
         # Join interfaces together and get transform dependencies
         medial_transforms_consumers: dict[Medial, list[Transform]] = defaultdict(list)
         medial_transform_producers: dict[Medial, list[Transform]] = defaultdict(list)
-        dependency_map: dict[Transform, OrderedSet[Transform]] = {}
-        dependent_map: dict[Transform, OrderedSet[Transform]] = {}
-        targets: OrderedSet[Transform] = OrderedSet([])
+        dependency_map: dict[Transform, OSet[Transform]] = {}
+        dependent_map: dict[Transform, OSet[Transform]] = {}
+        targets: OSet[Transform] = OSet()
 
         for _config, transforms, target_transforms in self.gather(root):
             for transform in transforms:
-                dependency_map[transform] = OrderedSet([])
-                dependent_map[transform] = OrderedSet([])
+                dependency_map[transform] = OSet()
+                dependent_map[transform] = OSet()
 
                 # Record transform inputs and outputs
                 for direction, serial in transform._serial_interfaces.values():
@@ -177,23 +177,23 @@ class Workflow:
     def _run(
         self,
         ctx: Context,
-        targets: OrderedSet[Transform],
-        dependency_map: dict[Transform, OrderedSet[Transform]],
-        dependent_map: dict[Transform, OrderedSet[Transform]],
+        targets: OSet[Transform],
+        dependency_map: dict[Transform, OSet[Transform]],
+        dependent_map: dict[Transform, OSet[Transform]],
     ):
         """
         Run the workflow from transform dependency data.
         """
         # Record the transforms we pulled from the cache
-        fetched_transforms: OrderedSet[Transform] = OrderedSet([])
+        fetched_transforms: OSet[Transform] = OSet()
         # Record the transforms that don't need to be run since they were were
         # pulled from the cahce or only transforms pulled from the cache
         # depend on them.
-        skipped_transforms: OrderedSet[Transform] = OrderedSet([])
+        skipped_transforms: OSet[Transform] = OSet()
         # Record the transforms we actually ran
-        run_transforms: OrderedSet[Transform] = OrderedSet([])
+        run_transforms: OSet[Transform] = OSet()
         # And those that made it into the cache
-        stored_transforms: OrderedSet[Transform] = OrderedSet([])
+        stored_transforms: OSet[Transform] = OSet()
 
         # Whether a cache is in place
         is_caching = Cache.enabled(ctx)
