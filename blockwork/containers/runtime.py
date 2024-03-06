@@ -50,11 +50,6 @@ class Runtime:
 
     @classmethod
     @functools.lru_cache
-    def is_ubuntu(cls) -> bool:
-        return "ubuntu" in platform.version().lower()
-
-    @classmethod
-    @functools.lru_cache
     def is_orbstack_available(cls) -> bool:
         if shutil.which("orbctl") is None:
             return False
@@ -79,6 +74,26 @@ class Runtime:
         if subprocess.run(["docker", "info"], capture_output=True).returncode != 0:
             return False
         return True
+
+    @classmethod
+    @functools.lru_cache
+    def is_docker_desktop(cls) -> bool:
+        """
+        Identify if we're running on docker-desktop rather than docker
+        engine directly.
+        """
+        with cls.get_client() as client:
+            # Note this mechanism is used internally in the docker-py repo
+            # although @edktrsk couldn't find any documentation on it.
+            return client.info()["Name"] == "docker-desktop"
+
+    @classmethod
+    @functools.lru_cache
+    def is_github_hosted_runner(cls) -> bool:
+        """
+        Identify if we're running on a github hosted runner.
+        """
+        return os.environ.get('RUNNER_ENVIRONMENT', None) == 'github-hosted'
 
     @classmethod
     @functools.lru_cache
@@ -176,7 +191,7 @@ class Runtime:
 
     @classmethod
     @contextlib.contextmanager
-    def get_podman_socket(cls) -> Path:
+    def get_podman_socket(cls) -> Generator[Path, None, None]:
         """
         Get a local handle to the Podman socket. If Podamn is running locally
         this just returns the socket, otherwise it opens an SSH link and forwards
@@ -219,7 +234,7 @@ class Runtime:
 
     @classmethod
     @contextlib.contextmanager
-    def get_docker_socket(cls) -> Path:
+    def get_docker_socket(cls) -> Generator[Path, None, None]:
         """
         Get a local handle to the Docker REST API socket.
 
@@ -250,12 +265,16 @@ class Runtime:
     @classmethod
     def get_uid(cls) -> str | None:
         """
-        Determine the UID to use - on a macOS system this should remain fixed
-        to the root user (UID=0), while on a Linux box it should map to the UID
-        of the user running the tool.
+        Determine the UID to use - if running under docker desktop  this should
+        remain fixed to the root user (UID=0), otherwise it should map to the
+        UID of the user running the tool.
 
         :returns:   The UID:GID pair to use
         """
-        if cls.is_macos() or cls.is_ubuntu():
+
+        if cls.is_docker_desktop() or cls.is_github_hosted_runner():
+            # We get very odd permissions issues on github hosted runners
+            # if not running as root user. Fortunately this doesn't present
+            # a security concern (for anyone but github).
             return "0:0"
         return f"{os.getuid()}:{os.getgid()}"
