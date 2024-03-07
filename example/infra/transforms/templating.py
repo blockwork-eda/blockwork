@@ -13,23 +13,20 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any
 
-from blockwork.build import Interface, Transform
 from blockwork.common.complexnamespaces import ReadonlyNamespace
 from blockwork.context import Context
-from blockwork.tools.tool import Tool, Version
+from blockwork.tools.tool import Version
+from blockwork.transforms import Transform
 
 from ..tools.misc import PythonSite
 
 
 class MakoTransform(Transform):
-    tools: ClassVar[list[Tool]] = [PythonSite]
-
-    def __init__(self, template: Interface[Path], output: Interface[Path]):
-        super().__init__()
-        self.bind_inputs(template=template)
-        self.bind_outputs(output=output)
+    tools = (PythonSite,)
+    template: Path = Transform.IN()
+    output: Path = Transform.OUT(init=True, default=...)
 
     def execute(
         self,

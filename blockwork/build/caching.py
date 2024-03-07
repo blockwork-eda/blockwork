@@ -59,6 +59,14 @@ from ..context import Context
 CACHE_CONSISTENCY_MODE = False
 
 class Cache(ABC):
+
+    @staticmethod
+    def enabled(ctx: Context):
+        '''
+        True if any cache is configured
+        '''
+        return len(ctx.caches) > 0
+
     @staticmethod
     def hash_content(path: Path) -> str:
         '''
@@ -102,27 +110,36 @@ class Cache(ABC):
         if CACHE_CONSISTENCY_MODE:
             return False
 
-        for idx, iface in enumerate(transform._flat_output_interfaces):
-            hashkey = f"{iface.get_hashsource(ctx)}-{idx}"
-            if not Cache.fetch_from_any(ctx, hashkey, iface.resolve(ctx)):
-                return False
+        for name, (direction, serial) in transform._serial_interfaces.items():
+            if direction.is_input:
+                continue
+            for medial in serial.medials:
+                hashkey = f"{name}-{medial._input_hash()}"
+                if not Cache.fetch_from_any(ctx, hashkey, Path(medial.val)):
+                    return False
         return True
 
     @staticmethod
     def store_transform(ctx: Context, transform: "Transform") -> bool:
         'Store all the output interfaces for a transform'
         if CACHE_CONSISTENCY_MODE:
-            for idx, iface in enumerate(transform._flat_output_interfaces):
-                hashkey = f"{iface.get_hashsource(ctx)}-{idx}"
-                content_hash = Cache.hash_content(iface.resolve(ctx))
-                for cache in ctx.caches:
-                    assert content_hash == cache.fetch_hash(hashkey)
+            for name, (direction, serial) in transform._serial_interfaces.items():
+                if direction.is_input:
+                    continue
+                for medial in serial.medials:
+                    hashkey = f"{name}-{medial._input_hash()}"
+                    content_hash = Cache.hash_content(Path(medial.val))
+                    for cache in ctx.caches:
+                        assert content_hash == cache.fetch_hash(hashkey)
             return False
 
-        for idx, iface in enumerate(transform._flat_output_interfaces):
-            hashkey = f"{iface.get_hashsource(ctx)}-{idx}"
-            if not Cache.store_to_any(ctx, hashkey, iface.resolve(ctx)):
-                return False
+        for name, (direction, serial) in transform._serial_interfaces.items():
+            if direction.is_input:
+                continue
+            for medial in serial.medials:
+                hashkey = f"{name}-{medial._input_hash()}"
+                if not Cache.store_to_any(ctx, hashkey, Path(medial.val)):
+                    return False
         return True
 
     def store(self, key_hash: str, frm: Path) -> bool:

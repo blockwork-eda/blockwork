@@ -13,22 +13,22 @@
 # limitations under the License.
 
 import logging
+from collections import defaultdict
 from collections.abc import Callable, Iterable
 from functools import cache, partial, reduce
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
 
 import click
+from ordered_set import OrderedSet as OSet
 
 from ..activities.workflow import wf
 from ..build.caching import Cache
-from ..build.interface import Interface
 from ..config.api import ConfigApi
 from ..config.base import Config, Project, Site
 from ..config.scheduler import Scheduler
 from ..context import Context
-from ..transforms.transform import Transform
+from ..transforms.transform import Medial, Transform
 
 
 class Workflow:
@@ -120,14 +120,19 @@ class Workflow:
                     target_transforms = list(filter(transform_filter, target_transforms))
                 yield desc, transforms, target_transforms
 
-        transforms = list(config.iter_transforms())
+        with config.api:
+            transforms = list(config.iter_transforms())
         transform_filter = partial(config.transform_filter, config=config)
         target_transforms = list(filter(transform_filter, transforms))
         yield (config, transforms, target_transforms)
 
     def get_transform_tree(
         self, root: Config
-    ) -> tuple[set[Transform], dict[Transform, set[Transform]], dict[Transform, set[Transform]]]:
+    ) -> tuple[
+        OSet[Transform],
+        dict[Transform, OSet[Transform]],
+        dict[Transform, OSet[Transform]],
+    ]:
         """
         Gather transform dependency data.
 
@@ -135,66 +140,80 @@ class Workflow:
                  tree (inverted dependency tree)'
         """
         # Join interfaces together and get transform dependencies
-        output_interfaces: list[Interface] = []
-        dependency_map: dict[Transform, set[Transform]] = {}
-        dependent_map: dict[Transform, set[Transform]] = {}
-        targets: set[Transform] = set()
+        medial_transforms_consumers: dict[Medial, list[Transform]] = defaultdict(list)
+        medial_transform_producers: dict[Medial, list[Transform]] = defaultdict(list)
+        dependency_map: dict[Transform, OSet[Transform]] = {}
+        dependent_map: dict[Transform, OSet[Transform]] = {}
+        targets: OSet[Transform] = OSet()
 
         for _config, transforms, target_transforms in self.gather(root):
             for transform in transforms:
-                dependency_map[transform] = set()
-                dependent_map[transform] = set()
-                for interface in transform.real_output_interfaces:
-                    output_interfaces.append(interface)
+                dependency_map[transform] = OSet()
+                dependent_map[transform] = OSet()
+
+                # Record transform inputs and outputs
+                for direction, serial in transform._serial_interfaces.values():
+                    for medial in serial.medials:
+                        if direction.is_input:
+                            medial_transforms_consumers[medial].append(transform)
+                        else:
+                            medial_transform_producers[medial].append(transform)
+                        # Note this deliberately binds the consumer list by
+                        # reference as it may be added to by later
+                        # transforms
+                        medial.bind_consumers(medial_transforms_consumers[medial])
+                        medial.bind_producers(medial_transform_producers[medial])
             targets.update(target_transforms)
 
-        # We only need to look at output interfaces since an output must
-        # exist in order for a dependency to exist
-        for interface in output_interfaces:
-            input_transform = cast(Transform, interface.input_transform)
-            for output_transform in interface.output_transforms:
-                dependency_map[output_transform].add(input_transform)
-                dependent_map[input_transform].add(output_transform)
+        # Build up dependencies between transforms
+        for medial, producers in medial_transform_producers.items():
+            for producer in producers:
+                for consumer in medial_transforms_consumers[medial]:
+                    dependency_map[consumer].add(producer)
+                    dependent_map[producer].add(consumer)
 
         return targets, dependency_map, dependent_map
 
     def _run(
         self,
         ctx: Context,
-        targets: set[Transform],
-        dependency_map: dict[Transform, set[Transform]],
-        dependent_map: dict[Transform, set[Transform]],
+        targets: OSet[Transform],
+        dependency_map: dict[Transform, OSet[Transform]],
+        dependent_map: dict[Transform, OSet[Transform]],
     ):
         """
         Run the workflow from transform dependency data.
         """
-
         # Record the transforms we pulled from the cache
-        fetched_transforms: set[Transform] = set()
+        fetched_transforms: OSet[Transform] = OSet()
         # Record the transforms that don't need to be run since they were were
         # pulled from the cahce or only transforms pulled from the cache
         # depend on them.
-        skipped_transforms: set[Transform] = set()
+        skipped_transforms: OSet[Transform] = OSet()
         # Record the transforms we actually ran
-        run_transforms: set[Transform] = set()
+        run_transforms: OSet[Transform] = OSet()
         # And those that made it into the cache
-        stored_transforms: set[Transform] = set()
+        stored_transforms: OSet[Transform] = OSet()
+
+        # Whether a cache is in place
+        is_caching = Cache.enabled(ctx)
 
         # Run in reverse order, pulling from the cache if items exits
-        cache_scheduler = Scheduler(dependency_map, targets=targets, reverse=True)
-        while cache_scheduler.incomplete:
-            for transform in cache_scheduler.schedulable:
-                cache_scheduler.schedule(transform)
-                if transform not in targets:
-                    if not (
-                        dependent_map[transform] - skipped_transforms
-                        or dependent_map[transform] - fetched_transforms
-                    ):
-                        skipped_transforms.add(transform)
-                    elif Cache.fetch_transform(ctx, transform):
-                        logging.info("Fetched transform from cache: %s", transform)
-                        fetched_transforms.add(transform)
-                cache_scheduler.finish(transform)
+        if is_caching:
+            cache_scheduler = Scheduler(dependency_map, targets=targets, reverse=True)
+            while cache_scheduler.incomplete:
+                for transform in cache_scheduler.schedulable:
+                    cache_scheduler.schedule(transform)
+                    if transform not in targets:
+                        if not (
+                            dependent_map[transform] - skipped_transforms
+                            or dependent_map[transform] - fetched_transforms
+                        ):
+                            skipped_transforms.add(transform)
+                        elif Cache.fetch_transform(ctx, transform):
+                            logging.info("Fetched transform from cache: %s", transform)
+                            fetched_transforms.add(transform)
+                    cache_scheduler.finish(transform)
 
         # Run everything in order, skipping cached entries, and pushing to the cache when possible
         run_scheduler = Scheduler(dependency_map, targets=targets)
@@ -209,7 +228,7 @@ class Workflow:
                     logging.info("Running transform: %s", transform)
                     transform.run(ctx)
                     run_transforms.add(transform)
-                    if Cache.store_transform(ctx, transform):
+                    if is_caching and Cache.store_transform(ctx, transform):
                         stored_transforms.add(transform)
                         logging.info("Stored transform to cache: %s", transform)
                 run_scheduler.finish(transform)

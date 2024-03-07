@@ -13,6 +13,6 @@
 # limitations under the License.
 
 from .file import FileType
-from .interface import Interface
+from .caching import Cache
 
-assert all((FileType, Interface))
+assert all((FileType, Cache))

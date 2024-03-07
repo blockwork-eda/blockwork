@@ -79,6 +79,7 @@ class PythonSite(Tool):
                 ctx.host_root / "infra" / "tools" / "pythonsite.txt",
             ],
             interactive=True,
+            host=True,
         )
 
 
