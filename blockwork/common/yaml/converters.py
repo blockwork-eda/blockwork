@@ -60,13 +60,13 @@ class YamlFieldError(YamlConversionError):
 class YamlMissingFieldsError(YamlConversionError):
     def __init__(self, location: str, fields: Iterable[str]):
         self.fields = fields
-        super().__init__(location, f"Missing field(s) `{', '.join(self.fields)}`")
+        super().__init__(location, f"Missing field(s) `{', '.join(map(str, self.fields))}`")
 
 
 class YamlExtraFieldsError(YamlConversionError):
     def __init__(self, location: str, fields: Iterable[str]):
         self.fields = fields
-        super().__init__(location, f"Got extra field(s) `{', '.join(self.fields)}`")
+        super().__init__(location, f"Got extra field(s) `{', '.join(map(str, self.fields))}`")
 
 
 _Convertable = TypeVar("_Convertable")
@@ -118,6 +118,28 @@ class Converter(abc.ABC, Generic[_Convertable, _Parser]):
 
     def represent(self, dumper: Dumper, value: _Convertable):
         return self.represent_node(dumper, value)
+
+    def construct_primitive(self, loader: Loader, node: yaml.Node, deep: bool = False):
+        """
+        Constructor for primitive objects, allows for sanity checks to be
+        imposed on the data beyond standard YAML syntax.
+        """
+        match node:
+            # For mapping nodes, check that there are no duplicate keys
+            case yaml.nodes.MappingNode():
+                seen = []
+                for key, _ in node.value:
+                    key = loader.construct_object(key, deep=deep)
+                    if key in seen:
+                        raise yaml.constructor.ConstructorError(
+                            f"Duplicate key '{key}' detected in mapping",
+                            context_mark=node.start_mark,
+                        )
+                    seen.append(key)
+                return loader.construct_mapping(node, deep=deep)
+            # For everything else, defer to PyYAML defaults
+            case _:
+                return loader.construct_object(node, deep=deep)
 
     def construct_mapping(self, loader: Loader, node: yaml.MappingNode) -> _Convertable:
         return self.construct_node(loader, node)
