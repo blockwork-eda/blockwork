@@ -186,7 +186,7 @@ class Version:
             return base
 
     def as_interface(self, ctx: Context):
-        from ..transforms import IEnv, IPath, EnvPolicy
+        from ..transforms import EnvPolicy, IEnv, IPath
 
         def normalise(value):
             if isinstance(value, Path):
