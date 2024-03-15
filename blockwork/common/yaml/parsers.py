@@ -65,6 +65,25 @@ class ObjectParser(Generic[_Convertable]):
             )
         return parsed
 
+    def dump(self, obj: Any, path: Path) -> None:
+        """
+        Convert the dataclass into YAML and write it to a file
+
+        :param obj:  The object to dump
+        :param path: Where to write the YAML to
+        """
+        with path.open("w", encoding="utf-8") as fh:
+            yaml.dump(obj, fh, Dumper=self.dumper)
+
+    def dump_str(self, obj: Any) -> str:
+        """
+        Convert the dataclass into YAML and return it as a string
+
+        :param obj: The object to dump
+        :returns:      The rendered YAML string
+        """
+        return yaml.dump(obj, Dumper=self.dumper)
+
 
 class Parser:
     """
@@ -118,6 +137,10 @@ class Parser:
         def wrap(typ: type[_Convertable]) -> type[_Convertable]:
             inner_tag = f"!{typ.__name__}" if tag is None else tag
             converter = Converter(tag=inner_tag, typ=typ, parser=self)
+            self.loader.add_constructor(
+                yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+                converter.construct_primitive,
+            )
             self.loader.add_constructor(inner_tag, converter.construct)
             self.dumper.add_representer(typ, converter.represent)
             return typ
@@ -150,6 +173,24 @@ class Parser:
         :returns:    Parsed dataclass object
         """
         return self(object).parse_str(data)
+
+    def dump(self, obj: Any, path: Path) -> None:
+        """
+        Convert the dataclass into YAML and write it to a file
+
+        :param obj:  The object to dump
+        :param path: Where to write the YAML to
+        """
+        self(object).dump(obj, path)
+
+    def dump_str(self, obj: Any) -> str:
+        """
+        Convert the dataclass into YAML and return it as a string
+
+        :param obj: The object to dump
+        :returns:   The rendered YAML string
+        """
+        return self(object).dump_str(obj)
 
 
 def SimpleParser(  # noqa: N802
