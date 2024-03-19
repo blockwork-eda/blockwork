@@ -88,8 +88,8 @@ class Version:
             raise ToolError("Paths must be specified as a dictionary")
         if not all(isinstance(k, str) and isinstance(v, list) for k, v in self.paths.items()):
             raise ToolError("Path keys must be strings and values must be lists")
-        if not all(isinstance(y, Path) for x in self.paths.values() for y in x):
-            raise ToolError("Path entries must be of type pathlib.Path")
+        if not all(isinstance(y, str | Path) for x in self.paths.values() for y in x):
+            raise ToolError("Path entries must be of type str or pathlib.Path")
         if not isinstance(self.default, bool):
             raise ToolError("Default must be either True or False")
         if not isinstance(self.requires, list):
