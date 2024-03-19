@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import hashlib
 import importlib
 import logging
 import platform
@@ -80,6 +81,10 @@ class Context:
     @property
     def host_root(self) -> Path:
         return self.__host_root
+
+    @property
+    def host_root_hash(self) -> str:
+        return hashlib.md5(self.host_root.absolute().as_posix().encode("utf-8")).hexdigest()
 
     @property
     @functools.lru_cache  # noqa: B019

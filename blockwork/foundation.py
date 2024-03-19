@@ -29,7 +29,7 @@ class Foundation(Container):
 
     def __init__(self, context: Context, **kwargs) -> None:
         super().__init__(
-            image=f"foundation_{context.host_architecture}",
+            image=f"foundation_{context.host_architecture}_{context.host_root_hash}",
             workdir=context.container_root,
             **kwargs,
         )
