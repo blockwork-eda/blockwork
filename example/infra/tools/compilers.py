@@ -33,7 +33,7 @@ class GCC(Tool):
             "cd objdir",
             f"bash ../gcc-{vernum}/configure --prefix={tool_dir.as_posix()} "
             "--enable-languages=c,c++ --build=$(uname -m)-linux-gnu",
-            "make -j4",
+            "make",
             "make install",
             "cd ..",
             f"rm -rf objdir gcc-{vernum} ./*.tar.*",
@@ -43,6 +43,7 @@ class GCC(Tool):
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
+            interactive=True,
         )
 
 

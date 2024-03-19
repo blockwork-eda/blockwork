@@ -44,6 +44,7 @@ nav:
   - Syntax:
     - Bootstrap: "syntax/bootstrap.md"
     - Tools: "syntax/tools.md"
+    - Tools: "syntax/transforms.md"
   - "Command Line Interface":
     - Introduction: "cli/introduction.md"
     - bootstrap: "cli/bootstrap.md"

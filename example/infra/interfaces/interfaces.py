@@ -15,15 +15,15 @@
 from collections.abc import Iterable
 from pathlib import Path
 
-from blockwork.build.interface import Interface, MetaInterface
-from blockwork.common.complexnamespaces import ReadonlyNamespace
+from blockwork.transforms import IFace
 
 
-class DesignInterface(MetaInterface):
-    def __init__(
-        self, sources: Iterable[Interface[Path]], headers: Iterable[Interface[Path]]
-    ) -> None:
-        self.sources = list(sources)
+class DesignInterface(IFace):
+    sources: Iterable[Path] = IFace.FIELD(default_factory=list)
+    headers: Iterable[Path] = IFace.FIELD(default_factory=list)
 
-    def resolve_meta(self, fn):
-        return ReadonlyNamespace(sources=self.map(fn, self.sources))
+    def resolve(self):
+        return {
+            "sources": list(self.sources),
+            "headers": list(self.headers),
+        }

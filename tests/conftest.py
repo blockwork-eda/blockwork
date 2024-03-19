@@ -1,8 +1,10 @@
 from collections.abc import Iterable
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
+from blockwork.bootstrap import build_foundation
 from blockwork.config.api import ConfigApi
 from blockwork.context import Context
 
@@ -13,5 +15,7 @@ def api(tmp_path: Path) -> Iterable["ConfigApi"]:
     bw_yaml = tmp_path / ".bw.yaml"
     with bw_yaml.open("w", encoding="utf-8") as fh:
         fh.write("!Blockwork\nproject: test\n")
+    ctx = Context(tmp_path)
+    build_foundation(ctx, datetime.min)
     with ConfigApi(Context(tmp_path)) as api:
         yield api
