@@ -186,7 +186,7 @@ class Version:
             return base
 
     def as_interface(self, ctx: Context):
-        from ..transforms import IEnv, IPath
+        from ..transforms import EnvPolicy, IEnv, IPath
 
         def normalise(value):
             if isinstance(value, Path):
@@ -199,9 +199,9 @@ class Version:
 
         env = []
         for key, value in self.env.items():
-            env.append(IEnv(key, normalise(value), policy="conflict"))
+            env.append(IEnv(key, normalise(value), policy=EnvPolicy.CONFLICT))
         for key, values in self.paths.items():
-            env.append(IEnv(key, list(map(normalise, values)), policy="prepend"))
+            env.append(IEnv(key, list(map(normalise, values)), policy=EnvPolicy.PREPEND))
 
         return {"env": env, "root": IPath(self.get_host_path(ctx), self.get_container_path(ctx))}
 
