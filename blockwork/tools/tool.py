@@ -88,8 +88,8 @@ class Version:
             raise ToolError("Paths must be specified as a dictionary")
         if not all(isinstance(k, str) and isinstance(v, list) for k, v in self.paths.items()):
             raise ToolError("Path keys must be strings and values must be lists")
-        if not all(isinstance(y, Path) for x in self.paths.values() for y in x):
-            raise ToolError("Path entries must be of type pathlib.Path")
+        if not all(isinstance(y, str | Path) for x in self.paths.values() for y in x):
+            raise ToolError("Path entries must be of type str or pathlib.Path")
         if not isinstance(self.default, bool):
             raise ToolError("Default must be either True or False")
         if not isinstance(self.requires, list):
@@ -186,7 +186,7 @@ class Version:
             return base
 
     def as_interface(self, ctx: Context):
-        from ..transforms import IEnv, IPath
+        from ..transforms import EnvPolicy, IEnv, IPath
 
         def normalise(value):
             if isinstance(value, Path):
@@ -199,9 +199,9 @@ class Version:
 
         env = []
         for key, value in self.env.items():
-            env.append(IEnv(key, normalise(value), policy="conflict"))
+            env.append(IEnv(key, normalise(value), policy=EnvPolicy.CONFLICT))
         for key, values in self.paths.items():
-            env.append(IEnv(key, list(map(normalise, values)), policy="prepend"))
+            env.append(IEnv(key, list(map(normalise, values)), policy=EnvPolicy.PREPEND))
 
         return {"env": env, "root": IPath(self.get_host_path(ctx), self.get_container_path(ctx))}
 

@@ -29,7 +29,7 @@ class Foundation(Container):
 
     def __init__(self, context: Context, **kwargs) -> None:
         super().__init__(
-            image=f"foundation_{context.host_architecture}",
+            image=f"foundation_{context.host_architecture}_{context.host_root_hash}",
             workdir=context.container_root,
             **kwargs,
         )
@@ -97,10 +97,10 @@ class Foundation(Container):
             self.overlay_env(env, strict=True)
         # Append to $PATH
         for key, paths in tool_ver.paths.items():
-            for path in paths:
-                self.prepend_env_path(
-                    key, tool_ver.get_container_path(self.__context, path).as_posix()
-                )
+            for segment in paths:
+                if isinstance(segment, Path):
+                    segment = tool_ver.get_container_path(self.__context, segment).as_posix()
+                self.prepend_env_path(key, segment)
 
     def invoke(self, context: Context, invocation: Invocation, readonly: bool = True) -> int:
         """

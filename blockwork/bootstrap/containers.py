@@ -40,7 +40,7 @@ def build_foundation(context: Context, last_run: datetime) -> bool:
     host_arch = str(context.host_architecture)
     defn_file = cntr_dir / "foundation" / f"Containerfile_{host_arch}"
     with Runtime.get_client() as client:
-        img_tag = f"foundation_{host_arch}"
+        img_tag = f"foundation_{host_arch}_{context.host_root_hash}"
         # Check if the image exists (in case it was removed manually)
         try:
             client.images.get(img_tag)
