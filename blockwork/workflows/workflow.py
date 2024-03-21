@@ -165,7 +165,7 @@ class Workflow:
                         medial.bind_producers(medial_transform_producers[medial])
             targets.update(target_transforms)
 
-        # c
+        # Build up dependencies between transforms
         for medial, consumers in medial_transforms_consumers.items():
             for consumer in consumers:
                 producers = medial_transform_producers[medial]
