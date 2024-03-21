@@ -259,12 +259,12 @@ class TestTools:
                     Version(
                         version="1.0",
                         location=tmp_path / "widget",
-                        paths={"A": ["/a/b/c"]},
+                        paths={"A": [True]},
                     )
                 ]
 
             Widget()
-        assert str(exc.value) == "Path entries must be of type pathlib.Path"
+        assert str(exc.value) == "Path entries must be of type str or pathlib.Path"
         # Bad default
         with pytest.raises(ToolError) as exc:
 
