@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import typing
 from collections.abc import Iterable
 from typing import Protocol, dataclass_transform
 
@@ -39,6 +40,7 @@ class ConfigConverter(DataclassConverter["ConfigProtocol", "Parser"]):
             return super().construct_mapping(loader, node)
 
 
+@typing.runtime_checkable
 class ConfigProtocol(Protocol):
     "Protocol for Config objects"
 
