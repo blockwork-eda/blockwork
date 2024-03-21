@@ -355,22 +355,32 @@ class Container:
             if len(existing) > 0:
                 existing += ":"
             env[key] = existing + ":".join(map(str, extension))
+        # Collect files to 'push' into the container's temporary directory
+        tmpfiles = []
         # Setup $DISPLAY
         if display:
+            # Locate the user's Xauthority on the host
             xauth_h_path = Path(os.environ.get("XAUTHORITY", "~/.Xauthority")).expanduser()
-            xauth_c_path = Path("/root/.Xauthority")
+            # Set the Xauthority file location within the container
+            xauth_c_path = Path("/tmp/.Xauthority")
+            env["XAUTHORITY"] = xauth_c_path.as_posix()
+            # If Xauthority exists, copy it into the container
             if xauth_h_path.exists():
-                logging.debug(f"Binding XAuthority from {xauth_h_path} to {xauth_c_path}")
-                bind_xauth = ContainerBind(xauth_h_path, xauth_c_path, False)
-                mounts.append(bind_xauth.as_configuration())
-            if not Runtime.is_macos() and (x11_path := Path("/tmp/.X11-unix")).exists():
-                logging.debug("Binding /tmp/.X11-unix into container and setting DISPLAY to :0")
-                env["DISPLAY"] = ":0"
-                bind_x11_unix = ContainerBind(x11_path, x11_path, False)
-                mounts.append(bind_x11_unix.as_configuration())
-            else:
+                logging.debug(f"XAuthority located at {xauth_h_path}")
+                tmpfiles.append(xauth_h_path)
+            # If we're on macOS, use the Docker Desktop forwarding
+            if Runtime.is_macos():
                 env["DISPLAY"] = f"{Runtime.get_host_address()}:0"
                 logging.debug(f"Setting DISPLAY to {env['DISPLAY']}")
+            # Otherwise pass the DISPLAY variable through
+            else:
+                env["DISPLAY"] = os.environ.get("DISPLAY", ":0")
+                logging.debug(f"Setting DISPLAY to {env['DISPLAY']}")
+                # If an X11 directory exists (locally hosted display), bind it
+                if (x11_path := Path("/tmp/.X11-unix")).exists():
+                    logging.debug("Binding /tmp/.X11-unix into container")
+                    bind_x11_unix = ContainerBind(x11_path, x11_path, False)
+                    mounts.append(bind_x11_unix.as_configuration())
         # Expose terminal dimensions
         tsize = shutil.get_terminal_size()
         logging.debug(f"Setting terminal to {tsize.columns}x{tsize.lines}")
@@ -382,11 +392,18 @@ class Container:
         env["TMPDIR"] = "/tmp"
         # Get access to container within a context manager
         with Runtime.get_client() as client, tempfile.TemporaryDirectory(prefix=self.id) as tmpdir:
-            # Provide mounts for '/tmp' and other paths (using a
-            # tmpfs mount implicitly adds 'noexec' preventing binaries executing)
+            tmpdir = Path(tmpdir)
+            # Copy requested files into the temporary directory
+            (tmpdir / "tmp").mkdir(exist_ok=True, parents=True)
+            for file in tmpfiles:
+                target = tmpdir / "tmp" / file.name
+                logging.debug(f"Copying {file} to {target}")
+                shutil.copy(file, target)
+            # Provide mounts for '/tmp' and other paths (using a tmpfs mount
+            # implicitly adds 'noexec' preventing binaries executing)
             for implicit_path in ["/tmp", "/root", "/var/log", "/var/cache"]:
                 bind = ContainerBind(
-                    host_path=Path(tmpdir + implicit_path),
+                    host_path=tmpdir / Path(implicit_path).relative_to("/"),
                     container_path=Path(implicit_path),
                     readonly=False,
                 )
