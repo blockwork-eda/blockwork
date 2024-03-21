@@ -120,6 +120,11 @@ class Medial:
     def __repr__(self):
         return f"<Medial val='{self.val}' hash={self._cached_input_hash}>"
 
+    def _exists(self):
+        "Whether the medial exists ahead of time"
+        # Assuming it's a path for now (only valid medial currently)
+        return Path(self.val).exists()
+
 
 class Direction(Enum):
     """
