@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Iterable
-from typing import dataclass_transform
+from typing import Protocol, dataclass_transform
 
 import yaml
 
@@ -25,8 +25,8 @@ from ..transforms import Transform
 from .api import ConfigApi
 
 
-class ConfigConverter(DataclassConverter["Config", "Parser"]):
-    def construct_scalar(self, loader: yaml.Loader, node: yaml.ScalarNode) -> "Config":
+class ConfigConverter(DataclassConverter["ConfigProtocol", "Parser"]):
+    def construct_scalar(self, loader: yaml.Loader, node: yaml.ScalarNode) -> "ConfigProtocol":
         # Allow elements to be indirected with a path e.g. `!<element> [<unit>.<path>]`
         target = loader.construct_scalar(node)
         if not isinstance(target, str):
@@ -34,9 +34,25 @@ class ConfigConverter(DataclassConverter["Config", "Parser"]):
         with ConfigApi.current.with_target(target, self.typ) as api:
             return api.target.config
 
-    def construct_mapping(self, loader: yaml.Loader, node: yaml.MappingNode) -> "Config":
+    def construct_mapping(self, loader: yaml.Loader, node: yaml.MappingNode) -> "ConfigProtocol":
         with ConfigApi.current.with_node(node):
             return super().construct_mapping(loader, node)
+
+
+class ConfigProtocol(Protocol):
+    "Protocol for Config objects"
+
+    def iter_config(self) -> Iterable["ConfigProtocol"]:
+        ...
+
+    def iter_transforms(self) -> Iterable[Transform]:
+        ...
+
+    def config_filter(self, config: "ConfigProtocol") -> bool:
+        ...
+
+    def transform_filter(self, transform: Transform, config: "ConfigProtocol") -> bool:
+        ...
 
 
 @dataclass_transform(
@@ -85,7 +101,7 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i: hash(i))):
     def __eq__(self, other):
         return hash(self) == hash(other)
 
-    def iter_config(self) -> Iterable["Config"]:
+    def iter_config(self) -> Iterable["ConfigProtocol"]:
         """
         Yields any sub-config which is used as part of this one.
 
@@ -100,7 +116,7 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i: hash(i))):
         """
         yield from []
 
-    def config_filter(self, config: "Config"):
+    def config_filter(self, config: "ConfigProtocol") -> bool:
         """
         Filter configs underneath this which are "interesting".
 
@@ -110,7 +126,7 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i: hash(i))):
         """
         return False
 
-    def transform_filter(self, transform: Transform, config: "Config"):
+    def transform_filter(self, transform: Transform, config: "ConfigProtocol") -> bool:
         """
         Filter transforms underneath this which are "interesting".
 
