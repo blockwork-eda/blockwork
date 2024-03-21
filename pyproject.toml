@@ -45,6 +45,9 @@ shell = "poetry run pytest"
 [tool.poe.tasks.lint]
 shell = "poetry run ruff check blockwork"
 
+[tool.poe.tasks.fmt]
+shell = "poetry run ruff format blockwork && poetry run ruff check --fix blockwork"
+
 [tool.poe.tasks.docs]
 shell = "poetry run mkdocs build"
 

@@ -166,11 +166,36 @@ class Workflow:
             targets.update(target_transforms)
 
         # Build up dependencies between transforms
-        for medial, producers in medial_transform_producers.items():
-            for producer in producers:
-                for consumer in medial_transforms_consumers[medial]:
-                    dependency_map[consumer].add(producer)
-                    dependent_map[producer].add(consumer)
+        for medial, consumers in medial_transforms_consumers.items():
+            for consumer in consumers:
+                producers = medial_transform_producers[medial]
+                exists = medial._exists()
+                # Working cases
+                if exists and len(producers) == 0:
+                    continue
+                if not exists and len(producers) == 1:
+                    dependency_map[consumer].add(producers[0])
+                    dependent_map[producers[0]].add(consumer)
+                    continue
+                # Error cases
+                if exists and len(producers) > 0:
+                    raise RuntimeError(
+                        f"Medial `{medial}` already exists, but"
+                        f" has producer(s) `{producers}`."
+                        f" Required by `{consumers}`."
+                    )
+                if len(producers) == 0:
+                    raise RuntimeError(
+                        f"Medial `{medial}` doesn't exist, and"
+                        f" has no producers. Required by"
+                        f" `{consumers}`."
+                    )
+                if len(producers) > 1:
+                    raise RuntimeError(
+                        f"Medial `{medial}` has multiple"
+                        f" producers `{producers}`. Required"
+                        f" by `{consumers}`."
+                    )
 
         return targets, dependency_map, dependent_map
 

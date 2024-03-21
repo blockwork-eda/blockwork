@@ -217,7 +217,7 @@ class TestWorkFlowDeps:
             def iter_transforms(self) -> Iterable[Transform]:
                 test_path = api.ctx.host_scratch / "test0"
                 b = TransformB(test_ip=test_path)
-                a = TransformA(test_ip=api.path("_"), test_op=test_path)
+                a = TransformA(test_ip=api.path("tests"), test_op=test_path)
                 yield b
                 yield a
 
@@ -239,7 +239,7 @@ class TestWorkFlowDeps:
 
         class ConfigC(Config):
             def iter_transforms(self) -> Iterable[Transform]:
-                a = TransformA(test_ip=api.path("_"), test_op=test_path)
+                a = TransformA(test_ip=api.path("tests"), test_op=test_path)
                 yield a
 
         class ConfigD(Config):
