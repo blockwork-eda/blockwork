@@ -12,14 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import itertools
 import logging
 from collections import defaultdict
 from collections.abc import Callable, Iterable
+from datetime import datetime
 from functools import cache, partial, reduce
 from pathlib import Path
 from types import SimpleNamespace
 
 import click
+from gator.launch_progress import launch
+from gator.specs import Job, JobGroup
 from ordered_set import OrderedSet as OSet
 
 from ..activities.workflow import wf
@@ -240,23 +245,64 @@ class Workflow:
                             fetched_transforms.add(transform)
                     cache_scheduler.finish(transform)
 
-        # Run everything in order, skipping cached entries, and pushing to the cache when possible
+        # Push everything into Gator based on scheduling order
         run_scheduler = Scheduler(dependency_map, targets=targets)
+
+        root_group = JobGroup(id="blockwork", cwd=ctx.host_root.as_posix())
+        idx_group = itertools.count()
+        prev_group = None
         while run_scheduler.incomplete:
-            for transform in run_scheduler.schedulable:
+            # Create group and chain dependency
+            group = JobGroup(id=f"bw:{next(idx_group)}")
+            if prev_group is not None:
+                group.on_pass.append(prev_group.id)
+            prev_group = group
+            root_group.jobs.append(group)
+
+            # Place all currently schedulable jobs into this group
+            scheduled = []
+            for idx_job, transform in enumerate(run_scheduler.schedulable):
                 run_scheduler.schedule(transform)
                 if transform in fetched_transforms:
                     logging.info("Skipped cached transform: %s", transform)
                 elif transform in skipped_transforms:
                     logging.info("Skipped transform (due to cached dependents): %s", transform)
                 else:
-                    logging.info("Running transform: %s", transform)
-                    transform.run(ctx)
-                    run_transforms.add(transform)
-                    if is_caching and Cache.store_transform(ctx, transform):
-                        stored_transforms.add(transform)
-                        logging.info("Stored transform to cache: %s", transform)
+                    logging.info("Scheduling transform: %s", transform)
+                    job = Job(
+                        id=f"{group.id}:{idx_job}",
+                        cwd=ctx.host_root.as_posix(),
+                        command="bw",
+                        args=["info"],
+                    )
+                    group.jobs.append(job)
+                scheduled.append(transform)
+
+            # Mark all jobs as finished (we'll track them through Gator later)
+            for transform in scheduled:
                 run_scheduler.finish(transform)
+
+        # Launch the Gator run
+        asyncio.run(launch(spec=root_group, tracking=ctx.host_scratch / datetime.now().isoformat()))
+
+        breakpoint()
+
+        # # Run everything in order, skipping cached entries, and pushing to the cache when possible
+        # while run_scheduler.incomplete:
+        #     for transform in run_scheduler.schedulable:
+        #         run_scheduler.schedule(transform)
+        #         if transform in fetched_transforms:
+        #             logging.info("Skipped cached transform: %s", transform)
+        #         elif transform in skipped_transforms:
+        #             logging.info("Skipped transform (due to cached dependents): %s", transform)
+        #         else:
+        #             logging.info("Running transform: %s", transform)
+        #             transform.run(ctx)
+        #             run_transforms.add(transform)
+        #             if is_caching and Cache.store_transform(ctx, transform):
+        #                 stored_transforms.add(transform)
+        #                 logging.info("Stored transform to cache: %s", transform)
+        #         run_scheduler.finish(transform)
 
         # This is primarily returned for unit-testing
         return SimpleNamespace(
