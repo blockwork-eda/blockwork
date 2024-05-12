@@ -4,6 +4,8 @@ from typing import ClassVar
 from blockwork.context import Context, HostArchitecture
 from blockwork.tools import Invocation, Require, Tool, Version
 
+from .objstore import from_objstore
+
 
 @Tool.register()
 class GCC(Tool):
@@ -20,6 +22,7 @@ class GCC(Tool):
     ]
 
     @Tool.installer("GCC")
+    @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
@@ -60,6 +63,7 @@ class M4(Tool):
     ]
 
     @Tool.installer("M4")
+    @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
@@ -99,6 +103,7 @@ class Flex(Tool):
     ]
 
     @Tool.installer("Flex")
+    @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
@@ -136,6 +141,7 @@ class Bison(Tool):
     ]
 
     @Tool.installer("Bison")
+    @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
@@ -170,6 +176,7 @@ class Autoconf(Tool):
     ]
 
     @Tool.installer("Autoconf")
+    @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
@@ -204,6 +211,7 @@ class CMake(Tool):
     ]
 
     @Tool.installer("CMake")
+    @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         arch_str = ["x86_64", "aarch64"][ctx.host_architecture is HostArchitecture.ARM]
@@ -239,6 +247,7 @@ class CCache(Tool):
     ]
 
     @Tool.installer("CCache")
+    @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
@@ -275,6 +284,7 @@ class Help2Man(Tool):
     ]
 
     @Tool.installer("Help2Man")
+    @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
@@ -309,6 +319,7 @@ class GPerf(Tool):
     ]
 
     @Tool.installer("GPerf")
+    @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
@@ -343,6 +354,7 @@ class Automake(Tool):
     ]
 
     @Tool.installer("Automake")
+    @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
@@ -377,6 +389,7 @@ class PkgConfig(Tool):
     ]
 
     @Tool.installer("PkgConfig")
+    @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
