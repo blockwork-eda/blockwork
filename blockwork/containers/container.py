@@ -14,6 +14,7 @@
 
 import atexit
 import dataclasses
+import functools
 import itertools
 import logging
 import os
@@ -22,12 +23,16 @@ import sys
 import tempfile
 import time
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from pathlib import Path
 from threading import Event
 from typing import TextIO
 
 import docker.utils.socket as socket_utils
+import pytz
 import requests
+from docker.errors import ImageNotFound
+from filelock import FileLock
 
 from ..context import Context, ContextHostPathError
 from .common import forwarding_host, read_stream, write_stream
@@ -72,7 +77,9 @@ class Container:
     Wrapper around container launch and management that can be extended to support
     specific tools and workflows.
 
+    :param context:     Execution context
     :param image:       Container image to launch with
+    :param definition:  Container file definition
     :param workdir:     Default working directory (default: /)
     :param environment: Environment defaults to expose (empty by default)
     :param hostname:    Set a custom hostname (defaults to None)
@@ -82,13 +89,17 @@ class Container:
 
     def __init__(
         self,
+        context: Context,
         image: str,
+        definition: Path,
         workdir: Path = Path("/"),
         environment: dict[str, str] | None = None,
         hostname: str | None = None,
     ) -> None:
         # Store initialisation parameters
+        self.context = context
         self.image = image
+        self.definition = definition
         self.workdir = workdir
         self.hostname = hostname
         # Configuration
@@ -104,6 +115,49 @@ class Container:
     def id(self):
         """Return the ID of the container"""
         return self.__id
+
+    @property
+    @functools.cache  # noqa: B019
+    def exists(self) -> bool:
+        """Determine whether the container image is already built"""
+        with Runtime.get_client() as client:
+            try:
+                client.images.get(self.image)
+            except ImageNotFound:
+                return False
+        return True
+
+    def build(self):
+        """Build the container image"""
+        # Grab a lock to avoid races with other build actions in this same workspace
+        # NOTE: Deliberately made local to the machine
+        with Runtime.get_client() as client, FileLock(f"/tmp/{self.image}.lock"):
+            # Check if the image exists (in case it was removed manually)
+            try:
+                data = client.images.get(self.image)
+                last_run = datetime.fromisoformat(data.attrs["Created"])
+            except ImageNotFound:
+                last_run = datetime.fromtimestamp(0, tz=pytz.UTC)
+            # Check that the container file can be found
+            if not self.definition.exists():
+                raise FileExistsError(f"Failed to open definition {self.definition}")
+            # Check if the container file is newer than the last run
+            file_time = datetime.fromtimestamp(self.definition.stat().st_mtime, tz=pytz.UTC)
+            if file_time <= last_run:
+                return
+            # Build the container
+            logging.info(
+                f"Building container image from {self.definition} for "
+                f"{self.context.host_architecture} architecture - this may take "
+                f"a while..."
+            )
+            client.images.build(
+                path=self.definition.parent.as_posix(),
+                dockerfile=self.definition.name,
+                tag=self.image,
+                rm=True,
+            )
+            logging.info("Container built")
 
     def bind(
         self,
