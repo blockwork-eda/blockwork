@@ -277,7 +277,7 @@ class TransformApi:
         self.api = api.fork(transform=self)
         self.transform = transform
         now = datetime.now().strftime("D%Y%m%dT%H%M%S")
-        self.id = f"{type(transform).__name__}-{now}"
+        self.id = f"{type(transform).__name__}-{now}-{id(transform)}"
 
     def path(self, path: str | Path) -> Path:
         if target := self.api._target:
