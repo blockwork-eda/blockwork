@@ -1,4 +1,5 @@
 from abc import ABC
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Generic, Optional, TypeVar, cast
 
@@ -186,8 +187,8 @@ class TargetApi(ConfigApiBase["Config"]):
         self.project_path = self.api.ctx.host_root / self.api.project.config.units[self.unit]
         self.scratch_path = (
             self.api.ctx.host_scratch
-            / self.api.ctx.timestamp
             / self.api.project.config.units[self.unit]
+            / self.api.ctx.timestamp
         )
 
     def split_spec(self, spec: str):
@@ -275,9 +276,20 @@ class TransformApi:
     def __init__(self, api: ConfigApi, transform: "Transform") -> None:
         self.api = api.fork(transform=self)
         self.transform = transform
-        self.id = f"{type(transform).__name__}-{id(transform)}"
+        now = datetime.now().strftime("D%Y%m%dT%H%M%S")
+        self.id = f"{type(transform).__name__}-{now}"
 
     def path(self, path: str | Path) -> Path:
         if target := self.api._target:
             return target.scratch_path / self.id / path
-        return self.api.ctx.host_scratch / self.id / path
+        # Attempt to include the project and target in the path
+        try:
+            return (
+                self.api.ctx.host_scratch
+                / self.api.project.config.units[self.api.target.unit]
+                / self.id
+                / path
+            )
+        # Fall back to using the transform's ID
+        except ApiAccessError:
+            return self.api.ctx.host_scratch / self.id / path
