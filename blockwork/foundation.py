@@ -19,6 +19,8 @@ from .containers import Container
 from .context import Context, ContextContainerPathError
 from .tools import Invocation, Tool, Version
 
+cntr_dir = Path(__file__).absolute().parent / "containerfiles"
+
 
 class FoundationError(Exception):
     pass
@@ -29,13 +31,14 @@ class Foundation(Container):
 
     def __init__(self, context: Context, **kwargs) -> None:
         super().__init__(
+            context,
             image=f"foundation_{context.host_architecture}_{context.host_root_hash}",
+            definition=cntr_dir / "foundation" / f"Containerfile_{context.host_architecture}",
             workdir=context.container_root,
             **kwargs,
         )
-        self.__context = context
         self.__tools = {}
-        self.bind(self.__context.host_scratch, self.__context.container_scratch)
+        self.bind(self.context.host_scratch, self.context.container_scratch)
         # Ensure various standard $PATHs are present
         self.append_env_path("PATH", "/usr/local/sbin")
         self.append_env_path("PATH", "/usr/local/bin")
@@ -82,8 +85,8 @@ class Foundation(Container):
                 self.add_tool(req_ver, readonly=readonly)
         # Register tool and bind in the base folder
         self.__tools[tool.base_id] = tool_ver
-        host_loc = tool_ver.get_host_path(self.__context)
-        cntr_loc = tool_ver.get_container_path(self.__context)
+        host_loc = tool_ver.get_host_path(self.context)
+        cntr_loc = tool_ver.get_container_path(self.context)
         logging.debug(f"Binding '{host_loc}' to '{cntr_loc}' {readonly=}")
         self.bind(host_loc, cntr_loc, readonly=readonly)
         # Overlay the environment, expanding any paths
@@ -91,7 +94,7 @@ class Foundation(Container):
             env = {}
             for key, value in tool_ver.env.items():
                 if isinstance(value, Path):
-                    env[key] = tool_ver.get_container_path(self.__context, value).as_posix()
+                    env[key] = tool_ver.get_container_path(self.context, value).as_posix()
                 else:
                     env[key] = value
             self.overlay_env(env, strict=True)
@@ -99,7 +102,7 @@ class Foundation(Container):
         for key, paths in tool_ver.paths.items():
             for segment in paths:
                 if isinstance(segment, Path):
-                    segment = tool_ver.get_container_path(self.__context, segment).as_posix()
+                    segment = tool_ver.get_container_path(self.context, segment).as_posix()
                 self.prepend_env_path(key, segment)
 
     def invoke(self, context: Context, invocation: Invocation, readonly: bool = True) -> int:
@@ -112,6 +115,10 @@ class Foundation(Container):
         :param readonly:    Whether to bind tools read only (defaults to True)
         :returns:           Exit code from the executed process
         """
+        # Build container if it doesn't already exist
+        if not self.exists:
+            self.build()
+
         # Add the tool into the container (also adds dependencies)
         self.add_tool(invocation.version, readonly=readonly)
 
@@ -121,7 +128,7 @@ class Foundation(Container):
         # Resolve the binary
         command = invocation.execute
         if isinstance(command, Path):
-            command = invocation.version.get_container_path(self.__context, command).as_posix()
+            command = invocation.version.get_container_path(self.context, command).as_posix()
         # Determine and create (if required) the working directory
         c_workdir = invocation.workdir or context.container_root
         try:

@@ -19,6 +19,8 @@ typeguard = "^4.1"
 rich = "^13.3.4"
 poethepoet = "^0.20.0"
 ordered-set = "^4.1.0"
+filelock = "^3.14.0"
+pytz = "^2024.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.3.1"
