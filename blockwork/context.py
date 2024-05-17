@@ -59,12 +59,21 @@ class ContextContainerPathError(ContextError):
 
 
 class Context:
-    """Tracks the working directory and project configuration"""
+    """
+    Tracks the working directory and project configuration
 
-    def __init__(self, root: Path | None = None, cfg_file: str = ".bw.yaml") -> None:
+    :param root:     Root directory of the project
+    :param cfg_file: Name of the Blockwork configuration file to look for
+    :param scratch:  Override the scratch folder defined in Blockwork configuration
+    """
+
+    def __init__(
+        self, root: Path | None = None, cfg_file: str = ".bw.yaml", scratch: Path | None = None
+    ) -> None:
         self.__file = cfg_file
         self.__host_root = self.locate_root(root or Path.cwd())
         self.__host_arch = HostArchitecture.identify()
+        self.__scratch = scratch
         self.__timestamp = datetime.now().strftime("D%Y%m%dT%H%M%S")
 
     @property
@@ -89,15 +98,19 @@ class Context:
     @property
     @functools.lru_cache  # noqa: B019
     def host_scratch(self) -> Path:
-        # Substitute for {project} or {root_dir} if required
-        subbed = self.config.host_scratch.format(
-            project=self.config.project, root_dir=self.host_root.name
-        )
-        # Resolve to an absolute path
-        if subbed.startswith("/"):
-            path = Path(subbed)
+        # If scratch has been provided, use it
+        if self.__scratch:
+            path = self.__scratch
         else:
-            path = self.__host_root / subbed
+            # Substitute for {project} or {root_dir} if required
+            subbed = self.config.host_scratch.format(
+                project=self.config.project, root_dir=self.host_root.name
+            )
+            # Resolve to an absolute path
+            if subbed.startswith("/"):
+                path = Path(subbed)
+            else:
+                path = self.__host_root / subbed
         # Fully resolve
         path = path.resolve().absolute()
         # Ensure it exists
