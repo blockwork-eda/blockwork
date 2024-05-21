@@ -89,6 +89,12 @@ logging.basicConfig(
     default=False,
     help="Enable PDB post-mortem debugging on any exception",
 )
+@click.option(
+    "--scratch",
+    type=click.Path(file_okay=False),
+    default=None,
+    help="Override the scratch folder location",
+)
 def blockwork(
     ctx,
     cwd: str,
@@ -98,6 +104,7 @@ def blockwork(
     pdb: bool,
     runtime: str | None = None,
     arch: str | None = None,
+    scratch: str | None = None,
 ) -> None:
     # Setup post-mortem debug
     DebugScope.current.POSTMORTEM = pdb
@@ -113,7 +120,10 @@ def blockwork(
     if runtime:
         Runtime.set_preferred_runtime(runtime)
     # Create the context object and attach to click
-    ctx.obj = Context(root=Path(cwd).absolute() if cwd else None)
+    ctx.obj = Context(
+        root=Path(cwd).absolute() if cwd else None,
+        scratch=Path(scratch).absolute() if scratch else None,
+    )
     # Set the host architecture
     if arch:
         ctx.obj.host_architecture = HostArchitecture(arch)
