@@ -14,6 +14,7 @@
 
 import asyncio
 import itertools
+import json
 import logging
 from collections import defaultdict
 from collections.abc import Callable, Iterable
@@ -24,7 +25,7 @@ from types import SimpleNamespace
 
 import click
 from gator.launch_progress import launch
-from gator.specs import Job, JobGroup
+from gator.specs import Cores, Job, JobGroup, Memory
 from ordered_set import OrderedSet as OSet
 
 from ..activities.workflow import wf
@@ -248,6 +249,13 @@ class Workflow:
         # Push everything into Gator based on scheduling order
         run_scheduler = Scheduler(dependency_map, targets=targets)
 
+        # Create a directory for this run
+        run_dirx = ctx.host_scratch / "flows" / datetime.now().isoformat()
+        spec_dirx = run_dirx / "spec"
+        track_dirx = run_dirx / "tracking"
+        spec_dirx.mkdir(parents=True, exist_ok=True)
+        logging.info(f"Launching workflow with directory: {run_dirx}")
+
         root_group = JobGroup(id="blockwork", cwd=ctx.host_root.as_posix())
         idx_group = itertools.count()
         prev_group = None
@@ -264,16 +272,28 @@ class Workflow:
             for idx_job, transform in enumerate(run_scheduler.schedulable):
                 run_scheduler.schedule(transform)
                 if transform in fetched_transforms:
-                    logging.info("Skipped cached transform: %s", transform)
+                    logging.info(f"Skipped cached {transform}")
                 elif transform in skipped_transforms:
-                    logging.info("Skipped transform (due to cached dependents): %s", transform)
+                    logging.info(f"Skipped transform (due to cached dependents): {transform}")
                 else:
-                    logging.info("Scheduling transform: %s", transform)
+                    # Assemble a unique job ID
+                    job_id = f"{group.id}:{idx_job}"
+                    # Serialise the transform
+                    spec_file = spec_dirx / f"{job_id}.json"
+                    logging.info(
+                        f"Serializing scheduled {type(transform).__name__} -> "
+                        f"{spec_file.relative_to(ctx.host_scratch)}"
+                    )
+                    with spec_file.open("w", encoding="utf-8") as fh:
+                        json.dump(transform.serialize(), fh)
+                    # Launch the job
+                    # TODO @intuity: Make the resource requests parameterisable
                     job = Job(
                         id=f"{group.id}:{idx_job}",
                         cwd=ctx.host_root.as_posix(),
                         command="bw",
-                        args=["info"],
+                        args=["_wf_step", spec_file.as_posix()],
+                        resources=[Cores(count=1), Memory(size=1, unit="GB")],
                     )
                     group.jobs.append(job)
                 scheduled.append(transform)
@@ -282,27 +302,11 @@ class Workflow:
             for transform in scheduled:
                 run_scheduler.finish(transform)
 
+        # Suppress messages coming from websockets within Gator
+        logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
+
         # Launch the Gator run
-        asyncio.run(launch(spec=root_group, tracking=ctx.host_scratch / datetime.now().isoformat()))
-
-        breakpoint()
-
-        # # Run everything in order, skipping cached entries, and pushing to the cache when possible
-        # while run_scheduler.incomplete:
-        #     for transform in run_scheduler.schedulable:
-        #         run_scheduler.schedule(transform)
-        #         if transform in fetched_transforms:
-        #             logging.info("Skipped cached transform: %s", transform)
-        #         elif transform in skipped_transforms:
-        #             logging.info("Skipped transform (due to cached dependents): %s", transform)
-        #         else:
-        #             logging.info("Running transform: %s", transform)
-        #             transform.run(ctx)
-        #             run_transforms.add(transform)
-        #             if is_caching and Cache.store_transform(ctx, transform):
-        #                 stored_transforms.add(transform)
-        #                 logging.info("Stored transform to cache: %s", transform)
-        #         run_scheduler.finish(transform)
+        asyncio.run(launch(spec=root_group, tracking=track_dirx))
 
         # This is primarily returned for unit-testing
         return SimpleNamespace(

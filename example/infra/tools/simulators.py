@@ -5,7 +5,6 @@ from blockwork.context import Context
 from blockwork.tools import Invocation, Require, Tool, Version
 
 from .compilers import GCC, Autoconf, Bison, CCache, Flex, GPerf, Help2Man
-from .objstore import from_objstore
 
 
 @Tool.register()
@@ -27,7 +26,7 @@ class IVerilog(Tool):
     ]
 
     @Tool.installer("IVerilog")
-    @from_objstore
+    # @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version.replace(".", "_")
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
@@ -78,7 +77,7 @@ class Verilator(Tool):
         return Invocation(version=version, execute="verilator", args=args)
 
     @Tool.installer("Verilator")
-    @from_objstore
+    # @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
