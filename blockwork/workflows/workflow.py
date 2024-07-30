@@ -250,7 +250,7 @@ class Workflow:
         run_scheduler = Scheduler(dependency_map, targets=targets)
 
         # Create a directory for this run
-        run_dirx = ctx.host_scratch / "flows" / datetime.now().isoformat()
+        run_dirx = ctx.host_scratch / "flows" / datetime.now().strftime(r"D%Y%m%d-%H%M%S")
         spec_dirx = run_dirx / "spec"
         track_dirx = run_dirx / "tracking"
         spec_dirx.mkdir(parents=True, exist_ok=True)
@@ -261,7 +261,7 @@ class Workflow:
         prev_group = None
         while run_scheduler.incomplete:
             # Create group and chain dependency
-            group = JobGroup(id=f"bw:{next(idx_group)}")
+            group = JobGroup(id=f"bw_{next(idx_group)}")
             if prev_group is not None:
                 group.on_pass.append(prev_group.id)
             prev_group = group
@@ -277,7 +277,7 @@ class Workflow:
                     logging.info(f"Skipped transform (due to cached dependents): {transform}")
                 else:
                     # Assemble a unique job ID
-                    job_id = f"{group.id}:{idx_job}"
+                    job_id = f"{group.id}_{idx_job}"
                     # Serialise the transform
                     spec_file = spec_dirx / f"{job_id}.json"
                     logging.info(
@@ -289,7 +289,7 @@ class Workflow:
                     # Launch the job
                     # TODO @intuity: Make the resource requests parameterisable
                     job = Job(
-                        id=f"{group.id}:{idx_job}",
+                        id=f"{group.id}_{idx_job}",
                         cwd=ctx.host_root.as_posix(),
                         command="bw",
                         args=["_wf_step", spec_file.as_posix()],
@@ -306,7 +306,26 @@ class Workflow:
         logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
 
         # Launch the Gator run
-        asyncio.run(launch(spec=root_group, tracking=track_dirx))
+        summary = asyncio.run(launch(spec=root_group, tracking=track_dirx))
+
+        # For any failed IDs, resolve them to their log files
+        for job_id in summary.get("failed_ids", []):
+            ptr = root_group
+            # Resolve the job
+            for idx, part in enumerate(job_id[1:]):
+                for sub in ptr.jobs:
+                    if sub.id == part:
+                        ptr = sub
+                        break
+                else:
+                    raise Exception(f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}")
+            # Grab the spec JSON
+            _, spec_json = ptr.args
+            with Path(spec_json).open("r", encoding="utf-8") as fh:
+                spec_data = json.load(fh)
+            # Grab the tracking directory
+            job_trk_dirx = track_dirx / "/".join(job_id[1:])
+            logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
 
         # This is primarily returned for unit-testing
         return SimpleNamespace(
