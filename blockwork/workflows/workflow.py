@@ -16,6 +16,7 @@ import asyncio
 import itertools
 import json
 import logging
+import multiprocessing
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import datetime
@@ -77,7 +78,7 @@ class Workflow:
     def __call__(self, fn: Callable[..., Config]) -> Callable[..., None]:
         @click.command()
         @click.pass_obj
-        def command(ctx, project=None, target=None, *args, **kwargs):
+        def command(ctx, project=None, target=None, concurrency=1, *args, **kwargs):
             site_api = ConfigApi(ctx).with_site(ctx.site, self.SITE_TYPE)
 
             if project:
@@ -89,9 +90,18 @@ class Workflow:
 
             with site_api:
                 inst = fn(ctx, *args, **kwargs)
-            self._run(ctx, *self.get_transform_tree(inst))
+            self._run(ctx, *self.get_transform_tree(inst), concurrency=concurrency)
 
         option_fns = []
+        option_fns.append(
+            click.option(
+                "--concurrency",
+                "-c",
+                type=int,
+                default=max(1, multiprocessing.cpu_count() // 2),
+                help="Specify the maximum number of jobs allowed to run in parallel",
+            )
+        )
         if self.project_type:
             option_fns.append(click.option("--project", "-p", type=str, required=True))
         if self.target_type:
@@ -211,6 +221,7 @@ class Workflow:
         targets: OSet[Transform],
         dependency_map: dict[Transform, OSet[Transform]],
         dependent_map: dict[Transform, OSet[Transform]],
+        concurrency: int,
     ):
         """
         Run the workflow from transform dependency data.
@@ -254,7 +265,7 @@ class Workflow:
         spec_dirx = run_dirx / "spec"
         track_dirx = run_dirx / "tracking"
         spec_dirx.mkdir(parents=True, exist_ok=True)
-        logging.info(f"Launching workflow with directory: {run_dirx}")
+        logging.info(f"Launching workflow under: {run_dirx} with {concurrency=}")
 
         root_group = JobGroup(id="blockwork", cwd=ctx.host_root.as_posix())
         idx_group = itertools.count()
@@ -306,7 +317,13 @@ class Workflow:
         logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
 
         # Launch the Gator run
-        summary = asyncio.run(launch(spec=root_group, tracking=track_dirx))
+        summary = asyncio.run(
+            launch(
+                spec=root_group,
+                tracking=track_dirx,
+                sched_opts={"concurrency": concurrency},
+            )
+        )
 
         # For any failed IDs, resolve them to their log files
         for job_id in summary.get("failed_ids", []):
