@@ -40,7 +40,8 @@ class HostArchitecture(StrEnum):
     @classmethod
     @functools.lru_cache
     def identify(cls) -> "HostArchitecture":
-        if "arm" in platform.processor().lower():
+        host_proc = platform.processor().lower()
+        if "arm" in host_proc or "aarch" in host_proc:
             return HostArchitecture.ARM
         else:
             return HostArchitecture.X86
