@@ -19,6 +19,8 @@ import itertools
 import logging
 import os
 import shutil
+import socket
+import subprocess
 import sys
 import tempfile
 import time
@@ -413,28 +415,32 @@ class Container:
         tmpfiles = []
         # Setup $DISPLAY
         if display:
-            # Locate the user's Xauthority on the host
-            xauth_h_path = Path(os.environ.get("XAUTHORITY", "~/.Xauthority")).expanduser()
-            # Set the Xauthority file location within the container
-            xauth_c_path = Path("/tmp/.Xauthority")
-            env["XAUTHORITY"] = xauth_c_path.as_posix()
-            # If Xauthority exists, copy it into the container
-            if xauth_h_path.exists():
-                logging.debug(f"XAuthority located at {xauth_h_path}")
-                tmpfiles.append(xauth_h_path)
             # If we're on macOS, use the Docker Desktop forwarding
             if Runtime.is_macos():
+                # Locate the user's Xauthority on the host
+                xauth_h_path = Path(os.environ.get("XAUTHORITY", "~/.Xauthority")).expanduser()
+                # If Xauthority exists, copy it into the container
+                if xauth_h_path.exists():
+                    logging.debug(f"XAuthority located at {xauth_h_path}")
+                    tmpfiles.append(xauth_h_path)
+                # Set the Xauthority file location within the container
+                env["XAUTHORITY"] = "/tmp/.Xauthority"
                 env["DISPLAY"] = f"{Runtime.get_host_address()}:0"
                 logging.debug(f"Setting DISPLAY to {env['DISPLAY']}")
-            # Otherwise pass the DISPLAY variable through
-            else:
-                env["DISPLAY"] = os.environ.get("DISPLAY", ":0")
-                logging.debug(f"Setting DISPLAY to {env['DISPLAY']}")
-                # If an X11 directory exists (locally hosted display), bind it
-                if (x11_path := Path("/tmp/.X11-unix")).exists():
-                    logging.debug("Binding /tmp/.X11-unix into container")
-                    bind_x11_unix = ContainerBind(x11_path, x11_path, False)
-                    mounts.append(bind_x11_unix.as_configuration())
+            # Otherwise, look for xauth
+            elif (xauth := shutil.which("xauth")) is not None:
+                rsp = subprocess.run((xauth, "list"), capture_output=True)
+                if rsp.returncode == 0:
+                    lines = rsp.stdout.decode("utf-8").splitlines()
+                    hostname = socket.gethostname()
+                    hostmatch = [x for x in lines if hostname in x]
+                    if hostmatch:
+                        env["BLOCKWORK_XTOKEN"] = hostmatch[-1].split(" ")[-1].strip()
+                        env["DISPLAY"] = os.environ.get("DISPLAY", ":0")
+                        logging.debug(
+                            f"Setting DISPLAY to {env['DISPLAY']} and passing "
+                            f"through the xauth magic cookie"
+                        )
         # Expose terminal dimensions
         tsize = shutil.get_terminal_size()
         logging.debug(f"Setting terminal to {tsize.columns}x{tsize.lines}")
@@ -468,6 +474,8 @@ class Container:
             # Start a forwarding host
             t_host, host_port = forwarding_host(e_done)
             env["BLOCKWORK_FWD"] = f"{Runtime.get_host_address()}:{host_port}"
+            # Expose the command to run as an environment variable
+            env["BLOCKWORK_CMD"] = " ".join(command)
             # Create the container
             logging.debug(f"Creating container '{self.__id}' with image '{self.image}'")
             container = client.containers.create(
@@ -476,7 +484,7 @@ class Container:
                 # Set the image the container should launch
                 image=self.image,
                 # Set the initial command
-                command=command,
+                command="/usr/bin/launch.sh",
                 # Set the initial working directory
                 working_dir=workdir.as_posix(),
                 # Launch as detached so that a container handle is returned
@@ -509,7 +517,7 @@ class Container:
             tidy_up = _make_tidy_up(container)
             atexit.register(tidy_up)
             # Open a socket onto the container
-            socket = container.attach_socket(
+            cntr_sock = container.attach_socket(
                 params={
                     "stdin": True,
                     "stdout": True,
@@ -527,8 +535,8 @@ class Container:
                 if show_detach:
                     print(">>> Use CTRL+P to detach from container <<<")
                 # Start monitoring for STDIN and STDOUT
-                t_write = write_stream(socket, e_done)
-                t_read = read_stream(socket, stdout, e_done)
+                t_write = write_stream(cntr_sock, e_done)
+                t_read = read_stream(cntr_sock, stdout, e_done)
                 e_done.wait()
                 t_read.join()
                 t_write.join()
@@ -537,7 +545,7 @@ class Container:
                     os.system("cls || clear")
             # Otherwise, track the task
             else:
-                for stream, b_line in socket_utils.frames_iter(socket, tty=False):
+                for stream, b_line in socket_utils.frames_iter(cntr_sock, tty=False):
                     line = b_line.decode("utf-8")
                     if stream == socket_utils.STDOUT:
                         stdout.write(line)

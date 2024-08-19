@@ -1,5 +1,6 @@
 FROM --platform=linux/amd64 docker.io/library/rockylinux:9.1
 ADD forwarder/blockwork /usr/bin/blockwork
+ADD launch.sh /usr/bin/launch.sh
 RUN \
     ln -s /usr/bin/blockwork /usr/bin/bw && \
     dnf update -y && \
@@ -10,6 +11,10 @@ RUN \
                    glibc-langpack-en tcsh glibc.i686 libX11 libX11.i686 \
                    libXext libXext.i686 procps-ng libXft libXft.i686 \
                    xcb-util xcb-util.i686 xcb-util-wm xcb-util-image xcb-util-keysyms \
-                   xcb-util-renderutil libxkbcommon-x11 mesa-dri-drivers && \
+                   xcb-util-renderutil libxkbcommon-x11 mesa-dri-drivers \
+                   xorg-x11-utils xorg-x11-xauth && \
     ln -s /usr/lib64/libbz2.so.1 /usr/lib64/libbz2.so.1.0
+# Set locale
 ENV LANG=en_GB.utf8
+# Ensure launch shell is executable
+RUN chmod +x /usr/bin/launch.sh
