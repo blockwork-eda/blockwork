@@ -8,4 +8,4 @@ if [[ ! -z "$BLOCKWORK_XTOKEN" ]]; then
 fi
 
 # Execute whatever command was passed in
-$BLOCKWORK_CMD
+/bin/bash $BLOCKWORK_CMD

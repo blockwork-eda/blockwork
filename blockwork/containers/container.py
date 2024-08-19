@@ -459,6 +459,13 @@ class Container:
                 target = tmpdir / "tmp" / file.name
                 logging.debug(f"Copying {file} to {target}")
                 shutil.copy(file, target)
+            # Create a temporary script to execute
+            # NOTE: Arguments containing spaces will be wrapped by double quotes
+            run_script = tmpdir / "tmp" / "run.sh"
+            run_script.write_text(
+                "#!/bin/bash\n" + " ".join((f'"{x}"' if " " in x else x) for x in command) + "\n"
+            )
+            env["BLOCKWORK_CMD"] = "/tmp/run.sh"
             # Provide mounts for '/tmp' and other paths (using a tmpfs mount
             # implicitly adds 'noexec' preventing binaries executing)
             for implicit_path in ["/tmp", "/root", "/var/log", "/var/cache"]:
@@ -474,8 +481,6 @@ class Container:
             # Start a forwarding host
             t_host, host_port = forwarding_host(e_done)
             env["BLOCKWORK_FWD"] = f"{Runtime.get_host_address()}:{host_port}"
-            # Expose the command to run as an environment variable
-            env["BLOCKWORK_CMD"] = " ".join(command)
             # Create the container
             logging.debug(f"Creating container '{self.__id}' with image '{self.image}'")
             container = client.containers.create(
