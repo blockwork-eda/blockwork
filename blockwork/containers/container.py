@@ -18,6 +18,7 @@ import functools
 import itertools
 import logging
 import os
+import shlex
 import shutil
 import socket
 import subprocess
@@ -462,9 +463,7 @@ class Container:
             # Create a temporary script to execute
             # NOTE: Arguments containing spaces will be wrapped by double quotes
             run_script = tmpdir / "tmp" / "run.sh"
-            run_script.write_text(
-                "#!/bin/bash\n" + " ".join((f'"{x}"' if " " in x else x) for x in command) + "\n"
-            )
+            run_script.write_text("#!/bin/bash\n" + shlex.join(command))
             env["BLOCKWORK_CMD"] = "/tmp/run.sh"
             # Provide mounts for '/tmp' and other paths (using a tmpfs mount
             # implicitly adds 'noexec' preventing binaries executing)
