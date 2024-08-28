@@ -952,6 +952,9 @@ class Transform:
             "ifaces": {k: v[1].value for k, v in self._serial_interfaces.items()},
         }
 
+    def _import_hash(self) -> str:
+        return Cache.hash_module(self.__class__.__module__)
+
     def _input_hash(self) -> str:
         """
         Get a hash of the inputs to this transform.
@@ -962,6 +965,7 @@ class Transform:
             return self._cached_input_hash
 
         md5 = hashlib.md5()
+        md5.update(self._import_hash().encode("utf8"))
         for name, (direction, serial) in self._serial_interfaces.items():
             if direction.is_output:
                 continue

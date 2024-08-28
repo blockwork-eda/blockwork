@@ -48,6 +48,8 @@ from abc import ABC, abstractmethod
 import hashlib
 import os
 from pathlib import Path
+import sys
+from types import ModuleType
 from typing import Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..transforms import Transform
@@ -57,6 +59,8 @@ from ..context import Context
 # hash with existing cache entries.
 # This will become a command option later...
 CACHE_CONSISTENCY_MODE = False
+
+_module_hash_map = {}
 
 class Cache(ABC):
 
@@ -85,6 +89,33 @@ class Cache(ABC):
             with path.open('rb') as f:
                 content_hash = hashlib.file_digest(f, 'md5')
         return content_hash.hexdigest()
+
+    @staticmethod
+    def hash_module(module: str) -> str:
+        '''
+        Hash a python module **that has already been imported**. This is
+        implemented as a hash of module paths and modify times.
+        '''
+        if (hsh := _module_hash_map.get(module, None)) is not None:
+            return hsh
+
+        import_str = ""
+        for m in sys.modules.copy().values():
+            if not isinstance(m, ModuleType):
+                continue
+            if m.__spec__ is None:
+                continue
+            if m.__spec__.origin in ["built-in", "frozen"]:
+                continue
+
+            if m.__file__ is None:
+                continue
+
+            import_str += m.__file__ + str(os.path.getmtime(m.__file__))
+
+        hsh = hashlib.md5(import_str.encode("utf8")).hexdigest()
+        _module_hash_map[module] = hsh
+        return hsh
 
     @staticmethod
     def store_to_any(ctx: Context, key_hash: str, frm: Path) -> bool:
