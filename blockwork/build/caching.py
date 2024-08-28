@@ -94,7 +94,10 @@ class Cache(ABC):
     def hash_module(module: str) -> str:
         '''
         Hash a python module **that has already been imported**. This is
-        implemented as a hash of module paths and modify times.
+        currently implemented as a hash of module paths and modify times.
+
+        In the future this could be improved by calculating the import tree
+        for the module, resulting in fewer unnecessary rebuilds.
         '''
         if (hsh := _module_hash_map.get(module, None)) is not None:
             return hsh
@@ -107,7 +110,6 @@ class Cache(ABC):
                 continue
             if m.__spec__.origin in ["built-in", "frozen"]:
                 continue
-
             if m.__file__ is None:
                 continue
 
@@ -192,18 +194,41 @@ class Cache(ABC):
 
     @abstractmethod
     def store_hash(self, key_hash: str, content_hash: str) -> bool: ...
+    '''
+    Try and store a hash in the key cache. Should return True if the item
+    is successfully placed in the cache, or is already present.
+    '''
 
     @abstractmethod
     def drop_hash(self, key_hash: str) -> bool: ...
+    '''
+    Remove a hash from the key cache. Must be able to handle missing keys.
+    '''
 
     @abstractmethod
     def fetch_hash(self, key_hash: str) -> Optional[str]: ...
+    '''
+    Fetch the content hash from the key cache. Return None if not present.
+    '''
 
     @abstractmethod
     def store_item(self, content_hash: str, frm: Path) -> bool: ...
+    '''
+    Try and store an item in the content cache. Should return True if the item
+    is successfully placed in the cache or was already present (this will
+    happen if two different key_hashes result in the same content hash).
+    '''
 
     @abstractmethod
-    def drop_item(self, content_hash: str) -> bool: ...
+    def drop_item(self, content_hash: str): ...
+    '''
+    Remove an item from the content cache. Must be able to handle missing values,
+    and directories.
+    '''
 
     @abstractmethod
     def fetch_item(self, content_hash: str, to: Path) -> bool: ...
+    '''
+    Try and fetch an item from the content cache. Should return True if the
+    item is successfully retreived from the cache.
+    '''
