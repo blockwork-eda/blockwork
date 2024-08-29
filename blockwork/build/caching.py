@@ -50,10 +50,11 @@ import os
 from pathlib import Path
 import sys
 from types import ModuleType
-from typing import Optional, TYPE_CHECKING
+from typing import DefaultDict, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..transforms import Transform
 from ..context import Context
+from ordered_set import OrderedSet as OSet
 
 # Switch to never pull or push from the cache, but to instead compare the
 # hash with existing cache entries.
@@ -62,7 +63,100 @@ CACHE_CONSISTENCY_MODE = False
 
 _module_hash_map = {}
 
+import distutils.sysconfig
+import ast
+
+class PyDependencyMapper:
+
+    def __init__(self):
+        self.module_stack = []
+        self.dependency_map = DefaultDict(OSet)
+        self.hash_map = {}
+        self.visitor = ast.NodeVisitor()
+        self.visitor.visit_Import = self.visit_Import
+        self.visitor.visit_ImportFrom = self.visit_ImportFrom
+
+    @property
+    def current_package(self):
+        return self.module_stack[-1].__name__
+
+
+    @property
+    def current_module(self):
+        return self.module_stack[-1]
+
+    def visit_Import(self, node):
+        for name in node.names:
+            self.map_package(name.name)
+
+    def visit_ImportFrom(self, node):
+        if node.module is not None and node.level == 0:
+            self.map_package(node.module)
+            return
+
+        if self.current_module.__file__.endswith('__init__.py'):
+            context, *_rest = self.current_package.rsplit('.', node.level - 1)
+        else:
+            context, *_rest = self.current_package.rsplit('.', node.level)
+
+
+        if node.module is not None:
+            self.map_package(f"{context}.{node.module}")
+            return
+
+        for name in node.names:
+            self.map_package(f"{context}.{name.name}")
+
+    def add(self, package):
+        if (module:=sys.modules.get(package, None)) is not None:
+            self.dependency_map[self.current_package].add(package)
+            self.map_module(module)
+        #
+
+    def map_package(self, package: str):
+        if (module:=sys.modules.get(package, None)) is None:
+            return
+        if package not in self.dependency_map:
+            self.map_module(module)
+
+    def map_module(self, module: ModuleType):
+        if not isinstance(module, ModuleType):
+            breakpoint()
+            return
+        if module.__spec__ is None:
+            return
+        if module.__spec__.origin in ["built-in", "frozen"]:
+            return
+        if module.__file__ is None:
+            return
+        if module.__file__.startswith(distutils.sysconfig.BASE_PREFIX):
+            # Don't bother checking standard library
+            return
+        if module.__file__.startswith(distutils.sysconfig.PREFIX):
+            # Don't bother checking pip modules
+            return
+        if len(self.module_stack):
+            self.dependency_map[self.current_package].add(module.__name__)
+
+        self.module_stack.append(module)
+        if module.__file__.endswith('.py'):
+            with open(module.__file__, 'r') as f:
+                self.visitor.visit(ast.parse(f.read()))
+            with open(module.__file__, 'rb') as f:
+                content_hash = hashlib.file_digest(f, 'md5')
+            for dependency in self.dependency_map[module.__name__]:
+                content_hash.update(self.hash_map[dependency].encode('utf8'))
+            digest = content_hash.hexdigest()
+            self.hash_map[module.__name__] = digest
+        self.module_stack.pop()
+
+    def get_package_hash(self, package: str):
+        if package not in self.hash_map:
+            self.map_package(package)
+        return self.hash_map[package]
+
 class Cache(ABC):
+    pymapper = PyDependencyMapper()
 
     @staticmethod
     def enabled(ctx: Context):
@@ -91,33 +185,38 @@ class Cache(ABC):
         return content_hash.hexdigest()
 
     @staticmethod
-    def hash_module(module: str) -> str:
+    def hash_imported_package(package: str) -> str:
         '''
-        Hash a python module **that has already been imported**. This is
+        Hash a python package **that has already been imported**. This is
         currently implemented as a hash of module paths and modify times.
 
         In the future this could be improved by calculating the import tree
         for the module, resulting in fewer unnecessary rebuilds.
         '''
-        if (hsh := _module_hash_map.get(module, None)) is not None:
-            return hsh
+        return Cache.pymapper.get_package_hash(package)
 
-        import_str = ""
-        for m in sys.modules.copy().values():
-            if not isinstance(m, ModuleType):
-                continue
-            if m.__spec__ is None:
-                continue
-            if m.__spec__.origin in ["built-in", "frozen"]:
-                continue
-            if m.__file__ is None:
-                continue
+    # @staticmethod
+    # def hash_module(module: str) -> str:
 
-            import_str += m.__file__ + str(os.path.getmtime(m.__file__))
+    #     if (hsh := _module_hash_map.get(module, None)) is not None:
+    #         return hsh
 
-        hsh = hashlib.md5(import_str.encode("utf8")).hexdigest()
-        _module_hash_map[module] = hsh
-        return hsh
+    #     import_str = ""
+    #     for m in sys.modules.copy().values():
+    #         if not isinstance(m, ModuleType):
+    #             continue
+    #         if m.__spec__ is None:
+    #             continue
+    #         if m.__spec__.origin in ["built-in", "frozen"]:
+    #             continue
+    #         if m.__file__ is None:
+    #             continue
+
+    #         import_str += m.__file__ + str(os.path.getmtime(m.__file__))
+
+    #     hsh = hashlib.md5(import_str.encode("utf8")).hexdigest()
+    #     _module_hash_map[module] = hsh
+    #     return hsh
 
     @staticmethod
     def store_to_any(ctx: Context, key_hash: str, frm: Path) -> bool:

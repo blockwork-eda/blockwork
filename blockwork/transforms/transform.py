@@ -953,7 +953,7 @@ class Transform:
         }
 
     def _import_hash(self) -> str:
-        return Cache.hash_module(self.__class__.__module__)
+        return Cache.hash_imported_package(self.__class__.__module__)
 
     def _input_hash(self) -> str:
         """
