@@ -229,7 +229,7 @@ class Workflow:
             while cache_scheduler.incomplete:
                 for transform in cache_scheduler.schedulable:
                     cache_scheduler.schedule(transform)
-                    if transform not in targets:
+                    if ctx.caching_forced or transform not in targets:
                         if not (
                             dependent_map[transform] - skipped_transforms
                             or dependent_map[transform] - fetched_transforms

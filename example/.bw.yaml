@@ -8,7 +8,7 @@ tooldefs:
   - infra.tools.wave_viewers
 workflows:
   - infra.workflows
-# caches:
-#   - infra.caches.BasicFileCache
+caches:
+  - infra.caches.BasicFileCache
 config:
   - infra.config.config

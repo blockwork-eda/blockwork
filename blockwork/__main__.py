@@ -95,6 +95,17 @@ logging.basicConfig(
     default=None,
     help="Override the scratch folder location",
 )
+@click.option(
+    "--cache/--no-cache",
+    default=True,
+    help="Enable or disable caching",
+)
+@click.option(
+    "--cache-force",
+    is_flag=True,
+    default=False,
+    help="Force caching even for 'targetted' objects",
+)
 def blockwork(
     ctx,
     cwd: str,
@@ -102,9 +113,11 @@ def blockwork(
     verbose_locals: bool,
     quiet: bool,
     pdb: bool,
-    runtime: str | None = None,
-    arch: str | None = None,
-    scratch: str | None = None,
+    runtime: str | None,
+    arch: str | None,
+    scratch: str | None,
+    cache: bool,
+    cache_force: bool,
 ) -> None:
     # Setup post-mortem debug
     DebugScope.current.POSTMORTEM = pdb
@@ -123,6 +136,8 @@ def blockwork(
     ctx.obj = Context(
         root=Path(cwd).absolute() if cwd else None,
         scratch=Path(scratch).absolute() if scratch else None,
+        use_caches=cache,
+        force_cache=cache_force,
     )
     # Set the host architecture
     if arch:
