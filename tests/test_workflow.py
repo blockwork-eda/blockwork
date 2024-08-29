@@ -270,6 +270,7 @@ class TestWorkFlowDeps:
 
         class Ctx:
             caches: ClassVar[list[Cache]] = [DummyCache()]
+            caching_forced = False
 
         TransformA, TransformB = self.TFAutoA, self.TFAutoB  # noqa N806
 
