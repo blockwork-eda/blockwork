@@ -57,6 +57,7 @@ from ..context import Context
 from ordered_set import OrderedSet as OSet
 import distutils.sysconfig
 import ast
+import site
 
 
 # Switch to never pull or push from the cache, but to instead compare the
@@ -73,6 +74,12 @@ class PyHasher:
         self.visitor = ast.NodeVisitor()
         self.visitor.visit_Import = self.visit_Import
         self.visitor.visit_ImportFrom = self.visit_ImportFrom
+
+        # Get a basic hash of the site
+        site_str =''
+        for sitepackages in site.getsitepackages():
+            site_str += ''.join(sorted(os.listdir(sitepackages)))
+        self.site_hash = hashlib.md5(site_str.encode('utf8')).hexdigest()
 
     @property
     def current_package(self):
@@ -151,6 +158,9 @@ class PyHasher:
 
         # Pop the import context
         self.module_stack.pop()
+
+        # Roll in the site hash
+        content_hash.update(self.site_hash.encode('utf8'))
 
         # Roll in the dependency hashes
         for dependency in self.dependency_map[module.__name__]:
