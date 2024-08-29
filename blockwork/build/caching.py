@@ -90,7 +90,7 @@ class PyHasher:
         return self.module_stack[-1]
 
     def is_package(self, module: ModuleType):
-        return hasattr(module, "__path__") and getattr(module, "__file__", None) is None
+        return hasattr(module, "__path__")
 
     def visit_Import(self, node):
         for name in node.names:
