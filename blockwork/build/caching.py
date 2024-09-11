@@ -48,17 +48,136 @@ from abc import ABC, abstractmethod
 import hashlib
 import os
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+import sys
+from types import ModuleType
+from typing import DefaultDict, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..transforms import Transform
 from ..context import Context
+from ordered_set import OrderedSet as OSet
+import distutils.sysconfig
+import ast
+import site
+
 
 # Switch to never pull or push from the cache, but to instead compare the
 # hash with existing cache entries.
 # This will become a command option later...
 CACHE_CONSISTENCY_MODE = False
 
+class PyHasher:
+
+    def __init__(self):
+        self.module_stack: list[ModuleType] = []
+        self.dependency_map: DefaultDict[str, OSet[str]] = DefaultDict(OSet)
+        self.hash_map: dict[str, str] = {}
+        self.visitor = ast.NodeVisitor()
+        self.visitor.visit_Import = self.visit_Import
+        self.visitor.visit_ImportFrom = self.visit_ImportFrom
+
+        # Get a basic hash of the site
+        site_str =''
+        for sitepackages in site.getsitepackages():
+            site_str += ''.join(sorted(os.listdir(sitepackages)))
+        self.site_hash = hashlib.md5(site_str.encode('utf8')).hexdigest()
+
+    @property
+    def current_package(self):
+        return self.module_stack[-1].__name__
+
+    @property
+    def current_module(self):
+        return self.module_stack[-1]
+
+    def is_package(self, module: ModuleType):
+        return hasattr(module, "__path__")
+
+    def visit_Import(self, node):
+        for name in node.names:
+            # import a,b,c
+            self.map_package(name.name)
+
+    def visit_ImportFrom(self, node):
+        if node.module is not None and node.level == 0:
+            # Non-relative import from a module
+            # `from a import b`
+            self.map_package(node.module)
+            return
+
+        # Get context based on level (number of '.')
+        level = (node.level - 1) if self.is_package(self.current_module) else node.level
+        context, *_rest = self.current_package.rsplit('.', level)
+
+        if node.module is not None:
+            # `from .a import b`
+            self.map_package(f"{context}.{node.module}")
+            return
+
+        for name in node.names:
+            # from . import a,b,c
+            self.map_package(f"{context}.{name.name}")
+            return
+
+    def map_package(self, package: str):
+        if package in self.dependency_map:
+            # Don't re-process
+            return
+        if (module:=sys.modules.get(package, None)) is None:
+            # Package may not be in sys modules if it's imported conditionally
+            # or within a function etc...
+            return
+        self.map_module(module)
+
+    def map_module(self, module: ModuleType):
+        # Skip built-ins
+        if (module.__spec__ is None or
+            module.__spec__.origin in ["built-in", "frozen"]
+        ):
+            return
+
+        # Skip standard library, pip modules, and compiled
+        if (module.__file__ is None or
+            module.__file__.startswith(distutils.sysconfig.BASE_PREFIX) or
+            module.__file__.startswith(distutils.sysconfig.PREFIX) or
+            not module.__file__.endswith('.py')
+        ):
+            return
+
+        # Add as a dependency of calling package
+        if len(self.module_stack):
+            self.dependency_map[self.current_package].add(module.__name__)
+
+        # Push the import context
+        self.module_stack.append(module)
+
+        # Read the file, parse it, examine imports, and record the hash
+        with open(module.__file__, 'r') as f:
+            module_ast = ast.parse(f.read())
+            self.visitor.visit(module_ast)
+            content_hash = hashlib.md5(ast.dump(module_ast).encode('utf8'))
+
+        # Pop the import context
+        self.module_stack.pop()
+
+        # Roll in the site hash
+        content_hash.update(self.site_hash.encode('utf8'))
+
+        # Roll in the dependency hashes
+        for dependency in self.dependency_map[module.__name__]:
+            content_hash.update(self.hash_map[dependency].encode('utf8'))
+
+        # Record hash
+        self.hash_map[module.__name__] = content_hash.hexdigest()
+
+
+    def get_package_hash(self, package: str):
+        'Get the hash for a package'
+        if package not in self.hash_map:
+            self.map_package(package)
+        return self.hash_map[package]
+
 class Cache(ABC):
+    pyhasher = PyHasher()
 
     @staticmethod
     def enabled(ctx: Context):
@@ -85,6 +204,17 @@ class Cache(ABC):
             with path.open('rb') as f:
                 content_hash = hashlib.file_digest(f, 'md5')
         return content_hash.hexdigest()
+
+    @staticmethod
+    def hash_imported_package(package: str) -> str:
+        '''
+        Hash a python package **that has already been imported**. This is
+        currently implemented as a hash of module paths and modify times.
+
+        In the future this could be improved by calculating the import tree
+        for the module, resulting in fewer unnecessary rebuilds.
+        '''
+        return Cache.pyhasher.get_package_hash(package)
 
     @staticmethod
     def store_to_any(ctx: Context, key_hash: str, frm: Path) -> bool:
@@ -161,18 +291,41 @@ class Cache(ABC):
 
     @abstractmethod
     def store_hash(self, key_hash: str, content_hash: str) -> bool: ...
+    '''
+    Try and store a hash in the key cache. Should return True if the item
+    is successfully placed in the cache, or is already present.
+    '''
 
     @abstractmethod
     def drop_hash(self, key_hash: str) -> bool: ...
+    '''
+    Remove a hash from the key cache. Must be able to handle missing keys.
+    '''
 
     @abstractmethod
     def fetch_hash(self, key_hash: str) -> Optional[str]: ...
+    '''
+    Fetch the content hash from the key cache. Return None if not present.
+    '''
 
     @abstractmethod
     def store_item(self, content_hash: str, frm: Path) -> bool: ...
+    '''
+    Try and store an item in the content cache. Should return True if the item
+    is successfully placed in the cache or was already present (this will
+    happen if two different key_hashes result in the same content hash).
+    '''
 
     @abstractmethod
-    def drop_item(self, content_hash: str) -> bool: ...
+    def drop_item(self, content_hash: str): ...
+    '''
+    Remove an item from the content cache. Must be able to handle missing values,
+    and directories.
+    '''
 
     @abstractmethod
     def fetch_item(self, content_hash: str, to: Path) -> bool: ...
+    '''
+    Try and fetch an item from the content cache. Should return True if the
+    item is successfully retreived from the cache.
+    '''

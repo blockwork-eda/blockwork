@@ -69,13 +69,20 @@ class Context:
     """
 
     def __init__(
-        self, root: Path | None = None, cfg_file: str = ".bw.yaml", scratch: Path | None = None
+        self,
+        root: Path | None = None,
+        cfg_file: str = ".bw.yaml",
+        scratch: Path | None = None,
+        use_caches: bool = True,
+        force_cache: bool = False,
     ) -> None:
         self.__file = cfg_file
         self.__host_root = self.locate_root(root or Path.cwd())
         self.__host_arch = HostArchitecture.identify()
         self.__scratch = scratch
         self.__timestamp = datetime.now().strftime("D%Y%m%dT%H%M%S")
+        self.__use_caches = use_caches
+        self.__force_cache = force_cache
 
     @property
     def host_architecture(self) -> HostArchitecture:
@@ -207,6 +214,8 @@ class Context:
     @functools.lru_cache  # noqa: B019
     def caches(self) -> list["Cache"]:
         "Import and initialise the caches from config"
+        if not self.__use_caches:
+            return []
 
         if self.host_root.absolute().as_posix() not in sys.path:
             sys.path.append(self.host_root.absolute().as_posix())
@@ -219,6 +228,14 @@ class Context:
             caches.append(cache(self))
 
         return caches
+
+    @property
+    def caching_forced(self):
+        """
+        True if caching is forced (even targetted objects are retrieved from
+        cache)
+        """
+        return self.__force_cache
 
     @property
     @functools.lru_cache  # noqa: B019

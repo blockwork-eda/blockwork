@@ -1,5 +1,5 @@
 from pathlib import Path
-from shutil import copy, copytree
+from shutil import copy, copytree, rmtree
 
 from blockwork.build.caching import Cache
 from blockwork.context import Context
@@ -31,7 +31,7 @@ class BasicFileCache(Cache):
     def store_item(self, content_hash: str, frm: Path) -> bool:
         to = self.content_store / content_hash
         if to.exists():
-            return False
+            return True
         if frm.is_dir():
             copytree(frm, to)
         else:
@@ -39,7 +39,12 @@ class BasicFileCache(Cache):
         return True
 
     def drop_item(self, content_hash: str) -> bool:
-        (self.content_store / content_hash).unlink(missing_ok=True)
+        path = self.content_store / content_hash
+        if path.exists():
+            if path.is_dir():
+                rmtree(path)
+            else:
+                path.unlink()
         return True
 
     def fetch_item(self, content_hash: str, to: Path) -> bool:
