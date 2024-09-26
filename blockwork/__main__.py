@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import dataclasses
 import logging
 import sys
 from pathlib import Path
@@ -23,20 +22,10 @@ from rich.logging import RichHandler
 
 from .activities import activities
 from .bootstrap import Bootstrap
-from .common import scopes
 from .common.registry import Registry
 from .containers.runtime import Runtime
-from .context import Context, HostArchitecture
+from .context import Context, DebugScope, HostArchitecture
 from .tools import Tool
-
-
-@scopes.scope
-@dataclasses.dataclass
-class DebugScope:
-    VERBOSE: bool = False
-    VERBOSE_LOCALS: bool = False
-    POSTMORTEM: bool = False
-
 
 logging.basicConfig(
     level=logging.INFO,
