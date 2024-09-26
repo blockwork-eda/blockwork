@@ -265,10 +265,12 @@ class TestWorkFlowDeps:
             ),
         )
 
-    def test_run(self, api: ConfigApi):
+    def test_run(self, api: ConfigApi, tmp_path):
         workflow = Workflow("test")
 
         class Ctx:
+            host_root = tmp_path
+            host_scratch = tmp_path
             caches: ClassVar[list[Cache]] = [DummyCache()]
             caching_forced = False
 
@@ -303,8 +305,12 @@ class TestWorkFlowDeps:
 
         orig_hash_content = Cache.hash_content
         Cache.hash_content = lambda path: ""
-        results_1 = workflow._run(Ctx, *workflow.get_transform_tree(ConfigA()))
-        results_2 = workflow._run(Ctx, *workflow.get_transform_tree(ConfigA()))
+        results_1 = workflow._run(
+            Ctx, *workflow.get_transform_tree(ConfigA()), parallel=False, concurrency=1
+        )
+        results_2 = workflow._run(
+            Ctx, *workflow.get_transform_tree(ConfigA()), parallel=False, concurrency=1
+        )
         Cache.hash_content = orig_hash_content
 
         match_results(
@@ -357,6 +363,6 @@ class TestWorkFlowDeps:
         workflow = Workflow("test")
         with ConfigApi(api.ctx):
             cfg = MyConfig(input_path=i.as_posix(), output_path=o.as_posix())
-        workflow._run(api.ctx, *workflow.get_transform_tree(cfg))
+        workflow._run(api.ctx, *workflow.get_transform_tree(cfg), parallel=False, concurrency=1)
 
         assert o.read_text() == text
