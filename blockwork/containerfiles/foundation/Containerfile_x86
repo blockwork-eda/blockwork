@@ -12,7 +12,8 @@ RUN \
                    libXext libXext.i686 procps-ng libXft libXft.i686 \
                    xcb-util xcb-util.i686 xcb-util-wm xcb-util-image xcb-util-keysyms \
                    xcb-util-renderutil libxkbcommon-x11 mesa-dri-drivers \
-                   xorg-x11-utils xorg-x11-xauth && \
+                   xorg-x11-utils xorg-x11-xauth libXScrnSaver numactl-libs \
+                   mesa-libGL time bc && \
     ln -s /usr/lib64/libbz2.so.1 /usr/lib64/libbz2.so.1.0
 # Set locale
 ENV LANG=en_GB.utf8
