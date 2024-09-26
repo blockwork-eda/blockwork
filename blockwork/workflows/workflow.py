@@ -38,6 +38,10 @@ from ..context import Context, DebugScope
 from ..transforms.transform import Medial, Transform
 
 
+class WorkflowError(Exception):
+    pass
+
+
 class Workflow:
     """
     Wrapper for workflow functions.
@@ -381,6 +385,10 @@ class Workflow:
                 # Grab the tracking directory
                 job_trk_dirx = track_dirx / "/".join(job_id[1:])
                 logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
+
+            # Check for failure
+            if (failed := summary.get("sub_failed", 0)) > 0:
+                raise WorkflowError(f"Detected {failed} jobs failed")
 
         # This is primarily returned for unit-testing
         return SimpleNamespace(
