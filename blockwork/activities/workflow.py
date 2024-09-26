@@ -42,6 +42,11 @@ def wf_step(ctx: Context, spec_path: Path):
     resolves the transform class and executes it. This should NOT be called
     directly but instead as part of a wider workflow.
     """
+    # TODO @intuity: (1) Add support for cache storage functionality if we want
+    #                    parallel execution to correctly interact with caches
+    #                (2) We should consider making wf_step part of non-parallel
+    #                    executions so that there is a single execution path
+    # Reload the serialised workflow step specification
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     # Import the relevant transform
     mod_spec = importlib.import_module(spec["mod"])
