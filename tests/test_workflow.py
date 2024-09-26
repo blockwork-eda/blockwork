@@ -18,32 +18,26 @@ class DummyCache(Cache):
     """
 
     def __init__(self):
-        self.key_store = {}
         self.content_store = {}
 
-    def store_hash(self, key_hash: str, content_hash: str) -> bool:
-        self.key_store[key_hash] = content_hash
+    def store_item(self, key: str, frm: Path) -> bool:
+        self.content_store[key] = frm.read_text() if frm.exists() else None
         return True
 
-    def drop_hash(self, key_hash: str, content_hash: str) -> bool:
-        del self.key_store[key_hash]
+    def drop_item(self, key: str) -> bool:
+        if key in self.content_store:
+            del self.content_store[key]
         return True
 
-    def fetch_hash(self, key_hash: str) -> str | None:
-        return self.key_store.get(key_hash, None)
-
-    def store_item(self, content_hash: str, frm: Path) -> bool:
-        self.content_store[content_hash] = frm
-        return True
-
-    def drop_item(self, content_hash: str) -> bool:
-        del self.content_store[content_hash]
-        return True
-
-    def fetch_item(self, content_hash: str, to: Path) -> bool:
-        if content_hash in self.content_store:
+    def fetch_item(self, key: str, to: Path) -> bool:
+        if key in self.content_store:
+            if self.content_store[key] is not None:
+                to.write_text(self.content_store[key])
             return True
         return False
+
+    def iter_keys(self) -> Iterable[str]:
+        yield from list(self.content_store.keys())
 
 
 def match_gather(gather, expected_types):

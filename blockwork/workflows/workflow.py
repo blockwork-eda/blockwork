@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from functools import cache, partial, reduce
@@ -235,7 +236,7 @@ class Workflow:
                             or dependent_map[transform] - fetched_transforms
                         ):
                             skipped_transforms.add(transform)
-                        elif Cache.fetch_transform(ctx, transform):
+                        elif Cache.fetch_transform_from_any(ctx, transform):
                             logging.info("Fetched transform from cache: %s", transform)
                             fetched_transforms.add(transform)
                     cache_scheduler.finish(transform)
@@ -251,9 +252,12 @@ class Workflow:
                     logging.info("Skipped transform (due to cached dependents): %s", transform)
                 else:
                     logging.info("Running transform: %s", transform)
+                    start = time.time()
                     transform.run(ctx)
+                    stop = time.time()
+                    duration = stop - start
                     run_transforms.add(transform)
-                    if is_caching and Cache.store_transform(ctx, transform):
+                    if is_caching and Cache.store_transform_to_any(ctx, transform, duration):
                         stored_transforms.add(transform)
                         logging.info("Stored transform to cache: %s", transform)
                 run_scheduler.finish(transform)

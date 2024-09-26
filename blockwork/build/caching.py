@@ -46,11 +46,13 @@ Future improvements:
 
 from abc import ABC, abstractmethod
 import hashlib
+import json
 import os
 from pathlib import Path
 import sys
+import tempfile
 from types import ModuleType
-from typing import DefaultDict, Optional, TYPE_CHECKING
+from typing import DefaultDict, Iterable, Optional, TYPE_CHECKING, TypedDict
 if TYPE_CHECKING:
     from ..transforms import Transform
 from ..context import Context
@@ -59,11 +61,32 @@ import distutils.sysconfig
 import ast
 import site
 
+class MedialStoreData(TypedDict):
+    '''
+    Medial data stored as JSON in caches
+    '''
+    src: str
+    key: str
 
-# Switch to never pull or push from the cache, but to instead compare the
-# hash with existing cache entries.
-# This will become a command option later...
-CACHE_CONSISTENCY_MODE = False
+class TransformStoreData(TypedDict):
+    '''
+    Transform data stored as JSON in caches
+    '''
+    run_time: float
+    byte_size: int
+    medials: dict[str, MedialStoreData]
+
+class MedialFetchData(TypedDict):
+    '''
+    Medial data used to fetch items from caches
+    '''
+    dst: str
+
+class TransformFetchData(TypedDict):
+    '''
+    Transfrom data used to fetch transforms from caches
+    '''
+    medials: dict[str, MedialFetchData]
 
 class PyHasher:
 
@@ -176,8 +199,25 @@ class PyHasher:
             self.map_package(package)
         return self.hash_map[package]
 
+
+def get_byte_size(path: str | Path) -> int:
+    'Get the size of a file or directory in bytes'
+    if not os.path.exists(path):
+        return 0
+    if not os.path.isdir(path):
+        return os.path.getsize(path)
+    size = os.path.getsize(path)
+    for dirpath, dirnames, filenames in os.walk(path):
+        for name in (dirnames + filenames):
+            filepath = os.path.join(dirpath, name)
+            if not os.path.islink(filepath):
+                size += os.path.getsize(filepath)
+    return size
+
 class Cache(ABC):
     pyhasher = PyHasher()
+    medial_prefix = "md:"
+    transform_prefix = "tx:"
 
     @staticmethod
     def enabled(ctx: Context):
@@ -217,115 +257,122 @@ class Cache(ABC):
         return Cache.pyhasher.get_package_hash(package)
 
     @staticmethod
-    def store_to_any(ctx: Context, key_hash: str, frm: Path) -> bool:
-        'Store to every cache that will accept the content'
+    def fetch_transform_from_any(ctx: Context, transform: "Transform") -> bool:
+        'Fetch all the output interfaces for a transform'
+        medials: dict[str, MedialFetchData] = {}
+        for name, (direction, serial) in transform._serial_interfaces.items():
+            if direction.is_input:
+                continue
+            for medial in serial.medials:
+                medials[name] = MedialFetchData(dst=medial.val)
+        data = TransformFetchData(medials=medials)
+
+        # Pull from the first cache that has the item
+        for cache in ctx.caches:
+            if cache.fetch_transform(f"{Cache.transform_prefix}{transform._input_hash()}", data):
+                return True
+        return False
+
+    @staticmethod
+    def store_transform_to_any(ctx: Context, transform: "Transform", run_time: float) -> bool:
+        'Store all the output interfaces for a transform'
+        medials: dict[str, MedialStoreData] = {}
+        byte_size = 0
+        for name, (direction, serial) in transform._serial_interfaces.items():
+            if direction.is_input:
+                continue
+            for medial in serial.medials:
+                byte_size += get_byte_size(medial.val)
+                medials[name] = MedialStoreData(src=medial.val, key=f"{Cache.medial_prefix}{Cache.hash_content(Path(medial.val))}")
+        data = TransformStoreData(run_time=run_time, byte_size=byte_size, medials=medials)
+
+        # Store to any caches that will take it
         stored_somewhere = False
         for cache in ctx.caches:
-            if cache.store(key_hash, frm):
+            if cache.store_transform(f"{Cache.transform_prefix}{transform._input_hash()}", data):
                 stored_somewhere = True
         return stored_somewhere
 
-    @staticmethod
-    def fetch_from_any(ctx: Context, key_hash: str, to: Path) -> bool:
-        'Pull from the first cache that has the item'
-        for cache in ctx.caches:
-            if cache.fetch(key_hash, to):
-                return True
-            to.unlink(missing_ok=True)
-        return False
-
-    @staticmethod
-    def fetch_transform(ctx: Context, transform: "Transform") -> bool:
-        'Fetch all the output interfaces for a transform'
-        if CACHE_CONSISTENCY_MODE:
-            return False
-
-        for name, (direction, serial) in transform._serial_interfaces.items():
-            if direction.is_input:
+    def store_transform(self, key: str, data: TransformStoreData) -> bool:
+        'Store a transform to the cache'
+        stored = True
+        for medial_data in data["medials"].values():
+            if self.store_item(medial_data['key'], Path(medial_data['src'])):
                 continue
-            for medial in serial.medials:
-                hashkey = f"{name}-{medial._input_hash()}"
-                if not Cache.fetch_from_any(ctx, hashkey, Path(medial.val)):
-                    return False
+            stored = False
+
+        if not stored or not self.store_value(key, json.dumps(data)):
+            for medial_data in data["medials"].values():
+                self.drop_item(medial_data['key'])
+            return False
         return True
 
-    @staticmethod
-    def store_transform(ctx: Context, transform: "Transform") -> bool:
-        'Store all the output interfaces for a transform'
-        if CACHE_CONSISTENCY_MODE:
-            for name, (direction, serial) in transform._serial_interfaces.items():
-                if direction.is_input:
-                    continue
-                for medial in serial.medials:
-                    hashkey = f"{name}-{medial._input_hash()}"
-                    content_hash = Cache.hash_content(Path(medial.val))
-                    for cache in ctx.caches:
-                        assert content_hash == cache.fetch_hash(hashkey)
+    def fetch_transform(self, key: str, data: TransformFetchData) -> bool:
+        'Fetch a transform from the cache'
+        if (sdata:=self.fetch_value(key)) is None:
             return False
+        store_data: TransformStoreData = json.loads(sdata)
 
-        for name, (direction, serial) in transform._serial_interfaces.items():
-            if direction.is_input:
-                continue
-            for medial in serial.medials:
-                hashkey = f"{name}-{medial._input_hash()}"
-                if not Cache.store_to_any(ctx, hashkey, Path(medial.val)):
-                    return False
+        for medial_key, medial_data in store_data['medials'].items():
+            if not self.fetch_item(medial_data['key'], Path(data['medials'][medial_key]['dst'])):
+                return False
         return True
 
-    def store(self, key_hash: str, frm: Path) -> bool:
-        'Store a single file/directory'
-        content_hash = Cache.hash_content(frm)
-        if self.store_item(content_hash, frm):
-            if self.store_hash(key_hash, content_hash):
-                return True
-            self.drop_item(content_hash)
-        return False
+    def store_value(self, key: str, value: str) -> bool:
+        '''
+        Try and store a string value by key. Should return True if the value
+        is successfully stored or is already present.
+        '''
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
+            f.write(value)
+        result = self.store_item(key, Path(f.name))
+        os.unlink(f.name)
+        return result
 
-    def fetch(self, key_hash: str, to: Path) -> bool:
-        'Fetch a single file/directory'
-        if (content_hash:=self.fetch_hash(key_hash)) is not None:
-            if self.fetch_item(content_hash, to):
-                return True
-        to.unlink(missing_ok=True)
-        return False
+    def drop_value(self, key: str) -> bool:
+        '''
+        Remove a string value from the store by key. Return True if item removed
+        successfully.
+        '''
+        return self.drop_item(key)
 
-    @abstractmethod
-    def store_hash(self, key_hash: str, content_hash: str) -> bool: ...
-    '''
-    Try and store a hash in the key cache. Should return True if the item
-    is successfully placed in the cache, or is already present.
-    '''
 
-    @abstractmethod
-    def drop_hash(self, key_hash: str) -> bool: ...
-    '''
-    Remove a hash from the key cache. Must be able to handle missing keys.
-    '''
+    def fetch_value(self, key: str) -> Optional[str]:
+        '''
+        Fetch a string value from the store by key. Return None if not present.
+        '''
+        with tempfile.NamedTemporaryFile('r') as f:
+            result = self.fetch_item(key, Path(f.name))
+            return f.read() if result else None
 
     @abstractmethod
-    def fetch_hash(self, key_hash: str) -> Optional[str]: ...
-    '''
-    Fetch the content hash from the key cache. Return None if not present.
-    '''
+    def store_item(self, key: str, frm: Path) -> bool:
+        '''
+        Try and store a file or directory by key. Should return True if the
+        item is successfully stored or is already present.
+        '''
+        ...
 
     @abstractmethod
-    def store_item(self, content_hash: str, frm: Path) -> bool: ...
-    '''
-    Try and store an item in the content cache. Should return True if the item
-    is successfully placed in the cache or was already present (this will
-    happen if two different key_hashes result in the same content hash).
-    '''
+    def drop_item(self, key: str) -> bool:
+        '''
+        Remove a file or directory from the store. Must be able to handle missing
+        files and directories.
+        '''
+        ...
 
     @abstractmethod
-    def drop_item(self, content_hash: str): ...
-    '''
-    Remove an item from the content cache. Must be able to handle missing values,
-    and directories.
-    '''
+    def fetch_item(self, key: str, to: Path) -> bool:
+        '''
+        Retrieve a file or directory from the store, copying it to the path
+        provided by `to`. Should return True if the item is successfully
+        retreived from the cache.
+        '''
+        ...
 
     @abstractmethod
-    def fetch_item(self, content_hash: str, to: Path) -> bool: ...
-    '''
-    Try and fetch an item from the content cache. Should return True if the
-    item is successfully retreived from the cache.
-    '''
+    def iter_keys(self) -> Iterable[str]:
+        '''
+        Iterate over keys stored in the key cache
+        '''
+        ...
