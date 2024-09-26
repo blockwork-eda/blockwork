@@ -981,8 +981,10 @@ class Transform:
         """Run the transform in a container."""
         # For now serialize the instance here...
         # later may want to make this a classmethod and pass in
-        serial_transform = self.serialize()
+        self._run_serialized(ctx, self.serialize())
 
+    @classmethod
+    def _run_serialized(cls, ctx: "Context", serialized: TSerialTransform):
         # Create  a container
         # Note need to do this import here to avoid circular import
         from ..foundation import Foundation
@@ -991,7 +993,7 @@ class Transform:
 
         # Bind tools to container
         tool_instances: dict[str, Version] = {}
-        for tool_def in self.tools:
+        for tool_def in cls.tools:
             tool = tool_def()
             tool_instances[tool.name] = tool.default
             container.add_tool(tool)
@@ -999,7 +1001,7 @@ class Transform:
         # Bind interfaces to container
         interface_values: dict[str, Any] = {}
 
-        for field in fields(cast(Any, self)):
+        for field in fields(cast(Any, cls)):
             if not isinstance(field.default, IField):
                 if field.name == "tools":
                     continue
@@ -1008,13 +1010,13 @@ class Transform:
                     ", e.g. `myinput: Path = Transform.IN()`"
                 )
             ifield = field.default
-            serial = SerialInterface(serial_transform["ifaces"][field.name])
+            serial = SerialInterface(serialized["ifaces"][field.name])
             interface_values[field.name] = serial.resolve(ctx, container, ifield.direction)
 
         tools = ReadonlyNamespace(**tool_instances)
         iface = ReadonlyNamespace(**interface_values)
 
-        for invocation in self.execute(ctx, tools, iface):
+        for invocation in cls.execute({}, ctx, tools, iface):
             if exit_code := container.invoke(ctx, invocation) != 0:
                 raise RuntimeError(
                     f"Invocation `{invocation}` failed with exit code `{exit_code}`."

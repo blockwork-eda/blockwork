@@ -12,15 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import itertools
+import json
 import logging
 import time
+import multiprocessing
 from collections import defaultdict
 from collections.abc import Callable, Iterable
+from datetime import datetime
 from functools import cache, partial, reduce
 from pathlib import Path
 from types import SimpleNamespace
 
 import click
+from gator.launch_progress import launch
+from gator.specs import Cores, Job, JobGroup, Memory
 from ordered_set import OrderedSet as OSet
 
 from ..activities.workflow import wf
@@ -72,7 +79,7 @@ class Workflow:
     def __call__(self, fn: Callable[..., Config]) -> Callable[..., None]:
         @click.command()
         @click.pass_obj
-        def command(ctx, project=None, target=None, *args, **kwargs):
+        def command(ctx, project=None, target=None, parallel=False, concurrency=1, *args, **kwargs):
             site_api = ConfigApi(ctx).with_site(ctx.site, self.SITE_TYPE)
 
             if project:
@@ -84,9 +91,32 @@ class Workflow:
 
             with site_api:
                 inst = fn(ctx, *args, **kwargs)
-            self._run(ctx, *self.get_transform_tree(inst))
+            self._run(
+                ctx, *self.get_transform_tree(inst), concurrency=concurrency, parallel=parallel
+            )
 
         option_fns = []
+        option_fns.append(
+            click.option(
+                "--parallel",
+                "-P",
+                is_flag=True,
+                default=False,
+                help=(
+                    "Use Gator to run workflows in parallel, with the maximum number"
+                    "of jobs set by the concurrency parameter"
+                ),
+            )
+        )
+        option_fns.append(
+            click.option(
+                "--concurrency",
+                "-c",
+                type=int,
+                default=max(1, multiprocessing.cpu_count() // 2),
+                help="Specify the maximum number of jobs allowed to run in parallel",
+            )
+        )
         if self.project_type:
             option_fns.append(click.option("--project", "-p", type=str, required=True))
         if self.target_type:
@@ -206,9 +236,20 @@ class Workflow:
         targets: OSet[Transform],
         dependency_map: dict[Transform, OSet[Transform]],
         dependent_map: dict[Transform, OSet[Transform]],
+        parallel: bool,
+        concurrency: int,
     ):
         """
         Run the workflow from transform dependency data.
+
+        :param ctx:            Context object
+        :param targets:        Complete list of targets to build
+        :param dependency_map: Dependencies between targets, used to form the
+                               graph structure and schedule work
+        :param dependent_map:  Reversed listing of dependencies, used to check
+                               for cached results
+        :param parallel:       Enable/disable the parallel executor (using Gator)
+        :param concurrency:    Set the desired concurrency
         """
         # Record the transforms we pulled from the cache
         fetched_transforms: OSet[Transform] = OSet()
@@ -241,15 +282,57 @@ class Workflow:
                             fetched_transforms.add(transform)
                     cache_scheduler.finish(transform)
 
-        # Run everything in order, skipping cached entries, and pushing to the cache when possible
+        # Push everything into Gator based on scheduling order
         run_scheduler = Scheduler(dependency_map, targets=targets)
+
+        # Create a directory for this run
+        run_dirx = ctx.host_scratch / "flows" / datetime.now().strftime(r"D%Y%m%d-%H%M%S")
+        spec_dirx = run_dirx / "spec"
+        track_dirx = run_dirx / "tracking"
+        spec_dirx.mkdir(parents=True, exist_ok=True)
+        logging.info(f"Launching workflow under: {run_dirx} with {concurrency=}")
+
+        root_group = JobGroup(id="blockwork", cwd=ctx.host_root.as_posix())
+        idx_group = itertools.count()
+        prev_group = None
         while run_scheduler.incomplete:
-            for transform in run_scheduler.schedulable:
+            # Create group and chain dependency
+            group = JobGroup(id=f"bw_{next(idx_group)}")
+            if prev_group is not None:
+                group.on_pass.append(prev_group.id)
+            prev_group = group
+            root_group.jobs.append(group)
+
+            # Place all currently schedulable jobs into this group
+            scheduled = []
+            for idx_job, transform in enumerate(run_scheduler.schedulable):
                 run_scheduler.schedule(transform)
                 if transform in fetched_transforms:
-                    logging.info("Skipped cached transform: %s", transform)
+                    logging.info(f"Skipped cached {transform}")
                 elif transform in skipped_transforms:
-                    logging.info("Skipped transform (due to cached dependents): %s", transform)
+                    logging.info(f"Skipped transform (due to cached dependents): {transform}")
+                elif parallel:
+                    # Assemble a unique job ID
+                    job_id = f"{group.id}_{idx_job}"
+                    # Serialise the transform
+                    spec_file = spec_dirx / f"{job_id}.json"
+                    logging.info(
+                        f"Serializing scheduled {type(transform).__name__} -> "
+                        f"{spec_file.relative_to(ctx.host_scratch)}"
+                    )
+                    with spec_file.open("w", encoding="utf-8") as fh:
+                        json.dump(transform.serialize(), fh)
+                    # Launch the job
+                    # TODO @intuity: Make the resource requests parameterisable
+                    job = Job(
+                        id=f"{group.id}_{idx_job}",
+                        cwd=ctx.host_root.as_posix(),
+                        command="bw",
+                        args=["_wf_step", spec_file.as_posix()],
+                        resources=[Cores(count=1), Memory(size=1, unit="GB")],
+                    )
+                    group.jobs.append(job)
+                    scheduled.append(transform)
                 else:
                     logging.info("Running transform: %s", transform)
                     start = time.time()
@@ -260,7 +343,45 @@ class Workflow:
                     if is_caching and Cache.store_transform_to_any(ctx, transform, duration):
                         stored_transforms.add(transform)
                         logging.info("Stored transform to cache: %s", transform)
+
+                # Mark transform as finished (if running in parallel, Gator will
+                # maintain the ordering requirements)
                 run_scheduler.finish(transform)
+
+        # If parallel run is enabled, start up a Gator process
+        if parallel:
+            # Suppress messages coming from websockets within Gator
+            logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
+
+            # Launch the Gator run
+            summary = asyncio.run(
+                launch(
+                    spec=root_group,
+                    tracking=track_dirx,
+                    sched_opts={"concurrency": concurrency},
+                )
+            )
+
+            # For any failed IDs, resolve them to their log files
+            for job_id in summary.get("failed_ids", []):
+                ptr = root_group
+                # Resolve the job
+                for idx, part in enumerate(job_id[1:]):
+                    for sub in ptr.jobs:
+                        if sub.id == part:
+                            ptr = sub
+                            break
+                    else:
+                        raise Exception(
+                            f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}"
+                        )
+                # Grab the spec JSON
+                _, spec_json = ptr.args
+                with Path(spec_json).open("r", encoding="utf-8") as fh:
+                    spec_data = json.load(fh)
+                # Grab the tracking directory
+                job_trk_dirx = track_dirx / "/".join(job_id[1:])
+                logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
 
         # This is primarily returned for unit-testing
         return SimpleNamespace(
