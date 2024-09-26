@@ -327,9 +327,14 @@ class Workflow:
                         json.dump(transform.serialize(), fh)
                     # Launch the job
                     # TODO @intuity: Make the resource requests parameterisable
-                    args = ["_wf_step", spec_file.as_posix()]
+                    args = [
+                        "--scratch",
+                        ctx.host_scratch.as_posix(),
+                        "_wf_step",
+                        spec_file.as_posix(),
+                    ]
                     if DebugScope.current.VERBOSE:
-                        args.insert(0, "-v")
+                        args.insert(0, "--verbose")
                     job = Job(
                         id=f"{group.id}_{idx_job}",
                         cwd=ctx.host_root.as_posix(),
