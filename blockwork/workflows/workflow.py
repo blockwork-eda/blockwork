@@ -78,7 +78,7 @@ class Workflow:
     def __call__(self, fn: Callable[..., Config]) -> Callable[..., None]:
         @click.command()
         @click.pass_obj
-        def command(ctx, project=None, target=None, concurrency=1, *args, **kwargs):
+        def command(ctx, project=None, target=None, parallel=False, concurrency=1, *args, **kwargs):
             site_api = ConfigApi(ctx).with_site(ctx.site, self.SITE_TYPE)
 
             if project:
@@ -90,9 +90,23 @@ class Workflow:
 
             with site_api:
                 inst = fn(ctx, *args, **kwargs)
-            self._run(ctx, *self.get_transform_tree(inst), concurrency=concurrency)
+            self._run(
+                ctx, *self.get_transform_tree(inst), concurrency=concurrency, parallel=parallel
+            )
 
         option_fns = []
+        option_fns.append(
+            click.option(
+                "--parallel",
+                "-P",
+                is_flag=True,
+                default=False,
+                help=(
+                    "Use Gator to run workflows in parallel, with the maximum number"
+                    "of jobs set by the concurrency parameter"
+                ),
+            )
+        )
         option_fns.append(
             click.option(
                 "--concurrency",
@@ -221,10 +235,20 @@ class Workflow:
         targets: OSet[Transform],
         dependency_map: dict[Transform, OSet[Transform]],
         dependent_map: dict[Transform, OSet[Transform]],
+        parallel: bool,
         concurrency: int,
     ):
         """
         Run the workflow from transform dependency data.
+
+        :param ctx:            Context object
+        :param targets:        Complete list of targets to build
+        :param dependency_map: Dependencies between targets, used to form the
+                               graph structure and schedule work
+        :param dependent_map:  Reversed listing of dependencies, used to check
+                               for cached results
+        :param parallel:       Enable/disable the parallel executor (using Gator)
+        :param concurrency:    Set the desired concurrency
         """
         # Record the transforms we pulled from the cache
         fetched_transforms: OSet[Transform] = OSet()
@@ -286,7 +310,7 @@ class Workflow:
                     logging.info(f"Skipped cached {transform}")
                 elif transform in skipped_transforms:
                     logging.info(f"Skipped transform (due to cached dependents): {transform}")
-                else:
+                elif parallel:
                     # Assemble a unique job ID
                     job_id = f"{group.id}_{idx_job}"
                     # Serialise the transform
@@ -307,42 +331,53 @@ class Workflow:
                         resources=[Cores(count=1), Memory(size=1, unit="GB")],
                     )
                     group.jobs.append(job)
-                scheduled.append(transform)
+                    scheduled.append(transform)
+                else:
+                    logging.info("Running transform: %s", transform)
+                    transform.run(ctx)
+                    run_transforms.add(transform)
+                    if is_caching and Cache.store_transform(ctx, transform):
+                        stored_transforms.add(transform)
+                        logging.info("Stored transform to cache: %s", transform)
 
-            # Mark all jobs as finished (we'll track them through Gator later)
-            for transform in scheduled:
+                # Mark transform as finished (if running in parallel, Gator will
+                # maintain the ordering requirements)
                 run_scheduler.finish(transform)
 
-        # Suppress messages coming from websockets within Gator
-        logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
+        # If parallel run is enabled, start up a Gator process
+        if parallel:
+            # Suppress messages coming from websockets within Gator
+            logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
 
-        # Launch the Gator run
-        summary = asyncio.run(
-            launch(
-                spec=root_group,
-                tracking=track_dirx,
-                sched_opts={"concurrency": concurrency},
+            # Launch the Gator run
+            summary = asyncio.run(
+                launch(
+                    spec=root_group,
+                    tracking=track_dirx,
+                    sched_opts={"concurrency": concurrency},
+                )
             )
-        )
 
-        # For any failed IDs, resolve them to their log files
-        for job_id in summary.get("failed_ids", []):
-            ptr = root_group
-            # Resolve the job
-            for idx, part in enumerate(job_id[1:]):
-                for sub in ptr.jobs:
-                    if sub.id == part:
-                        ptr = sub
-                        break
-                else:
-                    raise Exception(f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}")
-            # Grab the spec JSON
-            _, spec_json = ptr.args
-            with Path(spec_json).open("r", encoding="utf-8") as fh:
-                spec_data = json.load(fh)
-            # Grab the tracking directory
-            job_trk_dirx = track_dirx / "/".join(job_id[1:])
-            logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
+            # For any failed IDs, resolve them to their log files
+            for job_id in summary.get("failed_ids", []):
+                ptr = root_group
+                # Resolve the job
+                for idx, part in enumerate(job_id[1:]):
+                    for sub in ptr.jobs:
+                        if sub.id == part:
+                            ptr = sub
+                            break
+                    else:
+                        raise Exception(
+                            f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}"
+                        )
+                # Grab the spec JSON
+                _, spec_json = ptr.args
+                with Path(spec_json).open("r", encoding="utf-8") as fh:
+                    spec_data = json.load(fh)
+                # Grab the tracking directory
+                job_trk_dirx = track_dirx / "/".join(job_id[1:])
+                logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
 
         # This is primarily returned for unit-testing
         return SimpleNamespace(
