@@ -34,7 +34,7 @@ from ..build.caching import Cache
 from ..config.api import ConfigApi
 from ..config.base import Config, Project, Site
 from ..config.scheduler import Scheduler
-from ..context import Context
+from ..context import Context, DebugScope
 from ..transforms.transform import Medial, Transform
 
 
@@ -323,11 +323,14 @@ class Workflow:
                         json.dump(transform.serialize(), fh)
                     # Launch the job
                     # TODO @intuity: Make the resource requests parameterisable
+                    args = ["_wf_step", spec_file.as_posix()]
+                    if DebugScope.current.VERBOSE:
+                        args.insert(0, "-v")
                     job = Job(
                         id=f"{group.id}_{idx_job}",
                         cwd=ctx.host_root.as_posix(),
                         command="bw",
-                        args=["_wf_step", spec_file.as_posix()],
+                        args=args,
                         resources=[Cores(count=1), Memory(size=1, unit="GB")],
                     )
                     group.jobs.append(job)
@@ -372,7 +375,7 @@ class Workflow:
                             f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}"
                         )
                 # Grab the spec JSON
-                _, spec_json = ptr.args
+                *_, spec_json = ptr.args
                 with Path(spec_json).open("r", encoding="utf-8") as fh:
                     spec_data = json.load(fh)
                 # Grab the tracking directory
