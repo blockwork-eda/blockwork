@@ -44,7 +44,6 @@ class GTKWave(Tool):
         )
 
     @Tool.installer("GTKWave")
-    # @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)

@@ -11,8 +11,8 @@ from .compilers import GCC
 class Python(Tool):
     versions: ClassVar[list[Version]] = [
         Version(
-            location=Tool.HOST_ROOT / "python" / "3.12.2",
-            version="3.12.2",
+            location=Tool.HOST_ROOT / "python" / "3.11.4",
+            version="3.11.4",
             requires=[Require(GCC, "13.1.0")],
             paths={
                 "PATH": [Tool.CNTR_ROOT / "bin"],
@@ -23,7 +23,6 @@ class Python(Tool):
     ]
 
     @Tool.installer("Python")
-    # @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
@@ -50,14 +49,14 @@ class Python(Tool):
 class PythonSite(Tool):
     versions: ClassVar[list[Version]] = [
         Version(
-            location=Tool.HOST_ROOT / "python-site" / "3.12.2",
-            version="3.12.2",
+            location=Tool.HOST_ROOT / "python-site" / "3.11.4",
+            version="3.11.4",
             env={"PYTHONUSERBASE": Tool.CNTR_ROOT},
             paths={
                 "PATH": [Tool.CNTR_ROOT / "bin"],
                 "PYTHONPATH": [Tool.CNTR_ROOT / "lib" / "python3.11" / "site-packages"],
             },
-            requires=[Require(Python, "3.12.2")],
+            requires=[Require(Python, "3.11.4")],
             default=True,
         ),
     ]
@@ -100,7 +99,6 @@ class Make(Tool):
         return Invocation(version=version, execute="make", args=args)
 
     @Tool.installer("Make")
-    # @from_objstore
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
         vernum = version.version
         tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
