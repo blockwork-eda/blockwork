@@ -5,12 +5,13 @@ RUN \
     ln -s /usr/bin/blockwork /usr/bin/bw && \
     dnf update -y && \
     dnf install -y epel-release && \
-    dnf install -y which htop nano gtk2 gtk3 gtk3-devel wget xz cpio iputils xterm \
-                   gcc perl bzip2 bzip2-devel tcl tcl-devel tk-devel libnsl \
-                   openssl-devel diffutils libedit-devel readline-devel \
-                   glibc-langpack-en tcsh glibc.i686 libX11 libX11.i686 \
-                   libXext libXext.i686 procps-ng libXft libXft.i686 \
-                   xcb-util xcb-util.i686 xcb-util-wm xcb-util-image xcb-util-keysyms \
+    dnf install -y which htop nano gtk2 gtk3 gtk3-devel wget xz cpio iputils \
+                   xterm gcc perl bzip2 bzip2-devel tcl tcl-devel tk-devel \
+                   libnsl openssl-devel diffutils libedit-devel gmp-devel \
+                   readline-devel glibc-langpack-en tcsh glibc.i686 \
+                   glibc-devel.i686 libgcc.i686 libX11 libX11.i686 libXext \
+                   libXext.i686 procps-ng libXft libXft.i686 xcb-util \
+                   xcb-util.i686 xcb-util-wm xcb-util-image xcb-util-keysyms \
                    xcb-util-renderutil libxkbcommon-x11 mesa-dri-drivers \
                    xorg-x11-utils xorg-x11-xauth libXScrnSaver numactl-libs \
                    mesa-libGL time bc && \
