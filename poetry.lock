@@ -842,7 +842,7 @@ websockets = "^11.0.2"
 type = "git"
 url = "https://github.com/Intuity/gator.git"
 reference = "hub"
-resolved_reference = "1269ad14b9fa61cfa2c55baabfdc44485e1faa17"
+resolved_reference = "b1c1da563476578c67bdce0065c17dd24f051b33"
 
 [[package]]
 name = "ghp-import"

@@ -25,7 +25,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import click
-from gator.launch import launch
+from gator.launch import MessageLimits, launch
 from gator.launch_progress import launch as launch_progress
 from gator.specs import Cores, Job, JobGroup, Memory
 from ordered_set import OrderedSet as OSet
@@ -376,6 +376,10 @@ class Workflow:
                     tracking=track_dirx,
                     sched_opts={"concurrency": concurrency},
                     glyph="🧱 Blockwork",
+                    # TODO @intuity: In the long term a waiver system should be
+                    #                introduced to suppress errors if they are
+                    #                false, for now just set to a high value
+                    limits=MessageLimits(error=10000),
                 )
             )
 
