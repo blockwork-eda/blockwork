@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dataclasses
 import functools
 import hashlib
 import importlib
@@ -26,11 +27,20 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .build.caching import Cache
 
+from .common import scopes
 from .common.yaml import DataclassConverter, SimpleParser
 from .config import Blockwork
 from .state import State
 
 BlockworkConfig = SimpleParser(Blockwork, DataclassConverter)
+
+
+@scopes.scope
+@dataclasses.dataclass
+class DebugScope:
+    VERBOSE: bool = False
+    VERBOSE_LOCALS: bool = False
+    POSTMORTEM: bool = False
 
 
 class HostArchitecture(StrEnum):
