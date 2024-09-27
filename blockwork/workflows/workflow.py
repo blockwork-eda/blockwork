@@ -25,7 +25,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import click
-from gator.launch_progress import launch
+from gator.launch import launch
+from gator.launch_progress import launch as launch_progress
 from gator.specs import Cores, Job, JobGroup, Memory
 from ordered_set import OrderedSet as OSet
 
@@ -293,14 +294,18 @@ class Workflow:
         spec_dirx = run_dirx / "spec"
         track_dirx = run_dirx / "tracking"
         spec_dirx.mkdir(parents=True, exist_ok=True)
-        logging.info(f"Launching workflow under: {run_dirx} with {concurrency=}")
+
+        logging.info(
+            f"Launching workflow under: {run_dirx}"
+            + (f" with concurrency of {concurrency}" if parallel else "")
+        )
 
         root_group = JobGroup(id="blockwork", cwd=ctx.host_root.as_posix())
         idx_group = itertools.count()
         prev_group = None
         while run_scheduler.incomplete:
             # Create group and chain dependency
-            group = JobGroup(id=f"bw_{next(idx_group)}")
+            group = JobGroup(id=f"stage_{next(idx_group)}")
             if prev_group is not None:
                 group.on_pass.append(prev_group.id)
             prev_group = group
@@ -319,7 +324,7 @@ class Workflow:
                     job_id = f"{group.id}_{idx_job}"
                     # Serialise the transform
                     spec_file = spec_dirx / f"{job_id}.json"
-                    logging.info(
+                    logging.debug(
                         f"Serializing scheduled {type(transform).__name__} -> "
                         f"{spec_file.relative_to(ctx.host_scratch)}"
                     )
@@ -336,7 +341,7 @@ class Workflow:
                     if DebugScope.current.VERBOSE:
                         args.insert(0, "--verbose")
                     job = Job(
-                        id=f"{group.id}_{idx_job}",
+                        id=f"{group.id}_job_{idx_job}",
                         cwd=ctx.host_root.as_posix(),
                         command="bw",
                         args=args,
@@ -362,11 +367,15 @@ class Workflow:
             logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
 
             # Launch the Gator run
+            logging.info(
+                f"Executing {root_group.expected_jobs} jobs with concurrency of {concurrency}"
+            )
             summary = asyncio.run(
-                launch(
+                (launch if DebugScope.current.VERBOSE else launch_progress)(
                     spec=root_group,
                     tracking=track_dirx,
                     sched_opts={"concurrency": concurrency},
+                    glyph="🧱 Blockwork",
                 )
             )
 
