@@ -18,7 +18,9 @@ from collections import defaultdict
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypeVar
+
+_RegObj = TypeVar("_RegObj")
 
 
 class RegistryError(Exception):
@@ -54,8 +56,8 @@ class Registry:
         )
 
     @classmethod
-    def register(cls, *_args, **_kwds) -> Any:
-        def _inner(obj: Any) -> Any:
+    def register(cls, *_args, **_kwds) -> Callable[[_RegObj], _RegObj]:
+        def _inner(obj: _RegObj) -> _RegObj:
             cls.wrap(obj)
             return obj
 
