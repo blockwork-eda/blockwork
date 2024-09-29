@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib
 import json
-import logging
 from pathlib import Path
 
 import click
@@ -48,8 +46,5 @@ def wf_step(ctx: Context, spec_path: Path):
     #                    executions so that there is a single execution path
     # Reload the serialised workflow step specification
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
-    # Import the relevant transform
-    mod_spec = importlib.import_module(spec["mod"])
-    transform_cls: type[Transform] = getattr(mod_spec, spec["name"])
-    logging.info(f"Running serialised {transform_cls.__name__}")
-    transform_cls._run_serialized(ctx, spec)
+    # Run the relevant transform
+    Transform.run_serialized(ctx, spec)

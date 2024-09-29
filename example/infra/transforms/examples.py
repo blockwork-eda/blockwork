@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any
 
 from infra.tools.misc import PythonSite
 
@@ -29,13 +28,8 @@ class CapturedTransform(Transform):
     tools: tuple[Tool, ...] = (PythonSite,)
     output: Path = Transform.OUT(init=True, default=...)
 
-    def execute(
-        self,
-        ctx: Context,
-        tools: ReadonlyNamespace[Version],
-        iface: ReadonlyNamespace[Any],
-    ):
-        output = ctx.map_to_host(iface.output)
+    def execute(self, ctx: Context, tools: ReadonlyNamespace[Version]):
+        output = ctx.map_to_host(self.output)
         with output.open(mode="w", encoding="utf-8") as stdout:
             inv = tools.pythonsite.get_action("run")(ctx, "-c", "print('hello interface')")
             inv.stdout = stdout

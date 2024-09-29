@@ -14,6 +14,7 @@
 
 
 import hashlib
+import importlib
 import json
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import Field, dataclass, fields
@@ -898,8 +899,8 @@ class Transform:
             frm: Path = Transform.IN()
             to: Path = Transform.OUT()
 
-            def execute(self, ctx, tools, iface):
-                yield tools.bash.get_action("cp")(ctx, frm=iface.frm, to=iface.to)
+            def execute(self, ctx, tools):
+                yield tools.bash.get_action("cp")(ctx, frm=self.frm, to=self.to)
 
     """
 
@@ -930,6 +931,8 @@ class Transform:
         raise RuntimeError("Cannot instantiate transform directly, subclass it!")
 
     def __post_init__(self):
+        if getattr(self, "_tf_from_serial", False):
+            return
         object.__setattr__(self, "api", ConfigApi.current.with_transform(self))
         object.__setattr__(self, "_serial_interfaces", {})
         # Wrapped here since if they are overriden they still
@@ -981,10 +984,15 @@ class Transform:
         """Run the transform in a container."""
         # For now serialize the instance here...
         # later may want to make this a classmethod and pass in
-        self._run_serialized(ctx, self.serialize())
+        Transform._run_serialized(ctx, self.serialize())
 
-    @classmethod
-    def _run_serialized(cls, ctx: "Context", serialized: TSerialTransform):
+    @staticmethod
+    def run_serialized(ctx: "Context", spec: TSerialTransform):
+        """Run a transform from a spec object"""
+        # Get transform class
+        mod = importlib.import_module(spec["mod"])
+        cls: Transform = getattr(mod, spec["name"])
+
         # Create  a container
         # Note need to do this import here to avoid circular import
         from ..foundation import Foundation
@@ -1010,13 +1018,17 @@ class Transform:
                     ", e.g. `myinput: Path = Transform.IN()`"
                 )
             ifield = field.default
-            serial = SerialInterface(serialized["ifaces"][field.name])
+            serial = SerialInterface(spec["ifaces"][field.name])
             interface_values[field.name] = serial.resolve(ctx, container, ifield.direction)
 
         tools = ReadonlyNamespace(**tool_instances)
-        iface = ReadonlyNamespace(**interface_values)
 
-        for invocation in cls.execute({}, ctx, tools, iface):
+        # Construct transform instance
+        tf = cls.__new__(cls)
+        object.__setattr__(tf, "_tf_from_serial", True)
+        tf.__init__(**interface_values)
+
+        for invocation in tf.execute(ctx, tools):
             if exit_code := container.invoke(ctx, invocation) != 0:
                 raise RuntimeError(
                     f"Invocation `{invocation}` failed with exit code `{exit_code}`."

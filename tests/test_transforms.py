@@ -67,18 +67,18 @@ class TestTransforms:
         to: Path = Transform.OUT()
         tools = (tools.Bash,)
 
-        def execute(self, ctx, tools, iface):
+        def execute(self, ctx, tools):
             arbitrary = 1
-            frm = iface.nestedfrm["some"][arbitrary]["complex"]["value"]
-            yield tools.bash.get_action("script")(ctx, f"cat {frm} > {iface.to}")
+            frm = self.nestedfrm["some"][arbitrary]["complex"]["value"]
+            yield tools.bash.get_action("script")(ctx, f"cat {frm} > {self.to}")
 
     def test_input_nest(self, api: ConfigApi):
         text = "input_nest"
         frm = create_with_text(api.ctx.host_scratch / "_/i", text)
 
         tf = self.TFInputNest(nestedfrm={"some": ["arbitrary", {"complex": {"value": Path(frm)}}]})
-
-        tf = transforms.Copy(frm=frm)
+        tf.run(api.ctx)
+        tf = transforms.Copy(frm=tf.to)
         tf.run(api.ctx)
 
         assert tf.to.read_text() == text
@@ -89,9 +89,9 @@ class TestTransforms:
         to2: Path = Transform.OUT()
         tools = (tools.Bash,)
 
-        def execute(self, ctx, tools, iface):
-            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {iface.to1}")
-            yield tools.bash.get_action("script")(ctx, f"echo -n {iface.frm} > {iface.to2}")
+        def execute(self, ctx, tools):
+            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {self.to1}")
+            yield tools.bash.get_action("script")(ctx, f"echo -n {self.frm} > {self.to2}")
 
     def test_simple_field_env(self, api: ConfigApi):
         text = "input_nest"
@@ -111,8 +111,8 @@ class TestTransforms:
         to: Path = Transform.OUT()
         tools = (tools.Bash,)
 
-        def execute(self, ctx, tools, iface):
-            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {iface.to}")
+        def execute(self, ctx, tools):
+            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {self.to}")
 
     class TFComplexFieldEnvPrepend(Transform):
         frm: str = Transform.IN(env="TEST")
@@ -120,8 +120,8 @@ class TestTransforms:
         to: Path = Transform.OUT()
         tools = (tools.Bash,)
 
-        def execute(self, ctx, tools, iface):
-            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {iface.to}")
+        def execute(self, ctx, tools):
+            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {self.to}")
 
     class TFComplexFieldEnvReplace(Transform):
         frm: str = Transform.IN(env="TEST")
@@ -129,8 +129,8 @@ class TestTransforms:
         to: Path = Transform.OUT()
         tools = (tools.Bash,)
 
-        def execute(self, ctx, tools, iface):
-            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {iface.to}")
+        def execute(self, ctx, tools):
+            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {self.to}")
 
     class TFComplexFieldEnvConflict(Transform):
         frm: str = Transform.IN(env="TEST")
@@ -138,8 +138,8 @@ class TestTransforms:
         to: Path = Transform.OUT()
         tools = (tools.Bash,)
 
-        def execute(self, ctx, tools, iface):
-            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {iface.to}")
+        def execute(self, ctx, tools):
+            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {self.to}")
 
     def test_complex_field_env(self, api: ConfigApi):
         text = ["hello", "world"]
@@ -173,18 +173,18 @@ class TestTransforms:
         to3: Path = Transform.OUT()
         tools = (tools.Bash,)
 
-        def execute(self, ctx, tools, iface):
-            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {iface.to1}")
-            yield tools.bash.get_action("script")(ctx, f"echo -n ${iface.frm.key} > {iface.to2}")
-            yield tools.bash.get_action("script")(ctx, f"echo -n {iface.frm.val} > {iface.to3}")
+        def execute(self, ctx, tools):
+            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {self.to1}")
+            yield tools.bash.get_action("script")(ctx, f"echo -n ${self.frm.key} > {self.to2}")
+            yield tools.bash.get_action("script")(ctx, f"echo -n {self.frm.val} > {self.to3}")
 
     class TFComplexArgEnvDeep(Transform):
         frm: Any = Transform.IN()
         to: Path = Transform.OUT()
         tools = (tools.Bash,)
 
-        def execute(self, ctx, tools, iface):
-            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {iface.to}")
+        def execute(self, ctx, tools):
+            yield tools.bash.get_action("script")(ctx, f"echo -n $TEST > {self.to}")
 
     def test_complex_arg_env(self, api: ConfigApi):
         text = "hello world"
@@ -204,8 +204,8 @@ class TestTransforms:
         to: ComplexOutIface = Transform.OUT()
         tools = (tools.Bash,)
 
-        def execute(self, ctx, tools, iface):
-            yield tools.bash.get_action("script")(ctx, f"echo -n {iface.frm} > {iface.to['p0']}")
+        def execute(self, ctx, tools):
+            yield tools.bash.get_action("script")(ctx, f"echo -n {self.frm} > {self.to['p0']}")
 
     def test_complex_out(self, api: ConfigApi):
         text = "hello world"

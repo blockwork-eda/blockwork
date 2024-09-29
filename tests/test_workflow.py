@@ -328,8 +328,8 @@ class TestWorkFlowDeps:
         result: Path = Transform.OUT()
         tools = (tools.Bash,)
 
-        def execute(self, ctx, tools, iface) -> Iterable[Invocation]:
-            yield tools.bash.get_action("cp")(ctx, frm=iface.file, to=iface.result)
+        def execute(self, ctx, tools) -> Iterable[Invocation]:
+            yield tools.bash.get_action("cp")(ctx, frm=self.file, to=self.result)
 
     def test_multistep(self, api: ConfigApi):
         "Test chain of transforms with multiple steps"
