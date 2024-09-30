@@ -20,6 +20,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import Field, dataclass, fields
 from dataclasses import field as dc_field
 from enum import Enum, auto
+from functools import reduce
 from pathlib import Path
 from types import EllipsisType, GenericAlias, NoneType
 from typing import (
@@ -989,9 +990,10 @@ class Transform:
     @staticmethod
     def run_serialized(ctx: "Context", spec: TSerialTransform):
         """Run a transform from a spec object"""
-        # Get transform class
+        # Get transform module
         mod = importlib.import_module(spec["mod"])
-        cls: Transform = getattr(mod, spec["name"])
+        # Get class from module (using reduce to navigate module namespacing)
+        cls: Transform = reduce(getattr, spec["name"].split("."), mod)
 
         # Create  a container
         # Note need to do this import here to avoid circular import
