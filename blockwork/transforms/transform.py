@@ -984,7 +984,7 @@ class Transform:
         """Run the transform in a container."""
         # For now serialize the instance here...
         # later may want to make this a classmethod and pass in
-        Transform._run_serialized(ctx, self.serialize())
+        Transform.run_serialized(ctx, self.serialize())
 
     @staticmethod
     def run_serialized(ctx: "Context", spec: TSerialTransform):
