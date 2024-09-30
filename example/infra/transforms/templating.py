@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any
 
 from blockwork.common.complexnamespaces import ReadonlyNamespace
 from blockwork.context import Context
@@ -28,15 +27,10 @@ class MakoTransform(Transform):
     template: Path = Transform.IN()
     output: Path = Transform.OUT(init=True, default=...)
 
-    def execute(
-        self,
-        ctx: Context,
-        tools: ReadonlyNamespace[Version],
-        iface: ReadonlyNamespace[Any],
-    ):
+    def execute(self, ctx: Context, tools: ReadonlyNamespace[Version]):
         cmd = "from mako.template import Template;"
-        cmd += f"fh = open('{iface.output}', 'w');"
-        cmd += f"fh.write(Template(filename='{iface.template}').render());"
+        cmd += f"fh = open('{self.output}', 'w');"
+        cmd += f"fh.write(Template(filename='{self.template}').render());"
         cmd += "fh.flush();"
         cmd += "fh.close()"
         yield tools.pythonsite.get_action("run")(ctx, "-c", cmd)

@@ -23,7 +23,7 @@ class VerilatorLintTransform(Transform):
     tools = (Verilator,)
     design: DesignInterface = Transform.IN()
 
-    def execute(self, ctx, tools, iface):
+    def execute(self, ctx, tools):
         yield tools.verilator.get_action("run")(
-            ctx, "--lint-only", "-Wall", *iface.design["sources"]
+            ctx, "--lint-only", "-Wall", *self.design["sources"]
         )
