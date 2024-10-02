@@ -306,47 +306,55 @@ class Cache(ABC):
         present_medials = set()
         transform_sizes = DefaultDict(int)
         transform_scores = DefaultDict(float)
-        transform_deltas = DefaultDict(float)
         transform_medials = dict()
 
         # Collect cache item data
         for key in self.iter_keys():
             if key.startswith(Cache.medial_prefix):
+                # Medial exists (but transform info might not!)
                 present_medials.add(key)
             elif key.startswith(Cache.transform_prefix):
+                # Read the transforms data
                 if (sdata:=self.fetch_value(key, peek=True)) is None:
                     return False
                 store_data: TransformStoreData = json.loads(sdata)
+                # Calculate a usefulness score for the transform, where a
+                # lower score means less useful and a better candidate for
+                # eviction.
+                # The ideal cache entry:
+                #  - Took a long time to run originally
+                #  - Produces small output files
+                #  - Was accessed very recently
                 run_time = store_data['run_time']
                 byte_size = store_data['byte_size'] + len(sdata.encode('utf-8'))
                 fetch_delta = now - self.get_last_fetch_utc(key)
                 transform_scores[key] = run_time / byte_size / fetch_delta
                 transform_sizes[key] = byte_size
-                transform_deltas[key] = fetch_delta
                 total_size += byte_size
 
+                # Record the expected medials as some might be missing
                 transform_medials[key] = set()
                 for medial_data in store_data['medials'].values():
                     transform_medials[key].add(medial_data['key'])
             else:
+                # Unexpected data - delete it.
                 self.drop_item(key)
 
-        # If any medial missing for a transform, set score to zero
+        # If any medial missing for a transform, set transform score to zero
+        # as it is not useful to have it cached.
         for transform, medials in transform_medials.items():
             if medials - present_medials:
                 transform_scores[transform] = 0
 
         # Remove transforms starting with those with the worst score until we
-        # reach the target size
+        # reach the target size, always removing any with a score of zero.
         for transform, score in sorted(transform_scores.items(), key=lambda i: i[1]):
             if score > 0 and total_size < target_size:
                 # watermark_score = score
                 break
             if self.drop_item(transform):
                 del transform_medials[transform]
-                del transform_deltas[transform]
-                size = transform_sizes[transform]
-                total_size -= size
+                total_size -= transform_sizes[transform]
 
         # Find medials that are referenced by remaining transforms
         referenced_medials = set()
