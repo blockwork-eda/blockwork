@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from ..transforms import Transform
 from ..context import Context
 from ordered_set import OrderedSet as OSet
+from datetime import datetime, timezone
 import distutils.sysconfig
 import ast
 import site
@@ -293,6 +294,70 @@ class Cache(ABC):
                 stored_somewhere = True
         return stored_somewhere
 
+    def prune(self):
+        '''
+        Prune the cache down to the limit set by the target_size property.
+        '''
+        now = datetime.now(timezone.utc).timestamp()
+
+        target_size = self.target_size
+
+        total_size = 0
+        present_medials = set()
+        transform_sizes = DefaultDict(int)
+        transform_scores = DefaultDict(float)
+        transform_deltas = DefaultDict(float)
+        transform_medials = dict()
+
+        # Collect cache item data
+        for key in self.iter_keys():
+            if key.startswith(Cache.medial_prefix):
+                present_medials.add(key)
+            elif key.startswith(Cache.transform_prefix):
+                if (sdata:=self.fetch_value(key, peek=True)) is None:
+                    return False
+                store_data: TransformStoreData = json.loads(sdata)
+                run_time = store_data['run_time']
+                byte_size = store_data['byte_size'] + len(sdata.encode('utf-8'))
+                fetch_delta = now - self.get_last_fetch_utc(key)
+                transform_scores[key] = run_time / byte_size / fetch_delta
+                transform_sizes[key] = byte_size
+                transform_deltas[key] = fetch_delta
+                total_size += byte_size
+
+                transform_medials[key] = set()
+                for medial_data in store_data['medials'].values():
+                    transform_medials[key].add(medial_data['key'])
+            else:
+                self.drop_item(key)
+
+        # If any medial missing for a transform, set score to zero
+        for transform, medials in transform_medials.items():
+            if medials - present_medials:
+                transform_scores[transform] = 0
+
+        # Remove transforms starting with those with the worst score until we
+        # reach the target size
+        for transform, score in sorted(transform_scores.items(), key=lambda i: i[1]):
+            if score > 0 and total_size < target_size:
+                # watermark_score = score
+                break
+            if self.drop_item(transform):
+                del transform_medials[transform]
+                del transform_deltas[transform]
+                size = transform_sizes[transform]
+                total_size -= size
+
+        # Find medials that are referenced by remaining transforms
+        referenced_medials = set()
+        for medials in transform_medials.values():
+            referenced_medials |= medials
+
+        # Remove any medials with no transform referencing them
+        unreferenced_medials = present_medials - referenced_medials
+        for medial in unreferenced_medials:
+            self.drop_item(medial)
+
     def store_transform(self, key: str, data: TransformStoreData) -> bool:
         'Store a transform to the cache'
         stored = True
@@ -337,13 +402,21 @@ class Cache(ABC):
         return self.drop_item(key)
 
 
-    def fetch_value(self, key: str) -> Optional[str]:
+    def fetch_value(self, key: str, peek: bool=False) -> Optional[str]:
         '''
         Fetch a string value from the store by key. Return None if not present.
         '''
         with tempfile.NamedTemporaryFile('r') as f:
-            result = self.fetch_item(key, Path(f.name))
+            result = self.fetch_item(key, Path(f.name), peek=peek)
             return f.read() if result else None
+
+    @property
+    @abstractmethod
+    def target_size(self) -> int:
+        '''
+        Get the target cache size in bytes. Note this is the level that the
+        cache will be pruned to, not a hard-limit.
+        '''
 
     @abstractmethod
     def store_item(self, key: str, frm: Path) -> bool:
@@ -362,11 +435,18 @@ class Cache(ABC):
         ...
 
     @abstractmethod
-    def fetch_item(self, key: str, to: Path) -> bool:
+    def fetch_item(self, key: str, to: Path, peek: bool=False) -> bool:
         '''
         Retrieve a file or directory from the store, copying it to the path
         provided by `to`. Should return True if the item is successfully
         retreived from the cache.
+        '''
+        ...
+
+    @abstractmethod
+    def get_last_fetch_utc(self, key: str) -> int | float:
+        '''
+        Get the last fetch time as a UTC timestamp.
         '''
         ...
 
