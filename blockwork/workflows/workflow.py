@@ -17,7 +17,6 @@ import itertools
 import json
 import logging
 import multiprocessing
-import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import datetime
@@ -352,12 +351,11 @@ class Workflow:
                     scheduled.append(transform)
                 else:
                     logging.info("Running transform: %s", transform)
-                    start = time.time()
-                    transform.run(ctx)
-                    stop = time.time()
-                    duration = stop - start
+                    result = transform.run(ctx)
                     run_transforms.add(transform)
-                    if is_caching and Cache.store_transform_to_any(ctx, transform, duration):
+                    if is_caching and Cache.store_transform_to_any(
+                        ctx, transform, result["run_time"]
+                    ):
                         stored_transforms.add(transform)
                         logging.info("Stored transform to cache: %s", transform)
 
@@ -366,7 +364,7 @@ class Workflow:
                 run_scheduler.finish(transform)
 
         # If parallel run is enabled, start up a Gator process
-        if parallel:
+        if parallel and root_group.expected_jobs:
             # Suppress messages coming from websockets within Gator
             logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
 
