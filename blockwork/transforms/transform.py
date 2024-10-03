@@ -1030,6 +1030,8 @@ class Transform:
         # Bind interfaces to container
         interface_values: dict[str, Any] = {}
 
+        # Cast to Any to satisfy type checkers as the base Transform class will
+        # not be a dataclass, but subclasses will.
         for field in fields(cast(Any, self)):
             if not isinstance(field.default, IField):
                 if field.name == "tools":
@@ -1038,9 +1040,8 @@ class Transform:
                     "All transform interfaces must be specified with a direction"
                     ", e.g. `myinput: Path = Transform.IN()`"
                 )
-            ifield = field.default
-            serial = self._serial_interfaces[field.name][1]
-            interface_values[field.name] = serial.resolve(ctx, container, ifield.direction)
+            direction, serial = self._serial_interfaces[field.name]
+            interface_values[field.name] = serial.resolve(ctx, container, direction)
 
         tools = ReadonlyNamespace(**tool_instances)
 
