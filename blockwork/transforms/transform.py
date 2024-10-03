@@ -16,6 +16,7 @@
 import hashlib
 import importlib
 import json
+import time
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import Field, dataclass, fields
 from dataclasses import field as dc_field
@@ -889,6 +890,10 @@ class TSerialTransform(TypedDict):
     ifaces: dict[str, TISerialAny]
 
 
+class TSerialTransformResult(TypedDict):
+    run_time: float
+
+
 @dataclass_transform(kw_only_default=True, frozen_default=True, field_specifiers=(IN, OUT))
 class Transform:
     """
@@ -932,7 +937,7 @@ class Transform:
         raise RuntimeError("Cannot instantiate transform directly, subclass it!")
 
     def __post_init__(self):
-        if getattr(self, "_tf_from_serial", False):
+        if getattr(self, "_tf_execute_proxy", False):
             return
         object.__setattr__(self, "api", ConfigApi.current.with_transform(self))
         object.__setattr__(self, "_serial_interfaces", {})
@@ -981,19 +986,33 @@ class Transform:
         object.__setattr__(self, "_cached_input_hash", digest)
         return digest
 
-    def run(self, ctx: "Context"):
-        """Run the transform in a container."""
-        # For now serialize the instance here...
-        # later may want to make this a classmethod and pass in
-        Transform.run_serialized(ctx, self.serialize())
-
     @staticmethod
-    def run_serialized(ctx: "Context", spec: TSerialTransform):
-        """Run a transform from a spec object"""
+    def deserialize(spec: TSerialTransform) -> "Transform":
         # Get transform module
         mod = importlib.import_module(spec["mod"])
         # Get class from module (using reduce to navigate module namespacing)
         cls: Transform = reduce(getattr, spec["name"].split("."), mod)
+        tf = cls.__new__(cls)
+
+        object.__setattr__(tf, "_serial_interfaces", {})
+        for field in fields(cast(Any, tf)):
+            if not isinstance(field.default, IField):
+                if field.name == "tools":
+                    continue
+                raise ValueError(
+                    "All transform interfaces must be specified with a direction"
+                    ", e.g. `myinput: Path = Transform.IN()`"
+                )
+            ifield = field.default
+            tf._serial_interfaces[field.name] = (
+                ifield.direction,
+                SerialInterface(spec["ifaces"][field.name]),
+            )
+        return tf
+
+    def run(self, ctx: "Context") -> TSerialTransformResult:
+        """Run the transform in a container."""
+        start = time.time()
 
         # Create  a container
         # Note need to do this import here to avoid circular import
@@ -1003,7 +1022,7 @@ class Transform:
 
         # Bind tools to container
         tool_instances: dict[str, Version] = {}
-        for tool_def in cls.tools:
+        for tool_def in self.tools:
             tool = tool_def()
             tool_instances[tool.name] = tool.default
             container.add_tool(tool)
@@ -1011,7 +1030,9 @@ class Transform:
         # Bind interfaces to container
         interface_values: dict[str, Any] = {}
 
-        for field in fields(cast(Any, cls)):
+        # Cast to Any to satisfy type checkers as the base Transform class will
+        # not be a dataclass, but subclasses will.
+        for field in fields(cast(Any, self)):
             if not isinstance(field.default, IField):
                 if field.name == "tools":
                     continue
@@ -1019,15 +1040,15 @@ class Transform:
                     "All transform interfaces must be specified with a direction"
                     ", e.g. `myinput: Path = Transform.IN()`"
                 )
-            ifield = field.default
-            serial = SerialInterface(spec["ifaces"][field.name])
-            interface_values[field.name] = serial.resolve(ctx, container, ifield.direction)
+            direction, serial = self._serial_interfaces[field.name]
+            interface_values[field.name] = serial.resolve(ctx, container, direction)
 
         tools = ReadonlyNamespace(**tool_instances)
 
         # Construct transform instance
+        cls = type(self)
         tf = cls.__new__(cls)
-        object.__setattr__(tf, "_tf_from_serial", True)
+        object.__setattr__(tf, "_tf_execute_proxy", True)
         tf.__init__(**interface_values)
 
         for invocation in tf.execute(ctx, tools):
@@ -1035,6 +1056,8 @@ class Transform:
                 raise RuntimeError(
                     f"Invocation `{invocation}` failed with exit code `{exit_code}`."
                 )
+        stop = time.time()
+        return TSerialTransformResult(run_time=stop - start)
 
     def execute(
         self, ctx: "Context", tools: ReadonlyNamespace["Version"], iface: ReadonlyNamespace[Any], /

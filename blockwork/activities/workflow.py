@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import json
+import logging
 from pathlib import Path
 
 import click
 
+from ..build.caching import Cache
 from ..context import Context
-from ..transforms.transform import Transform
+from ..transforms.transform import Transform, TSerialTransform
 
 
 @click.group(name="wf")
@@ -40,11 +42,16 @@ def wf_step(ctx: Context, spec_path: Path):
     resolves the transform class and executes it. This should NOT be called
     directly but instead as part of a wider workflow.
     """
-    # TODO @intuity: (1) Add support for cache storage functionality if we want
-    #                    parallel execution to correctly interact with caches
-    #                (2) We should consider making wf_step part of non-parallel
-    #                    executions so that there is a single execution path
+    # TODO @intuity: We should consider making wf_step part of non-parallel
+    #                executions so that there is a single execution path
     # Reload the serialised workflow step specification
-    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    spec: TSerialTransform = json.loads(spec_path.read_text(encoding="utf-8"))
     # Run the relevant transform
-    Transform.run_serialized(ctx, spec)
+    tf = Transform.deserialize(spec)
+    result = tf.run(ctx)
+
+    # duration = stop - start
+    # Whether a cache is in place
+    is_caching = Cache.enabled(ctx)
+    if is_caching and Cache.store_transform_to_any(ctx, tf, result["run_time"]):
+        logging.info("Stored transform to cache: %s", tf)
