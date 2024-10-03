@@ -412,6 +412,10 @@ class Workflow:
             if (failed := summary.get("sub_failed", 0)) > 0:
                 raise WorkflowError(f"Detected {failed} jobs failed")
 
+        # Prune the caches down to size at the end
+        if is_caching:
+            Cache.prune_all(ctx)
+
         # This is primarily returned for unit-testing
         return SimpleNamespace(
             run=run_transforms,

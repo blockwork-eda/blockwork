@@ -236,7 +236,6 @@ class Context:
             module = importlib.import_module(module_path)
             cache_cls = getattr(module, class_name)
             cache = cache_cls(self)
-            cache.prune()
             caches.append(cache)
 
         return caches

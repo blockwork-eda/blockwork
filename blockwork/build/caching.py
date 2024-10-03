@@ -228,6 +228,14 @@ class Cache(ABC):
         return len(ctx.caches) > 0
 
     @staticmethod
+    def prune_all(ctx: Context):
+        '''
+        Prune all configured caches
+        '''
+        for cache in ctx.caches:
+            cache.prune()
+
+    @staticmethod
     def hash_content(path: Path) -> str:
         '''
         Hash the content of a file or directory. This needs to be consistent
