@@ -350,7 +350,6 @@ class Cache(ABC):
         # reach the target size, always removing any with a score of zero.
         for transform, score in sorted(transform_scores.items(), key=lambda i: i[1]):
             if score > 0 and total_size < target_size:
-                # watermark_score = score
                 break
             if self.drop_item(transform):
                 del transform_medials[transform]
@@ -395,6 +394,10 @@ class Cache(ABC):
         '''
         Try and store a string value by key. Should return True if the value
         is successfully stored or is already present.
+
+        :param key:  The unique item key.
+        :param frm:  The string value to be written.
+        :return:     True if the item is successfully stored.
         '''
         with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(value)
@@ -406,6 +409,9 @@ class Cache(ABC):
         '''
         Remove a string value from the store by key. Return True if item removed
         successfully.
+
+        :param key:  The unique item key.
+        :return:     True if the item is successfully removed
         '''
         return self.drop_item(key)
 
@@ -413,6 +419,11 @@ class Cache(ABC):
     def fetch_value(self, key: str, peek: bool=False) -> Optional[str]:
         '''
         Fetch a string value from the store by key. Return None if not present.
+
+        :param key:  The unique item key.
+        :param peek: Whether to skip the fetch time update (used internally by
+                     meta-operations that shouldn't affect cache state).
+        :return:     The fetched string or None if the fetch failed.
         '''
         with tempfile.NamedTemporaryFile('r') as f:
             result = self.fetch_item(key, Path(f.name), peek=peek)
@@ -424,6 +435,8 @@ class Cache(ABC):
         '''
         Get the target cache size in bytes. Note this is the level that the
         cache will be pruned to, not a hard-limit.
+
+        :return: The target cache size in bytes
         '''
 
     @abstractmethod
@@ -431,6 +444,10 @@ class Cache(ABC):
         '''
         Try and store a file or directory by key. Should return True if the
         item is successfully stored or is already present.
+
+        :param key:  The unique item key.
+        :param frm:  The location of the item to be copied in.
+        :return:     True if the item is successfully stored.
         '''
         ...
 
@@ -439,6 +456,9 @@ class Cache(ABC):
         '''
         Remove a file or directory from the store. Must be able to handle missing
         files and directories.
+
+        :param key:  The unique item key.
+        :return:     True if the item is successfully removed
         '''
         ...
 
@@ -448,6 +468,12 @@ class Cache(ABC):
         Retrieve a file or directory from the store, copying it to the path
         provided by `to`. Should return True if the item is successfully
         retreived from the cache.
+
+        :param key:  The unique item key.
+        :param to:   The path where the item should be copied to.
+        :param peek: Whether to skip the fetch time update (used internally by
+                     meta-operations that shouldn't affect cache state).
+        :return:     Whether the item was successfully fetched.
         '''
         ...
 
@@ -455,6 +481,9 @@ class Cache(ABC):
     def get_last_fetch_utc(self, key: str) -> int | float:
         '''
         Get the last fetch time as a UTC timestamp.
+
+        :param key:  The unique item key.
+        :return:     The last time an item was fetched as a UTC timestamp.
         '''
         ...
 
@@ -462,5 +491,7 @@ class Cache(ABC):
     def iter_keys(self) -> Iterable[str]:
         '''
         Iterate over keys stored in the key cache
+
+        :return: Iterable of keys in the cache
         '''
         ...
