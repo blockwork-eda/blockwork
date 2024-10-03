@@ -22,7 +22,7 @@ class DummyCache(Cache):
 
     @property
     def target_size(self) -> int:
-        return 0
+        return 1024**2
 
     def store_item(self, key: str, frm: Path) -> bool:
         self.content_store[key] = frm.read_text() if frm.exists() else None
@@ -106,7 +106,7 @@ def match_results(results, run, stored, fetched, skipped):
 class TestWorkFlowDeps:
     class DummyTransform(Transform):
         def run(self, *args, **kwargs):
-            return {"run_time": 0}
+            return {"run_time": 1}
 
     class TFAutoA(DummyTransform):
         test_ip: Path = Transform.IN()
