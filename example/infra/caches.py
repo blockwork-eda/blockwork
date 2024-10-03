@@ -14,6 +14,10 @@ class BasicFileCache(Cache):
         self.cache_root.mkdir(exist_ok=True)
         self.content_store.mkdir(exist_ok=True)
 
+    @property
+    def target_size(self) -> int:
+        return 1024**3
+
     def store_item(self, key: str, frm: Path) -> bool:
         to = self.content_store / key
         if to.exists():
@@ -33,7 +37,7 @@ class BasicFileCache(Cache):
                 path.unlink()
         return True
 
-    def fetch_item(self, key: str, to: Path) -> bool:
+    def fetch_item(self, key: str, to: Path, peek: bool = False) -> bool:
         to.parent.mkdir(exist_ok=True, parents=True)
         frm = self.content_store / key
         try:
@@ -43,7 +47,16 @@ class BasicFileCache(Cache):
                 copy(frm, to)
         except FileNotFoundError:
             return False
+        if not peek:
+            frm.touch(exist_ok=True)
         return True
+
+    def get_last_fetch_utc(self, key: str) -> float:
+        frm = self.content_store / key
+        try:
+            return frm.stat().st_mtime
+        except OSError:
+            return 0
 
     def iter_keys(self) -> Iterable[str]:
         if not self.content_store.exists():

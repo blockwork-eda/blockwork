@@ -20,6 +20,10 @@ class DummyCache(Cache):
     def __init__(self):
         self.content_store = {}
 
+    @property
+    def target_size(self) -> int:
+        return 1024**2
+
     def store_item(self, key: str, frm: Path) -> bool:
         self.content_store[key] = frm.read_text() if frm.exists() else None
         return True
@@ -29,12 +33,15 @@ class DummyCache(Cache):
             del self.content_store[key]
         return True
 
-    def fetch_item(self, key: str, to: Path) -> bool:
+    def fetch_item(self, key: str, to: Path, peek: bool = False) -> bool:
         if key in self.content_store:
             if self.content_store[key] is not None:
                 to.write_text(self.content_store[key])
             return True
         return False
+
+    def get_last_fetch_utc(self, key: str) -> float:
+        return 0
 
     def iter_keys(self) -> Iterable[str]:
         yield from list(self.content_store.keys())
@@ -99,7 +106,7 @@ def match_results(results, run, stored, fetched, skipped):
 class TestWorkFlowDeps:
     class DummyTransform(Transform):
         def run(self, *args, **kwargs):
-            return {"run_time": 0}
+            return {"run_time": 1}
 
     class TFAutoA(DummyTransform):
         test_ip: Path = Transform.IN()

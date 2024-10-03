@@ -234,8 +234,9 @@ class Context:
         for cache in self.config.caches:
             module_path, class_name = cache.rsplit(".", 1)
             module = importlib.import_module(module_path)
-            cache = getattr(module, class_name)
-            caches.append(cache(self))
+            cache_cls = getattr(module, class_name)
+            cache = cache_cls(self)
+            caches.append(cache)
 
         return caches
 
