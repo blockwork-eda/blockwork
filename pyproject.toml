@@ -22,7 +22,7 @@ ordered-set = "4.1.0"
 filelock = "3.14.0"
 pytz = "2024.1"
 requests = "2.31.0"
-gator-eda = {git = "https://github.com/Intuity/gator.git", branch = "hub"}
+gator-eda = { git = "https://github.com/Intuity/gator.git", rev = "3426cdd7e3eeb26c911c12822d96e763f7cd6f4c" }
 boto3 = "1.34.103"
 
 [tool.poetry.group.dev.dependencies]
@@ -32,7 +32,7 @@ pytest-mock = "3.14.0"
 ruff = "0.2.2"
 mkdocs = "1.5.3"
 mkdocs-material = "9.5.17"
-mkdocstrings = {extras = ["python"], version = "0.21.2"}
+mkdocstrings = { extras = ["python"], version = "0.21.2" }
 pre-commit = "3.7.0"
 
 [tool.poetry.scripts]
