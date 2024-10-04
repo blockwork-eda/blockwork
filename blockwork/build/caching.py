@@ -45,6 +45,7 @@ Future improvements:
 '''
 
 from abc import ABC, abstractmethod
+import functools
 import hashlib
 import json
 import os
@@ -235,6 +236,7 @@ class Cache(ABC):
         for cache in ctx.caches:
             cache.prune()
 
+    @functools.cache
     @staticmethod
     def hash_content(path: Path) -> str:
         '''
