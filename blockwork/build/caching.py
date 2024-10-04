@@ -435,9 +435,10 @@ class Cache(ABC):
                      meta-operations that shouldn't affect cache state).
         :return:     The fetched string or None if the fetch failed.
         '''
-        with tempfile.NamedTemporaryFile('r') as f:
-            result = self.fetch_item(key, Path(f.name), peek=peek)
-            return f.read() if result else None
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'data'
+            result = self.fetch_item(key, path, peek=peek)
+            return path.read_text() if result else None
 
     @property
     @abstractmethod
