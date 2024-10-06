@@ -465,34 +465,6 @@ class Tool(RegisteredClass):
         return tool_def(version)
 
     @classmethod
-    def select_version(
-        cls,
-        vend_or_name: str,
-        name: str | None = None,
-        version: str | None = None,
-    ) -> None:
-        """
-        Select a specific version of a tool as the default, overriding whatever
-        default version the tool itself has nominated.
-
-        :param vend_or_name:    Vendor or tool name is no associated vendor
-        :param name:            Name if a vendor is specified
-        :param version:         Version of the tool (required)
-        """
-        if version is None:
-            raise ToolError("A version must be provided")
-        vendor = vend_or_name.lower() if name else Tool.NO_VENDOR.lower()
-        name = (name if name else vend_or_name).lower()
-        tool_def: Tool = cls.get_by_name((vendor, name))
-        if not tool_def:
-            raise ToolError(f"No tool known for name '{name}' from vendor '{vendor}'")
-        # Wot?
-        tool = tool_def()
-        tool.default.default = False
-        tool.default = tool.get_version(version)
-        tool.default.default = True
-
-    @classmethod
     @contextmanager
     def temp_registry(cls):
         "Context managed temporary registry for use in tests"
