@@ -62,8 +62,8 @@ class PythonSite(Tool):
     ]
 
     @Tool.action("PythonSite")
-    def run(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        return Invocation(version=version, execute="python3", args=args)
+    def run(self, ctx: Context, *args: list[str]) -> Invocation:
+        return Invocation(version=self.version, execute="python3", args=args)
 
     @Tool.installer("PythonSite")
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:

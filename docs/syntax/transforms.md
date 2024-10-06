@@ -13,13 +13,12 @@ example introducing the main elements, then do a deep dive on each.
 from blockwork.transforms import Transform
 
 class Copy(Transform):
-    tools = (Bash,)
+    bash: Bash = Transform.TOOL(version="1.2.3")
     frm: Path = Transform.IN()
     to: Path = Transform.OUT(init=True)
 
-    def execute(self, ctx, tools):
-        copy = tools.bash.get_action("cp")
-        yield copy(ctx, frm=self.frm, to=self.to)
+    def execute(self, ctx):
+        yield self.bash.cp(ctx, frm=self.frm, to=self.to)
 ```
 
 The first thing to note is that all transforms must inherit from the Transform
@@ -28,11 +27,10 @@ class which does lots of setup behind the scenes.
 Next we have some class variables.
 
 ```python
-tools = (Bash,)
+bash: Bash = Transform.TOOL(version="1.2.3")
 ```
 
-> Here `tools` is a reserved class variable, and should be a a tuple listing the
-> tools the transform uses. In this case, the transform uses the Bash tool.
+> Here we define that the transform uses version 1.2.3 of the bash tool.
 
 ```python
 frm: Path = Transform.IN()

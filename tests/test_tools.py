@@ -59,8 +59,6 @@ class TestTools:
 
         # Create an instance
         inst = Widget()
-        # Check that instance is a singleton
-        assert inst is Widget()
         # Check attributes
         assert inst.base_id == "company_widget"
         assert inst.vendor == "company"
@@ -95,8 +93,6 @@ class TestTools:
 
         # Create an instance
         inst = Widget()
-        # Check that instance is a singleton
-        assert inst is Widget()
         # Check attributes
         assert inst.base_id == "widget"
         assert inst.vendor is Tool.NO_VENDOR
@@ -183,7 +179,7 @@ class TestTools:
         assert inst_a.default.version == "1.2"
         assert inst_b.default.version == "2.1"
         assert inst_a.default.requires == []
-        assert inst_b.default.requires[0].tool is ToolA
+        assert inst_b.default.requires[0].tool_cls is ToolA
         assert inst_b.default.requires[0].version == "1.1"
 
     def test_tool_bad_versions(self, tmp_path: Path) -> None:
@@ -380,11 +376,9 @@ class TestTools:
             ]
 
             @Tool.action("Widget")
-            def do_something(
-                self, ctx: Context, version: Version, an_arg: str, *args: list[str]
-            ) -> Invocation:
+            def do_something(self, ctx: Context, an_arg: str, *args: list[str]) -> Invocation:
                 return Invocation(
-                    version=version,
+                    version=self.version,
                     execute=Tool.CNTR_ROOT / "bin" / "widget",
                     args=[an_arg],
                     display=True,
@@ -392,8 +386,8 @@ class TestTools:
                 )
 
             @Tool.action("Widget", default=True)
-            def other_thing(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-                return Invocation(version, execute=Tool.CNTR_ROOT / "bin" / "thing")
+            def other_thing(self, ctx: Context, *args: list[str]) -> Invocation:
+                return Invocation(self.version, execute=Tool.CNTR_ROOT / "bin" / "thing")
 
         # Invoke the 'do_something' action
         act = Widget().get_version("1.1").get_action("do_something")
@@ -534,10 +528,10 @@ class TestTools:
         # Import the generated files
         Tool.setup(tmp_path, ["infra.toolset_one", "infra.toolset_two"])
         # Try getting tools
-        assert isinstance(Tool.get("ToolA"), Version)
-        assert isinstance(Tool.get("company", "ToolB"), Version)
-        assert isinstance(Tool.get("other", "ToolC"), Version)
-        assert isinstance(Tool.get("other", "ToolC", "3.4"), Version)
+        assert isinstance(Tool.get("ToolA"), Tool)
+        assert isinstance(Tool.get("company", "ToolB"), Tool)
+        assert isinstance(Tool.get("other", "ToolC"), Tool)
+        assert isinstance(Tool.get("other", "ToolC", "3.4"), Tool)
         # Bad tool lookups
         with pytest.raises(RegistryError) as exc:
             Tool.get("blah", "ToolA")

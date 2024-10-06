@@ -14,23 +14,21 @@
 
 from pathlib import Path
 
-from blockwork.common.complexnamespaces import ReadonlyNamespace
 from blockwork.context import Context
-from blockwork.tools.tool import Version
 from blockwork.transforms import Transform
 
 from ..tools.misc import PythonSite
 
 
 class MakoTransform(Transform):
-    tools = (PythonSite,)
+    pythonsite: PythonSite = Transform.TOOL()
     template: Path = Transform.IN()
     output: Path = Transform.OUT(init=True, default=...)
 
-    def execute(self, ctx: Context, tools: ReadonlyNamespace[Version]):
+    def execute(self, ctx: Context):
         cmd = "from mako.template import Template;"
         cmd += f"fh = open('{self.output}', 'w');"
         cmd += f"fh.write(Template(filename='{self.template}').render());"
         cmd += "fh.flush();"
         cmd += "fh.close()"
-        yield tools.pythonsite.get_action("run")(ctx, "-c", cmd)
+        yield self.pythonsite.run(ctx, "-c", cmd)

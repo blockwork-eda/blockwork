@@ -72,8 +72,8 @@ class Verilator(Tool):
     ]
 
     @Tool.action("Verilator")
-    def run(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        return Invocation(version=version, execute="verilator", args=args)
+    def run(self, ctx: Context, *args: list[str]) -> Invocation:
+        return Invocation(version=self.version, execute="verilator", args=args)
 
     @Tool.installer("Verilator")
     def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
