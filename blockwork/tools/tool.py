@@ -264,7 +264,7 @@ class Tool(RegisteredClass):
     def __init_subclass__(cls, *args, **kwargs):
         super().__init_subclass__(*args, **kwargs)
         # Validate cls properties on class creation
-        Tool._validate(cls)
+        cls._validate()
         return super().__init_subclass__()
 
     def __init__(self, version: str | None = None) -> None:
