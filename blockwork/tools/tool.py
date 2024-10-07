@@ -53,7 +53,7 @@ class Require:
 
     @property
     @functools.lru_cache  # noqa B019
-    def tool(self) -> "Version":
+    def tool(self) -> "Tool":
         return self.tool_cls(self.version)
 
 
@@ -118,7 +118,7 @@ class Version:
 
     @functools.lru_cache  # noqa: B019
     def resolve_requirements(self) -> set["Version"]:
-        return {x.resolve() for x in self.requires}
+        return {x.tool.version for x in self.requires}
 
     @property
     def path_chunk(self) -> Path:
@@ -141,61 +141,6 @@ class Version:
                 return self.get_action(name)
             except ToolActionError:
                 raise e from None
-
-    def get_host_path(self, ctx: Context, absolute: bool = True) -> Path:
-        """
-        Expand the location to get the full path to the tool on the host system.
-        Substitutes Tool.HOST_ROOT for the 'host_tools' path from Context.
-
-        :param ctx:      Context object
-        :param absolute: When enabled this will flatten symlinks in the hierarchy
-        :returns:        Resolved path
-        """
-        if self.location.is_relative_to(Tool.HOST_ROOT):
-            path = ctx.host_tools / self.location.relative_to(Tool.HOST_ROOT)
-        else:
-            path = self.location
-        return path.absolute() if absolute else path
-
-    def get_container_path(self, ctx: Context, path: Path | None = None) -> Path:
-        """
-        Expand the location to get the full path to the tool within the contained
-        environment, substituting Tool.CNTR_ROOT for the 'container_tools' path
-        from Context.
-
-        :param ctx:  Context object
-        :param path: When provided, this path is resolved relative to the tool's
-                     root (if defined using Tool.CNTR_ROOT)
-        :returns:    Resolved path
-        """
-        base = ctx.container_tools / self.path_chunk
-        if path:
-            if path.is_relative_to(Tool.CNTR_ROOT):
-                return base / path.relative_to(Tool.CNTR_ROOT)
-            else:
-                return path
-        else:
-            return base
-
-    def as_interface(self, ctx: Context):
-        from ..transforms import EnvPolicy, IEnv, IPath
-
-        def normalise(value):
-            if isinstance(value, Path):
-                if value.is_relative_to(Tool.CNTR_ROOT) or value.is_relative_to(Tool.HOST_ROOT):
-                    value = value.relative_to(Tool.CNTR_ROOT)
-                    value = IPath(
-                        self.get_host_path(ctx) / value, self.get_container_path(ctx) / value
-                    )
-            return value
-
-        env = []
-        for key, value in self.env.items():
-            env.append(IEnv(key, normalise(value), policy=EnvPolicy.CONFLICT))
-        for key, values in self.paths.items():
-            env.append(IEnv(key, list(map(normalise, values)), policy=EnvPolicy.PREPEND))
-
-        return {"env": env, "root": IPath(self.get_host_path(ctx), self.get_container_path(ctx))}
 
 
 class Tool(RegisteredClass):
@@ -294,6 +239,14 @@ class Tool(RegisteredClass):
             return name
         else:
             return "_".join((vend, name))
+
+    @property
+    def vernum(self) -> str:
+        return self.version.version
+
+    @property
+    def location(self) -> Path:
+        return self.version.location
 
     @classmethod
     @functools.lru_cache
@@ -424,6 +377,61 @@ class Tool(RegisteredClass):
         """
         return self.get_action("installer")
 
+    def get_host_path(self, ctx: Context, absolute: bool = True) -> Path:
+        """
+        Expand the location to get the full path to the tool on the host system.
+        Substitutes Tool.HOST_ROOT for the 'host_tools' path from Context.
+
+        :param ctx:      Context object
+        :param absolute: When enabled this will flatten symlinks in the hierarchy
+        :returns:        Resolved path
+        """
+        if self.location.is_relative_to(Tool.HOST_ROOT):
+            path = ctx.host_tools / self.location.relative_to(Tool.HOST_ROOT)
+        else:
+            path = self.location
+        return path.absolute() if absolute else path
+
+    def get_container_path(self, ctx: Context, path: Path | None = None) -> Path:
+        """
+        Expand the location to get the full path to the tool within the contained
+        environment, substituting Tool.CNTR_ROOT for the 'container_tools' path
+        from Context.
+
+        :param ctx:  Context object
+        :param path: When provided, this path is resolved relative to the tool's
+                     root (if defined using Tool.CNTR_ROOT)
+        :returns:    Resolved path
+        """
+        base = ctx.container_tools / self.version.path_chunk
+        if path:
+            if path.is_relative_to(Tool.CNTR_ROOT):
+                return base / path.relative_to(Tool.CNTR_ROOT)
+            else:
+                return path
+        else:
+            return base
+
+    def as_interface(self, ctx: Context):
+        from ..transforms import EnvPolicy, IEnv, IPath
+
+        def normalise(value):
+            if isinstance(value, Path):
+                if value.is_relative_to(Tool.CNTR_ROOT) or value.is_relative_to(Tool.HOST_ROOT):
+                    value = value.relative_to(Tool.CNTR_ROOT)
+                    value = IPath(
+                        self.get_host_path(ctx) / value, self.get_container_path(ctx) / value
+                    )
+            return value
+
+        env = []
+        for key, value in self.version.env.items():
+            env.append(IEnv(key, normalise(value), policy=EnvPolicy.CONFLICT))
+        for key, values in self.version.paths.items():
+            env.append(IEnv(key, list(map(normalise, values)), policy=EnvPolicy.PREPEND))
+
+        return {"env": env, "root": IPath(self.get_host_path(ctx), self.get_container_path(ctx))}
+
     # ==========================================================================
     # Registry Handling
     # ==========================================================================
@@ -502,7 +510,7 @@ class Invocation:
 
     def __init__(
         self,
-        version: Version,
+        tool: Tool,
         execute: Path | str,
         args: Sequence[str | Path] | None = None,
         workdir: Path | None = None,
@@ -515,7 +523,7 @@ class Invocation:
         env: dict[str, str] | None = None,
         path: dict[str, list[Path]] | None = None,
     ) -> None:
-        self.version = version
+        self.tool = tool
         self.execute = execute
         self.args = args or []
         self.workdir = workdir

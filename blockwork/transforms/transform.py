@@ -858,7 +858,7 @@ class ITool(IField):
             # Set the resolved value on the transform
             object.__setattr__(transform, field.name, field_value)
         # Serialise the tool version
-        return SerialInterface.from_interface(field_value.version.version)
+        return SerialInterface.from_interface(field_value.vernum)
 
     def bind(
         self, ctx: Context, container: Container, field: Field[TIField], serial: SerialInterface

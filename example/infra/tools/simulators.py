@@ -26,9 +26,9 @@ class IVerilog(Tool):
     ]
 
     @Tool.installer("IVerilog")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version.replace(".", "_")
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum.replace(".", "_")
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://github.com/steveicarus/iverilog/archive/refs/tags/v{vernum}.tar.gz",
             f"tar -xf v{vernum}.tar.gz",
@@ -41,7 +41,7 @@ class IVerilog(Tool):
             f"rm -rf iverilog-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -73,12 +73,12 @@ class Verilator(Tool):
 
     @Tool.action("Verilator")
     def run(self, ctx: Context, *args: list[str]) -> Invocation:
-        return Invocation(version=self.version, execute="verilator", args=args)
+        return Invocation(version=self, execute="verilator", args=args)
 
     @Tool.installer("Verilator")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://github.com/verilator/verilator/archive/refs/tags/v{vernum}.tar.gz",
             f"tar -xf v{vernum}.tar.gz",
@@ -90,7 +90,7 @@ class Verilator(Tool):
             f"rm -rf verilator-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,

@@ -83,7 +83,7 @@ class ObjStore(Tool, metaclass=Singleton):
             self.store.download_fileobj(self.bucket, path, fh)
 
     @Tool.action("ObjStore")
-    def authenticate(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
+    def authenticate(self, ctx: Context, *args: list[str]) -> Invocation:
         if len(args) == 4:
             ctx.state.objstore.endpoint = args[0]
             ctx.state.objstore.access_key = args[1]
@@ -98,7 +98,7 @@ class ObjStore(Tool, metaclass=Singleton):
         return None
 
     @Tool.action("ObjStore")
-    def lookup(self, ctx: Context, version: Version, path: str) -> Invocation:
+    def lookup(self, ctx: Context, path: str) -> Invocation:
         ObjStore().setup(ctx)
         if lkp := ObjStore().get_info(path):
             logging.info(

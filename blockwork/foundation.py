@@ -78,8 +78,8 @@ class Foundation(Container):
                 self.add_tool(req.tool, readonly=readonly)
         # Register tool and bind in the base folder
         self.__tools[tool.base_id] = tool
-        host_loc = tool_ver.get_host_path(self.context)
-        cntr_loc = tool_ver.get_container_path(self.context)
+        host_loc = tool.get_host_path(self.context)
+        cntr_loc = tool.get_container_path(self.context)
         logging.debug(f"Binding '{host_loc}' to '{cntr_loc}' {readonly=}")
         self.bind(host_loc, cntr_loc, readonly=readonly)
         # Overlay the environment, expanding any paths
@@ -87,7 +87,7 @@ class Foundation(Container):
             env = {}
             for key, value in tool_ver.env.items():
                 if isinstance(value, Path):
-                    env[key] = tool_ver.get_container_path(self.context, value).as_posix()
+                    env[key] = tool.get_container_path(self.context, value).as_posix()
                 else:
                     env[key] = value
             self.overlay_env(env, strict=True)
@@ -95,7 +95,7 @@ class Foundation(Container):
         for key, paths in tool_ver.paths.items():
             for segment in paths:
                 if isinstance(segment, Path):
-                    segment = tool_ver.get_container_path(self.context, segment).as_posix()
+                    segment = tool.get_container_path(self.context, segment).as_posix()
                 self.prepend_env_path(key, segment)
 
     def invoke(self, context: Context, invocation: Invocation, readonly: bool = True) -> int:
@@ -113,7 +113,7 @@ class Foundation(Container):
             self.build()
 
         # Add the tool into the container (also adds dependencies)
-        self.add_tool(invocation.version.tool, readonly=readonly)
+        self.add_tool(invocation.tool, readonly=readonly)
 
         # Bind files and folders to host and remap path args
         args = self.bind_and_map_args(context, args=invocation.args, host_okay=invocation.host)
@@ -121,7 +121,7 @@ class Foundation(Container):
         # Resolve the binary
         command = invocation.execute
         if isinstance(command, Path):
-            command = invocation.version.get_container_path(self.context, command).as_posix()
+            command = invocation.tool.get_container_path(self.context, command).as_posix()
         # Determine and create (if required) the working directory
         c_workdir = invocation.workdir or context.container_root
         try:

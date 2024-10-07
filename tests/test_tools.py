@@ -378,7 +378,7 @@ class TestTools:
             @Tool.action("Widget")
             def do_something(self, ctx: Context, an_arg: str, *args: list[str]) -> Invocation:
                 return Invocation(
-                    version=self.version,
+                    tool=self,
                     execute=Tool.CNTR_ROOT / "bin" / "widget",
                     args=[an_arg],
                     display=True,
@@ -387,7 +387,7 @@ class TestTools:
 
             @Tool.action("Widget", default=True)
             def other_thing(self, ctx: Context, *args: list[str]) -> Invocation:
-                return Invocation(self.version, execute=Tool.CNTR_ROOT / "bin" / "thing")
+                return Invocation(self, execute=Tool.CNTR_ROOT / "bin" / "thing")
 
         # Invoke the 'do_something' action
         act = Widget().get_version("1.1").get_action("do_something")
@@ -395,7 +395,7 @@ class TestTools:
         ivk = act(DummyContext(), "the argument", "ignored")
         assert isinstance(ivk, Invocation)
         # Check attributes of the invocation
-        assert ivk.version is Widget().get_version("1.1")
+        assert ivk.tool.version is Widget().get_version("1.1")
         assert ivk.execute == Tool.CNTR_ROOT / "bin" / "widget"
         assert ivk.args == ["the argument"]
         assert ivk.display
@@ -406,7 +406,7 @@ class TestTools:
         assert callable(act_dft)
         ivk_dft = act_dft(DummyContext(), Widget().get_version("1.1"), "abc", "123")
         assert isinstance(ivk_dft, Invocation)
-        assert ivk_dft.version is Widget().get_version("1.1")
+        assert ivk_dft.tool.version is Widget().get_version("1.1")
         assert ivk_dft.execute == Tool.CNTR_ROOT / "bin" / "thing"
         assert ivk_dft.args == []
         assert not ivk_dft.display
@@ -431,8 +431,8 @@ class TestTools:
                 ]
 
                 @Tool.action("Widget")
-                def default(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-                    return Invocation(version, Tool.CNTR_ROOT / "bin" / "blah")
+                def default(self, ctx: Context, *args: list[str]) -> Invocation:
+                    return Invocation(self, Tool.CNTR_ROOT / "bin" / "blah")
 
         assert str(exc.value) == (
             "Cannot register an action called 'default' to tool 'Widget' as it "
@@ -480,8 +480,8 @@ class TestTools:
             ]
 
             @Tool.action("Widget")
-            def blah(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-                return Invocation(version, Tool.CNTR_ROOT / "bin" / "blah")
+            def blah(self, ctx: Context, *args: list[str]) -> Invocation:
+                return Invocation(self, Tool.CNTR_ROOT / "bin" / "blah")
 
         # Via the tool
         with pytest.raises(ToolActionError):
