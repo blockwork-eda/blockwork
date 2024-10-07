@@ -364,7 +364,8 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
                     f"Could not resolve input host path `{token['host']}` to real path!"
                 ) from e
             if token["cont"] is None:
-                cont_path = ctx.map_to_container(host_path)
+                # Resolve to the container based on the unresolved host path
+                cont_path = ctx.map_to_container(Path(token["host"]))
             else:
                 cont_path = Path(token["cont"])
             readonly = direction.is_input
