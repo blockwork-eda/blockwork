@@ -43,6 +43,9 @@ class TestTransforms:
             i=api.ctx.host_scratch / "_/i",
             o=api.ctx.host_scratch / "_/o",
         )
+        # Create the input
+        t.i.parent.mkdir(parents=True)
+        t.i.touch()
 
         with pytest.raises(ContainerBindError):
             t.run(api.ctx)
