@@ -47,8 +47,7 @@ from ..context import Context
 
 if TYPE_CHECKING:
     from ..context import Context
-    from ..tools import Invocation, Version
-from ..common.complexnamespaces import ReadonlyNamespace
+    from ..tools import Invocation
 
 
 class Medial:
@@ -1115,9 +1114,7 @@ class Transform:
         stop = time.time()
         return TSerialTransformResult(run_time=stop - start)
 
-    def execute(
-        self, ctx: "Context", tools: ReadonlyNamespace["Version"], iface: ReadonlyNamespace[Any], /
-    ) -> Iterable["Invocation"]:
+    def execute(self, ctx: "Context", /) -> Iterable["Invocation"]:
         """
         Execute method to be implemented in subclasses.
         """
