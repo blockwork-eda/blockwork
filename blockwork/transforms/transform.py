@@ -369,9 +369,12 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
             else:
                 cont_path = Path(token["cont"])
             readonly = direction.is_input
-            if token["is_dir"]:
+            if token["is_dir"] or host_path.name != cont_path.name:
+                # If last path component differs for files, we need to bind file
+                # directly as we can't bind directory and get file within it
                 container.bind(host_path, cont_path, readonly=readonly, mkdir=True)
             else:
+                # Otherwise bind the directory above for efficiency
                 container.bind(host_path.parent, cont_path.parent, readonly=readonly, mkdir=True)
         else:
             if token["cont"] is None:
