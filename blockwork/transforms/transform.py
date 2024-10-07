@@ -354,7 +354,15 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
     ):
         "Resolve a path against a container, binding value as required"
         if token["host"] is not None:
-            host_path = Path(token["host"])
+            # Resolve symlinks in the host path as we can bind the linked path
+            # directly. For inputs this must succeed.
+            try:
+                host_path = Path(token["host"]).resolve(strict=direction.is_input)
+            except (FileNotFoundError, RuntimeError) as e:
+                # Note runtime error is raised for looped symlinks
+                raise ValueError(
+                    f"Could not resolve input host path `{token['host']}` to real path!"
+                ) from e
             if token["cont"] is None:
                 cont_path = ctx.map_to_container(host_path)
             else:
