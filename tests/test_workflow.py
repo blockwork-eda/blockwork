@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from pathlib import Path
+from types import SimpleNamespace
 from typing import ClassVar
 
 import pytest
@@ -106,7 +107,7 @@ def match_results(results, run, stored, fetched, skipped):
 class TestWorkFlowDeps:
     class DummyTransform(Transform):
         def run(self, *args, **kwargs):
-            return {"run_time": 1}
+            return SimpleNamespace(run_time=1, exit_code=0)
 
     class TFAutoA(DummyTransform):
         test_ip: Path = Transform.IN()

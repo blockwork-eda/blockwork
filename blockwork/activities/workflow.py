@@ -53,5 +53,5 @@ def wf_step(ctx: Context, spec_path: Path):
     # duration = stop - start
     # Whether a cache is in place
     is_caching = Cache.enabled(ctx)
-    if is_caching and Cache.store_transform_to_any(ctx, tf, result["run_time"]):
+    if is_caching and Cache.store_transform_to_any(ctx, tf, result.run_time):
         logging.info("Stored transform to cache: %s", tf)

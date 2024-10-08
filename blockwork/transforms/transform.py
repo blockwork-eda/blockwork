@@ -17,8 +17,8 @@ import hashlib
 import importlib
 import json
 import time
-from collections.abc import Callable, Iterable, Sequence
-from dataclasses import Field, dataclass, fields
+from collections.abc import Callable, Generator, Iterable, Sequence
+from dataclasses import Field, dataclass, field, fields
 from dataclasses import field as dc_field
 from enum import Enum, auto
 from functools import reduce
@@ -961,8 +961,27 @@ class TSerialTransform(TypedDict):
     ifaces: dict[str, TISerialAny]
 
 
-class TSerialTransformResult(TypedDict):
+@dataclass(frozen=True, kw_only=True)
+class Result:
+    exit_code: int | None
     run_time: float
+    ident: str
+    _accepted: bool = field(init=False, default=False, compare=False, repr=False, hash=False)
+
+    def resolve(self):
+        "Resolve this result, raising an error if it has not been accepted"
+        if self._accepted or self.exit_code == 0:
+            return
+        self.reject(f"exit_code was `{self.exit_code}`")
+
+    def reject(self, details: str = "result was rejected"):
+        "Reject this result, raising an error"
+        raise RuntimeError(f"{self.ident} failed: {details}")
+
+    def accept(self):
+        "Mark this result as accepted"
+        object.__setattr__(self, "_accepted", True)
+        return True
 
 
 @dataclass_transform(kw_only_default=True, frozen_default=True, field_specifiers=(IN, OUT, TOOL))
@@ -1012,14 +1031,17 @@ class Transform:
         object.__setattr__(self, "_serial_interfaces", {})
         # Wrapped here since if they are overriden they still
         # must be cached.
-        for field in fields(cast(Any, self)):
-            if not isinstance(field.default, IField):
+        for tf_field in fields(cast(Any, self)):
+            if not isinstance(tf_field.default, IField):
                 raise ValueError(
                     "All transform interfaces must be specified with a direction"
                     ", e.g. `myinput: Path = Transform.IN()`"
                 )
-            ifield = field.default
-            self._serial_interfaces[field.name] = (ifield.direction, ifield.resolve(self, field))
+            ifield = tf_field.default
+            self._serial_interfaces[tf_field.name] = (
+                ifield.direction,
+                ifield.resolve(self, tf_field),
+            )
 
     def serialize(self) -> TSerialTransform:
         return {
@@ -1062,22 +1084,22 @@ class Transform:
         tf = cls.__new__(cls)
 
         object.__setattr__(tf, "_serial_interfaces", {})
-        for field in fields(cast(Any, tf)):
-            if not isinstance(field.default, IField):
+        for tf_field in fields(cast(Any, tf)):
+            if not isinstance(tf_field.default, IField):
                 raise ValueError(
                     "All transform interfaces must be specified with a direction"
                     ", e.g. `myinput: Path = Transform.IN()`"
                 )
-            ifield = field.default
-            tf._serial_interfaces[field.name] = (
+            ifield = tf_field.default
+            tf._serial_interfaces[tf_field.name] = (
                 ifield.direction,
-                SerialInterface(spec["ifaces"][field.name]),
+                SerialInterface(spec["ifaces"][tf_field.name]),
             )
         return tf
 
-    def run(self, ctx: "Context") -> TSerialTransformResult:
+    def run(self, ctx: "Context") -> Result:
         """Run the transform in a container."""
-        start = time.time()
+        tf_start = time.time()
 
         # Create  a container
         # Note need to do this import here to avoid circular import
@@ -1090,15 +1112,15 @@ class Transform:
 
         # Cast to Any to satisfy type checkers as the base Transform class will
         # not be a dataclass, but subclasses will.
-        for field in fields(cast(Any, self)):
-            if not isinstance(field.default, IField):
+        for tf_field in fields(cast(Any, self)):
+            if not isinstance(tf_field.default, IField):
                 raise ValueError(
                     "All transform interfaces must be specified with a direction"
                     ", e.g. `myinput: Path = Transform.IN()`"
                 )
-            ifield = field.default
-            _direction, serial = self._serial_interfaces[field.name]
-            interface_values[field.name] = ifield.bind(ctx, container, field, serial)
+            ifield = tf_field.default
+            _direction, serial = self._serial_interfaces[tf_field.name]
+            interface_values[tf_field.name] = ifield.bind(ctx, container, tf_field, serial)
 
         # Construct transform instance
         cls = type(self)
@@ -1106,15 +1128,33 @@ class Transform:
         object.__setattr__(tf, "_tf_execute_proxy", True)
         tf.__init__(**interface_values)
 
-        for invocation in tf.execute(ctx):
-            if exit_code := container.invoke(ctx, invocation) != 0:
-                raise RuntimeError(
-                    f"Invocation `{invocation}` failed with exit code `{exit_code}`."
+        invocation_iter = tf.execute(ctx)
+        exit_code = None
+        result = None
+        try:
+            # Get the first
+            invocation = next(invocation_iter)
+            while True:
+                # Invoke and create result object
+                ivk_start = time.time()
+                exit_code = container.invoke(ctx, invocation)
+                ivk_stop = time.time()
+                result = Result(
+                    exit_code=exit_code, run_time=(ivk_stop - ivk_start), ident=str(invocation)
                 )
-        stop = time.time()
-        return TSerialTransformResult(run_time=stop - start)
+                # Pass the result object back
+                invocation = invocation_iter.send(result)
+                # Resolve the result before handling next invocation
+                result.resolve()
+        except StopIteration:
+            # Resolve last iteration if it stopped on send
+            if result:
+                result.resolve()
+        tf_stop = time.time()
+        # Return a result object with the final exit_code and total run_time
+        return Result(exit_code=exit_code, run_time=(tf_stop - tf_start), ident=str(tf))
 
-    def execute(self, ctx: "Context", /) -> Iterable["Invocation"]:
+    def execute(self, ctx: "Context", /) -> Generator["Invocation", Result, None]:
         """
         Execute method to be implemented in subclasses.
         """
