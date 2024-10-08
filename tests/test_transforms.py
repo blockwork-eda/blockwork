@@ -218,49 +218,49 @@ class TestTransforms:
         assert (tf.to.base / "p0").read_text() == text
 
     class TFDefaultBadExit(Transform):
-        tools = (tools.Bash,)
+        bash: tools.Bash = Transform.TOOL()
 
-        def execute(self, ctx, tools):
-            yield tools.bash.get_action("script")(ctx, "exit 1")
+        def execute(self, ctx):
+            yield self.bash.script(ctx, "exit 1")
 
     class TFDefaultGoodExit(Transform):
-        tools = (tools.Bash,)
+        bash: tools.Bash = Transform.TOOL()
 
-        def execute(self, ctx, tools):
-            yield tools.bash.get_action("script")(ctx, "exit 0")
+        def execute(self, ctx):
+            yield self.bash.script(ctx, "exit 0")
 
     class TFAcceptBadExit(Transform):
-        tools = (tools.Bash,)
+        bash: tools.Bash = Transform.TOOL()
 
-        def execute(self, ctx, tools):
-            result = yield tools.bash.get_action("script")(ctx, "exit 1")
+        def execute(self, ctx):
+            result = yield self.bash.script(ctx, "exit 1")
             if result.exit_code == 1:
                 result.accept()
 
     class TFRejectBadExit(Transform):
-        tools = (tools.Bash,)
+        bash: tools.Bash = Transform.TOOL()
 
-        def execute(self, ctx, tools):
-            result = yield tools.bash.get_action("script")(ctx, "exit 1")
+        def execute(self, ctx):
+            result = yield self.bash.script(ctx, "exit 1")
             if result.exit_code == 1:
                 result.reject()
 
     class TFAcceptExitAndContinue(Transform):
-        tools = (tools.Bash,)
+        bash: tools.Bash = Transform.TOOL()
 
-        def execute(self, ctx, tools):
-            r1 = yield tools.bash.get_action("script")(ctx, "exit 1")
+        def execute(self, ctx):
+            r1 = yield self.bash.script(ctx, "exit 1")
             if r1.exit_code == 1 and r1.accept():
-                yield tools.bash.get_action("script")(ctx, "exit 0")
+                yield self.bash.script(ctx, "exit 0")
 
     class TFRetryAndContinue(Transform):
-        tools = (tools.Bash,)
+        bash: tools.Bash = Transform.TOOL()
         retries: int = Transform.IN()
 
-        def execute(self, ctx, tools):
+        def execute(self, ctx):
             retries_left = self.retries
             while retries_left > 0:
-                result = yield tools.bash.get_action("script")(ctx, "exit 1")
+                result = yield self.bash.script(ctx, "exit 1")
                 result.accept()
                 if result.exit_code == 0:
                     break
