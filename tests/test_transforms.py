@@ -216,3 +216,74 @@ class TestTransforms:
         tf = self.TFComplexOut(frm=text)
         tf.run(api.ctx)
         assert (tf.to.base / "p0").read_text() == text
+
+    class TFDefaultBadExit(Transform):
+        tools = (tools.Bash,)
+
+        def execute(self, ctx, tools):
+            yield tools.bash.get_action("script")(ctx, "exit 1")
+
+    class TFDefaultGoodExit(Transform):
+        tools = (tools.Bash,)
+
+        def execute(self, ctx, tools):
+            yield tools.bash.get_action("script")(ctx, "exit 0")
+
+    class TFAcceptBadExit(Transform):
+        tools = (tools.Bash,)
+
+        def execute(self, ctx, tools):
+            result = yield tools.bash.get_action("script")(ctx, "exit 1")
+            if result.exit_code == 1:
+                result.accept()
+
+    class TFRejectBadExit(Transform):
+        tools = (tools.Bash,)
+
+        def execute(self, ctx, tools):
+            result = yield tools.bash.get_action("script")(ctx, "exit 1")
+            if result.exit_code == 1:
+                result.reject()
+
+    class TFAcceptExitAndContinue(Transform):
+        tools = (tools.Bash,)
+
+        def execute(self, ctx, tools):
+            r1 = yield tools.bash.get_action("script")(ctx, "exit 1")
+            if r1.exit_code == 1 and r1.accept():
+                yield tools.bash.get_action("script")(ctx, "exit 0")
+
+    class TFRetryAndContinue(Transform):
+        tools = (tools.Bash,)
+        retries: int = Transform.IN()
+
+        def execute(self, ctx, tools):
+            retries_left = self.retries
+            while retries_left > 0:
+                result = yield tools.bash.get_action("script")(ctx, "exit 1")
+                result.accept()
+                if result.exit_code == 0:
+                    break
+                retries_left -= 1
+                if retries_left == 0:
+                    result.reject(f"Retried {self.retries - retries_left} times")
+
+    def test_exits(self, api: ConfigApi):
+        "Test various exit modes"
+        tf = self.TFDefaultBadExit()
+        with pytest.raises(RuntimeError):
+            tf.run(api.ctx)
+
+        tf = self.TFDefaultGoodExit()
+        tf.run(api.ctx)
+
+        tf = self.TFAcceptBadExit()
+        tf.run(api.ctx)
+
+        with pytest.raises(RuntimeError):
+            tf = self.TFRejectBadExit()
+            tf.run(api.ctx)
+
+        with pytest.raises(RuntimeError, match="Retried 5 times"):
+            tf = self.TFRetryAndContinue(retries=5)
+            tf.run(api.ctx)

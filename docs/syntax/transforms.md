@@ -19,7 +19,10 @@ class Copy(Transform):
 
     def execute(self, ctx, tools):
         copy = tools.bash.get_action("cp")
-        yield copy(ctx, frm=self.frm, to=self.to)
+        result = yield copy(ctx, frm=self.frm, to=self.to)
+        # Below optional if expecting exit code zero
+        if result.exit_code == 1:
+            result.accept()
 ```
 
 The first thing to note is that all transforms must inherit from the Transform
@@ -68,11 +71,14 @@ copy = tools.bash.get_action("cp")
 > Retrieves an action named `cp` from the bash tool
 
 ```python
-yield copy(ctx, frm=iface.frm, to=iface.to)
+result = yield copy(ctx, frm=iface.frm, to=iface.to)
 ```
 
 > Reads the values from the `frm` and `to` interfaces, and passes them through
-> to the copy action. Actions must be yielded in order to run.
+> to the copy action. Actions must be yielded in order to run. The result value
+> can be inspected and accepted or rejected. An exit_code of zero is accepted by
+> default.
+
 
 ## Basic Use
 
