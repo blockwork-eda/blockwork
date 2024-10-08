@@ -332,12 +332,12 @@ class TestWorkFlowDeps:
         )
 
     class TFCp(Transform):
+        bash: tools.Bash = Transform.TOOL()
         file: Path = Transform.IN()
         result: Path = Transform.OUT()
-        tools = (tools.Bash,)
 
-        def execute(self, ctx, tools) -> Iterable[Invocation]:
-            yield tools.bash.get_action("cp")(ctx, frm=self.file, to=self.result)
+        def execute(self, ctx) -> Iterable[Invocation]:
+            yield self.bash.cp(ctx, frm=self.file, to=self.result)
 
     def test_multistep(self, api: ConfigApi):
         "Test chain of transforms with multiple steps"

@@ -20,10 +20,8 @@ from ..tools.simulators import Verilator
 
 
 class VerilatorLintTransform(Transform):
-    tools = (Verilator,)
+    verilator: Verilator = Transform.TOOL()
     design: DesignInterface = Transform.IN()
 
-    def execute(self, ctx, tools):
-        yield tools.verilator.get_action("run")(
-            ctx, "--lint-only", "-Wall", *self.design["sources"]
-        )
+    def execute(self, ctx):
+        yield self.verilator.run(ctx, "--lint-only", "-Wall", *self.design["sources"])

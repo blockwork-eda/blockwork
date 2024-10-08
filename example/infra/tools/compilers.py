@@ -20,9 +20,9 @@ class GCC(Tool):
     ]
 
     @Tool.installer("GCC")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://mirrorservice.org/sites/sourceware.org/pub/gcc/releases/gcc-{vernum}/gcc-{vernum}.tar.gz",
             f"tar -xf gcc-{vernum}.tar.gz",
@@ -39,7 +39,7 @@ class GCC(Tool):
             f"rm -rf objdir gcc-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -60,9 +60,9 @@ class M4(Tool):
     ]
 
     @Tool.installer("M4")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://ftp.gnu.org/gnu/m4/m4-{vernum}.tar.gz",
             f"tar -xf m4-{vernum}.tar.gz",
@@ -74,7 +74,7 @@ class M4(Tool):
             f"rm -rf m4-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -99,9 +99,9 @@ class Flex(Tool):
     ]
 
     @Tool.installer("Flex")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://github.com/westes/flex/releases/download/v{vernum}/flex-{vernum}.tar.gz",
             f"tar -xf flex-{vernum}.tar.gz",
@@ -113,7 +113,7 @@ class Flex(Tool):
             f"rm -rf flex-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -136,9 +136,9 @@ class Bison(Tool):
     ]
 
     @Tool.installer("Bison")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://ftp.gnu.org/gnu/bison/bison-{vernum}.tar.gz",
             f"tar -xf bison-{vernum}.tar.gz",
@@ -150,7 +150,7 @@ class Bison(Tool):
             f"rm -rf bison-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -170,9 +170,9 @@ class Autoconf(Tool):
     ]
 
     @Tool.installer("Autoconf")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://ftp.gnu.org/gnu/autoconf/autoconf-{vernum}.tar.gz",
             f"tar -xf autoconf-{vernum}.tar.gz",
@@ -184,7 +184,7 @@ class Autoconf(Tool):
             f"rm -rf autoconf-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -204,17 +204,17 @@ class CMake(Tool):
     ]
 
     @Tool.installer("CMake")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
         arch_str = ["x86_64", "aarch64"][ctx.host_architecture is HostArchitecture.ARM]
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://github.com/Kitware/CMake/releases/download/v{vernum}/cmake-{vernum}-linux-{arch_str}.sh",
             f"bash ./cmake-{vernum}-linux-{arch_str}.sh"
             " --prefix={tool_dir.as_posix()} --skip-license",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -240,9 +240,9 @@ class CCache(Tool):
     ]
 
     @Tool.installer("CCache")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://github.com/ccache/ccache/releases/download/v{vernum}/ccache-{vernum}.tar.gz",
             f"tar -xf ccache-{vernum}.tar.gz",
@@ -256,7 +256,7 @@ class CCache(Tool):
             f"rm -rf ccache-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -276,9 +276,9 @@ class Help2Man(Tool):
     ]
 
     @Tool.installer("Help2Man")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet http://mirror.koddos.net/gnu/help2man/help2man-{vernum}.tar.xz",
             f"tar -xf help2man-{vernum}.tar.xz",
@@ -290,7 +290,7 @@ class Help2Man(Tool):
             f"rm -rf help2man-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -310,9 +310,9 @@ class GPerf(Tool):
     ]
 
     @Tool.installer("GPerf")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet http://ftp.gnu.org/pub/gnu/gperf/gperf-{vernum}.tar.gz",
             f"tar -xf gperf-{vernum}.tar.gz",
@@ -324,7 +324,7 @@ class GPerf(Tool):
             f"rm -rf gperf-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -344,9 +344,9 @@ class Automake(Tool):
     ]
 
     @Tool.installer("Automake")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://ftp.gnu.org/gnu/automake/automake-{vernum}.tar.gz",
             f"tar -xf automake-{vernum}.tar.gz",
@@ -358,7 +358,7 @@ class Automake(Tool):
             f"rm -rf automake-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -378,9 +378,9 @@ class PkgConfig(Tool):
     ]
 
     @Tool.installer("PkgConfig")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget https://pkgconfig.freedesktop.org/releases/pkg-config-{vernum}.tar.gz",
             f"tar -xf pkg-config-{vernum}.tar.gz",
@@ -392,7 +392,7 @@ class PkgConfig(Tool):
             f"rm -rf pkg-config-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            version=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,

@@ -18,7 +18,7 @@ import click
 from click.core import Command, Option
 
 from ..foundation import Foundation
-from ..tools import Tool, ToolMode, Version
+from ..tools import Tool, ToolMode
 
 
 class BwExecCommand(Command):
@@ -89,31 +89,27 @@ class BwExecCommand(Command):
         return vendor, name, (version or None)
 
     @staticmethod
-    def set_tool_versions(tools: list[str]) -> None:
-        for vendor, name, version in map(BwExecCommand.decode_tool, tools):
-            if version is not None:
-                Tool.select_version(vendor, name, version)
-
-    @staticmethod
     def bind_tools(
         container: Foundation, no_tools: bool, tools: list[str], tool_mode: ToolMode
     ) -> None:
         readonly = tool_mode == ToolMode.READONLY
+        specified_tools = set()
+
         # If tools are provided, process them for default version overrides
-        BwExecCommand.set_tool_versions(tools)
-        # If auto-binding is disabled, only bind specified tools
-        if no_tools:
-            for vendor, name, version in map(BwExecCommand.decode_tool, tools):
-                matched: Version = Tool.get(vendor, name, version or None)
-                if not matched:
-                    raise Exception(f"Failed to identify tool '{vendor}:{name}={version}'")
-                logging.info(
-                    f"Binding tool {matched.tool.name} from {matched.tool.vendor} "
-                    f"version {matched.version} into shell"
-                )
-                container.add_tool(matched, readonly=readonly)
-        # Otherwise, bind all default tool versions
-        else:
+        for vendor, name, version in map(BwExecCommand.decode_tool, tools):
+            matched: Tool = Tool.get(vendor, name, version or None)
+            if not matched:
+                raise Exception(f"Failed to identify tool '{vendor}:{name}={version}'")
+            logging.info(
+                f"Binding tool {matched.tool.name} from {matched.tool.vendor} "
+                f"version {matched.version} into shell"
+            )
+            container.add_tool(matched, readonly=readonly)
+            specified_tools.add(matched.base_id)
+
+        # If auto-binding allowed bind default versions of remaining tools
+        if not no_tools:
             logging.info("Binding all tools into shell")
             for tool in Tool.get_all().values():
-                container.add_tool(tool, readonly=readonly)
+                if tool.base_id not in specified_tools:
+                    container.add_tool(tool, readonly=readonly)

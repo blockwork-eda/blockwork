@@ -16,21 +16,19 @@ from pathlib import Path
 
 from infra.tools.misc import PythonSite
 
-from blockwork.common.complexnamespaces import ReadonlyNamespace
 from blockwork.context import Context
-from blockwork.tools import Tool, Version
 from blockwork.transforms import Transform
 
 
 class CapturedTransform(Transform):
     "Transform with stdout captured to a file interface"
 
-    tools: tuple[Tool, ...] = (PythonSite,)
+    pythonsite: PythonSite = Transform.TOOL()
     output: Path = Transform.OUT(init=True, default=...)
 
-    def execute(self, ctx: Context, tools: ReadonlyNamespace[Version]):
+    def execute(self, ctx: Context):
         output = ctx.map_to_host(self.output)
         with output.open(mode="w", encoding="utf-8") as stdout:
-            inv = tools.pythonsite.get_action("run")(ctx, "-c", "print('hello interface')")
+            inv = self.pythonsite.run(ctx, "-c", "print('hello interface')")
             inv.stdout = stdout
             yield inv

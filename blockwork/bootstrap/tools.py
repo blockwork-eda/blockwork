@@ -30,7 +30,7 @@ def install_tools(context: Context, last_run: datetime) -> bool:
     Run the install action for all known tools
     """
     # Get instances of all of the tools and select the default version
-    all_tools = {x().default for x in Tool.get_all().values()}
+    all_tools = {x.default for x in Tool.get_all().values()}
 
     # Order by requirements
     resolved = []
@@ -51,7 +51,7 @@ def install_tools(context: Context, last_run: datetime) -> bool:
     for idx, tool in enumerate(resolved):
         tool_id = " ".join(tool.id_tuple)
         tool_file = Path(inspect.getfile(type(tool.tool)))
-        host_loc = tool.get_host_path(context, absolute=False)
+        host_loc = tool.tool.get_host_path(context, absolute=False)
         # Ensure the parent of the tool's folder exists
         host_loc.parent.mkdir(exist_ok=True, parents=True)
         # Select a touch file location, this is used to determine if the tool

@@ -47,8 +47,7 @@ from ..context import Context
 
 if TYPE_CHECKING:
     from ..context import Context
-    from ..tools import Invocation, Tool, Version
-from ..common.complexnamespaces import ReadonlyNamespace
+    from ..tools import Invocation
 
 
 class Medial:
@@ -829,6 +828,45 @@ class IField(Generic[TIField]):
 
         return SerialInterface.from_interface(interface_value)
 
+    def bind(
+        self, ctx: Context, container: Container, field: Field[TIField], serial: SerialInterface
+    ):
+        "Bind a field value to the container and return the resolved value"
+        return serial.resolve(ctx, container, self.direction)
+
+
+class ITool(IField):
+    "The dataclass-like field type for tools"
+
+    def __init__(
+        self,
+        *,
+        init: bool = False,
+        version: str | None = None,
+    ):
+        self.init = init
+        self.version = version
+        self.direction = Direction.INPUT
+
+    def resolve(self, transform: "Transform", field: Field[TIField]):
+        field_value = getattr(transform, field.name)
+        if field_value is self:
+            # Value not specified in constructor
+            # Create from version
+            field_value = field.type(self.version)
+            # Set the resolved value on the transform
+            object.__setattr__(transform, field.name, field_value)
+        # Serialise the tool version
+        return SerialInterface.from_interface(field_value.vernum)
+
+    def bind(
+        self, ctx: Context, container: Container, field: Field[TIField], serial: SerialInterface
+    ):
+        # Bind tool to container and return
+        tool = field.type(serial.resolve(ctx, container, self.direction))
+        container.add_tool(tool)
+        return tool
+
 
 def IN(  # noqa: N802
     *,
@@ -896,6 +934,27 @@ def OUT(  # noqa: N802
     )
 
 
+def TOOL(  # noqa: N802
+    *,
+    init=False,
+    version: str | None = None,
+) -> TIField:
+    """
+    Marks a transform field as a tool input.
+
+    :param init: Whether this field should be set in the constructor. \
+                 There is no foreseen reason to set this to True.
+    :param version: The version to use, uses default if not specified.
+    """
+    return cast(
+        TIField,
+        ITool(
+            init=init,
+            version=version,
+        ),
+    )
+
+
 class TSerialTransform(TypedDict):
     mod: str
     name: str
@@ -925,28 +984,26 @@ class Result:
         return True
 
 
-@dataclass_transform(kw_only_default=True, frozen_default=True, field_specifiers=(IN, OUT))
+@dataclass_transform(kw_only_default=True, frozen_default=True, field_specifiers=(IN, OUT, TOOL))
 class Transform:
     """
     Base class for Transforms. Transforms are specified using dataclass
     syntax as follows::
 
         class Copy(Transform):
-            tools = (Bash,)
+            bash: Bash = Transform.TOOL()
             frm: Path = Transform.IN()
             to: Path = Transform.OUT()
 
-            def execute(self, ctx, tools):
-                yield tools.bash.get_action("cp")(ctx, frm=self.frm, to=self.to)
+            def execute(self, ctx):
+                yield self.bash.cp(ctx, frm=self.frm, to=self.to)
 
     """
 
     # Shortcuts to the field direction specifiers
     IN = IN
     OUT = OUT
-
-    tools: tuple[type["Tool"], ...] = ()
-    "Tools which are required for this transform"
+    TOOL = TOOL
 
     _serial_interfaces: dict[str, tuple[Direction, SerialInterface]]
     "The internal representation of interfaces"
@@ -976,8 +1033,6 @@ class Transform:
         # must be cached.
         for tf_field in fields(cast(Any, self)):
             if not isinstance(tf_field.default, IField):
-                if tf_field.name == "tools":
-                    continue
                 raise ValueError(
                     "All transform interfaces must be specified with a direction"
                     ", e.g. `myinput: Path = Transform.IN()`"
@@ -1031,8 +1086,6 @@ class Transform:
         object.__setattr__(tf, "_serial_interfaces", {})
         for tf_field in fields(cast(Any, tf)):
             if not isinstance(tf_field.default, IField):
-                if tf_field.name == "tools":
-                    continue
                 raise ValueError(
                     "All transform interfaces must be specified with a direction"
                     ", e.g. `myinput: Path = Transform.IN()`"
@@ -1054,13 +1107,6 @@ class Transform:
 
         container = Foundation(ctx)
 
-        # Bind tools to container
-        tool_instances: dict[str, Version] = {}
-        for tool_def in self.tools:
-            tool = tool_def()
-            tool_instances[tool.name] = tool.default
-            container.add_tool(tool)
-
         # Bind interfaces to container
         interface_values: dict[str, Any] = {}
 
@@ -1068,16 +1114,13 @@ class Transform:
         # not be a dataclass, but subclasses will.
         for tf_field in fields(cast(Any, self)):
             if not isinstance(tf_field.default, IField):
-                if tf_field.name == "tools":
-                    continue
                 raise ValueError(
                     "All transform interfaces must be specified with a direction"
                     ", e.g. `myinput: Path = Transform.IN()`"
                 )
-            direction, serial = self._serial_interfaces[tf_field.name]
-            interface_values[tf_field.name] = serial.resolve(ctx, container, direction)
-
-        tools = ReadonlyNamespace(**tool_instances)
+            ifield = tf_field.default
+            _direction, serial = self._serial_interfaces[tf_field.name]
+            interface_values[tf_field.name] = ifield.bind(ctx, container, tf_field, serial)
 
         # Construct transform instance
         cls = type(self)
@@ -1085,7 +1128,7 @@ class Transform:
         object.__setattr__(tf, "_tf_execute_proxy", True)
         tf.__init__(**interface_values)
 
-        invocation_iter = tf.execute(ctx, tools)
+        invocation_iter = tf.execute(ctx)
         exit_code = None
         result = None
         try:
@@ -1111,9 +1154,7 @@ class Transform:
         # Return a result object with the final exit_code and total run_time
         return Result(exit_code=exit_code, run_time=(tf_stop - tf_start), ident=str(tf))
 
-    def execute(
-        self, ctx: "Context", tools: ReadonlyNamespace["Version"], /
-    ) -> Generator["Invocation", Result, None]:
+    def execute(self, ctx: "Context", /) -> Generator["Invocation", Result, None]:
         """
         Execute method to be implemented in subclasses.
         """

@@ -184,12 +184,11 @@ class GTKWave(Tool):
     @Tool.action("GTKWave", default=True)
     def view(self,
              ctx      : Context
-             version  : Version,
              wavefile : str,
              *args    : List[str]) -> Invocation:
         path = Path(wavefile).absolute()
         return Invocation(
-            version = version,
+            tool    = self,
             execute = Tool.CNTR_ROOT / "src" / "gtkwave",
             args    = [path, *args],
             display = True,
@@ -259,9 +258,9 @@ class Python(Tool):
     ]
 
     @Tool.installer("Python")
-    def install(self, context : Context, version : Version, *args : List[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(TOOL_ROOT)
+    def install(self, context : Context, *args : List[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(TOOL_ROOT)
         script = [
             f"wget --quiet https://www.python.org/ftp/python/{vernum}/Python-{vernum}.tgz",
             f"tar -xf Python-{vernum}.tgz",
@@ -274,7 +273,7 @@ class Python(Tool):
             f"rm -rf Python-{vernum} ./*.tgz*"
         ]
         return Invocation(
-            version = version,
+            tool    = self,
             execute = "bash",
             args    = ["-c", " && ".join(script)],
             workdir = tool_dir
