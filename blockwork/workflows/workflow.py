@@ -353,9 +353,7 @@ class Workflow:
                     logging.info("Running transform: %s", transform)
                     result = transform.run(ctx)
                     run_transforms.add(transform)
-                    if is_caching and Cache.store_transform_to_any(
-                        ctx, transform, result["run_time"]
-                    ):
+                    if is_caching and Cache.store_transform_to_any(ctx, transform, result.run_time):
                         stored_transforms.add(transform)
                         logging.info("Stored transform to cache: %s", transform)
 
