@@ -903,7 +903,7 @@ class TSerialTransform(TypedDict):
 
 
 @dataclass(frozen=True, kw_only=True)
-class TransformResult:
+class Result:
     exit_code: int | None
     run_time: float
     ident: str
@@ -1044,7 +1044,7 @@ class Transform:
             )
         return tf
 
-    def run(self, ctx: "Context") -> TransformResult:
+    def run(self, ctx: "Context") -> Result:
         """Run the transform in a container."""
         tf_start = time.time()
 
@@ -1096,7 +1096,7 @@ class Transform:
                 ivk_start = time.time()
                 exit_code = container.invoke(ctx, invocation)
                 ivk_stop = time.time()
-                result = TransformResult(
+                result = Result(
                     exit_code=exit_code, run_time=(ivk_stop - ivk_start), ident=str(invocation)
                 )
                 # Pass the result object back
@@ -1109,11 +1109,11 @@ class Transform:
                 result.resolve()
         tf_stop = time.time()
         # Return a result object with the final exit_code and total run_time
-        return TransformResult(exit_code=exit_code, run_time=(tf_stop - tf_start), ident=str(tf))
+        return Result(exit_code=exit_code, run_time=(tf_stop - tf_start), ident=str(tf))
 
     def execute(
         self, ctx: "Context", tools: ReadonlyNamespace["Version"], /
-    ) -> Generator["Invocation", TransformResult, None]:
+    ) -> Generator["Invocation", Result, None]:
         """
         Execute method to be implemented in subclasses.
         """
