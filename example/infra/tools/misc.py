@@ -22,7 +22,7 @@ class Python(Tool):
         ),
     ]
 
-    @Tool.installer("Python")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
@@ -61,11 +61,11 @@ class PythonSite(Tool):
         ),
     ]
 
-    @Tool.action("PythonSite")
+    @Tool.action()
     def run(self, ctx: Context, *args: list[str]) -> Invocation:
         return Invocation(tool=self, execute="python3", args=args)
 
-    @Tool.installer("PythonSite")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         return Invocation(
             tool=self,
@@ -94,11 +94,11 @@ class Make(Tool):
         ),
     ]
 
-    @Tool.action("Make", default=True)
+    @Tool.action(default=True)
     def run(self, ctx: Context, *args: list[str]) -> Invocation:
         return Invocation(tool=self, execute="make", args=args)
 
-    @Tool.installer("Make")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)

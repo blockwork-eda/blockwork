@@ -25,6 +25,7 @@ from ..common.registry import RegisteredClass
 from ..context import Context
 
 _TDefault = TypeVar("_TDefault")
+_TWrap = TypeVar("_TWrap")
 
 
 class ToolMode(StrEnum):
@@ -143,6 +144,11 @@ class Version:
                 raise e from None
 
 
+TOOL_ACTION_MARK = "_BW_ACTION"
+TOOL_ACTION_DEFAULT_MARK = "_BW_ACTION_DEFAULT"
+TOOL_ACTION_INSTALL_MARK = "_BW_ACTION_INSTALL"
+
+
 class Tool(RegisteredClass):
     """Base class for tools"""
 
@@ -169,7 +175,7 @@ class Tool(RegisteredClass):
 
     @classmethod
     @functools.lru_cache
-    def _validate(cls) -> None:
+    def _finalise(cls) -> None:
         cls.vendor = getattr(cls, "vendor", Tool.NO_VENDOR).strip()
         cls.versions = getattr(cls, "versions", [])
         cls.name = cls.__name__.lower()
@@ -178,6 +184,25 @@ class Tool(RegisteredClass):
             cls.base_id = cls.name
         else:
             cls.base_id = f"{cls.vendor}_{cls.name}"
+        # Register tool actions
+        for key, value in cls.__dict__.items():
+            if getattr(value, TOOL_ACTION_MARK, False):
+                if key in cls.RESERVED:
+                    raise ToolError(
+                        f"Cannot register an action called '{key}' to "
+                        f"tool '{cls.name}' as it is a reserved name"
+                    )
+                if getattr(value, TOOL_ACTION_INSTALL_MARK, False):
+                    cls.__register_action(name="installer", default=False, method=value)
+                else:
+                    cls.__register_action(
+                        name=key,
+                        default=getattr(value, TOOL_ACTION_DEFAULT_MARK, False),
+                        method=value,
+                    )
+        # Validate vendor and versions
+        cls.vendor = cls.vendor.strip() if isinstance(cls.vendor, str) else Tool.NO_VENDOR
+        cls.versions = cls.versions or []
         if not isinstance(cls.versions, list | tuple):
             raise ToolError(f"Versions of tool {cls.name} must be a list or a tuple")
         if not all(isinstance(x, Version) for x in cls.versions):
@@ -218,7 +243,7 @@ class Tool(RegisteredClass):
     def __init_subclass__(cls, *args, **kwargs):
         super().__init_subclass__(*args, **kwargs)
         # Validate cls properties on class creation
-        cls._validate()
+        cls._finalise()
         return super().__init_subclass__()
 
     def __init__(self, version: str | None = None) -> None:
@@ -254,71 +279,53 @@ class Tool(RegisteredClass):
         return default
 
     @classmethod
-    def action(cls, tool_name: str, name: str | None = None, default: bool = False) -> Callable:
+    def action(cls, default: bool = False) -> _TWrap:
         """
         Decorator to mark a Tool method as an action, which can be called either
         by other tools or from the command line.
 
-        :param tool_name:   Name of the tool, which should match the class name
-                            of the tool. This must be provided as an argument as
-                            unbound methods do not have a relationship to their
-                            parent.
-        :param name:        Optional name of the action, if not provided then
-                            the name of the function will be used
         :param default:     Whether to also associate this as the default action
                             for the tool
         """
 
-        def _inner(method: Callable) -> Callable:
-            nonlocal name
-            name = name or method.__name__
-            # Check that the name is not reserved
-            if name.lower() in cls.RESERVED:
-                raise ToolError(
-                    f"Cannot register an action called '{name}' to "
-                    f"tool '{tool_name}' as it is a reserved name"
-                )
-            # Register the action
-            cls.__register_action(tool_name, name, default, method)
-            # Return the unaltered method
+        # TYPING
+        def _inner(method: _TWrap) -> _TWrap:
+            # Annotate the method
+            setattr(method, TOOL_ACTION_MARK, True)
+            setattr(method, TOOL_ACTION_DEFAULT_MARK, default)
+            # Return the method
             return method
 
         return _inner
 
     @classmethod
-    def installer(cls, tool_name: str) -> Callable:
+    def installer(cls) -> _TWrap:
         """
         Special decorator to mark an action that installs the tool by downloading
         it from a central store.
-
-        :param tool_name:   Name of the tool, which should match the class name
-                            of the tool. This must be provided as an argument as
-                            unbound methods do not have a relationship to their
-                            parent.
         """
 
-        def _inner(method: Callable) -> Callable:
-            # Register method with a fixed name of 'installer' (reserved)
-            cls.__register_action(tool_name, "installer", False, method)
-            # Return the unaltered method
+        def _inner(method: _TWrap) -> _TWrap:
+            # Annotate the method
+            setattr(method, TOOL_ACTION_MARK, True)
+            setattr(method, TOOL_ACTION_INSTALL_MARK, True)
+            # Return the method
             return method
 
         return _inner
 
     @classmethod
-    def __register_action(cls, tool_name: str, name: str, default: bool, method: Callable):
+    def __register_action(cls, name: str, default: bool, method: Callable):
         """
         Register a provided method as a tool action with a given name, optionally
         marking it as the 'default'.
 
-        :param tool_name:   Name of the tool, which should match the class name
-                            of the tool
         :param name:        Name of the action
         :param default:     Whether to also associate this as the default action
                             for the tool
         :param method:      The method implementing the action
         """
-        tool_name = tool_name.lower()
+        tool_name = cls.name.lower()
         name = name.lower()
         # Raise an error if the name clashes
         if name in cls.ACTIONS[tool_name]:
@@ -329,7 +336,7 @@ class Tool(RegisteredClass):
         cls.ACTIONS[tool_name][name] = method
         # If marked as default, call recursively
         if default:
-            cls.__register_action(tool_name, "default", False, method)
+            cls.__register_action("default", False, method)
 
     def get_action(self, name: str) -> Callable:
         """

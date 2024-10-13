@@ -375,7 +375,7 @@ class TestTools:
                 )
             ]
 
-            @Tool.action("Widget")
+            @Tool.action()
             def do_something(self, ctx: Context, an_arg: str, *args: list[str]) -> Invocation:
                 return Invocation(
                     tool=self,
@@ -385,7 +385,7 @@ class TestTools:
                     binds=[Path("/a/b/c")],
                 )
 
-            @Tool.action("Widget", default=True)
+            @Tool.action(default=True)
             def other_thing(self, ctx: Context, *args: list[str]) -> Invocation:
                 return Invocation(self, execute=Tool.CNTR_ROOT / "bin" / "thing")
 
@@ -421,7 +421,7 @@ class TestTools:
 
             class Widget(Tool):
                 vendor = "company"
-                version: ClassVar[list[Version]] = [
+                versions: ClassVar[list[Version]] = [
                     Version(
                         location=tool_loc,
                         version="1.1",
@@ -430,12 +430,12 @@ class TestTools:
                     )
                 ]
 
-                @Tool.action("Widget")
+                @Tool.action()
                 def default(self, ctx: Context, *args: list[str]) -> Invocation:
                     return Invocation(self, Tool.CNTR_ROOT / "bin" / "blah")
 
         assert str(exc.value) == (
-            "Cannot register an action called 'default' to tool 'Widget' as it "
+            "Cannot register an action called 'default' to tool 'widget' as it "
             "is a reserved name"
         )
 
@@ -479,7 +479,7 @@ class TestTools:
                 )
             ]
 
-            @Tool.action("Widget")
+            @Tool.action()
             def blah(self, ctx: Context, *args: list[str]) -> Invocation:
                 return Invocation(self, Tool.CNTR_ROOT / "bin" / "blah")
 

@@ -1,13 +1,13 @@
 As many tools and versions may be declared, the syntax needs to be concise. There
 are three requirements:
 
- 1. The binaries, libraries, and supporting files that form the tool need to be
+1.  The binaries, libraries, and supporting files that form the tool need to be
     bound into the container instance;
 
- 2. Some environment variables may need to be setup to modify the execution
+2.  Some environment variables may need to be setup to modify the execution
     behaviour (e.g. `VERILATOR_ROOT`);
 
- 3. Path-type environment variables need to be extended to include the tool's
+3.  Path-type environment variables need to be extended to include the tool's
     binary and library directories (e.g. `PATH` for binaries and
     `LD_LIBRARY_PATH` for shared object libraries).
 
@@ -31,27 +31,27 @@ class Verilator(Tool):
 
 Working through this example:
 
- * `@Tool.register()` - associates the tool description with Blockwork's internal
-   registry, allowing it to be used in a flow;
+- `@Tool.register()` - associates the tool description with Blockwork's internal
+  registry, allowing it to be used in a flow;
 
- * `class Verilator(Tool):` - extends from the `Tool` base class and defines the
-   name associated with this definition (e.g. `Verilator`);
+- `class Verilator(Tool):` - extends from the `Tool` base class and defines the
+  name associated with this definition (e.g. `Verilator`);
 
- * `versions` - defines different named versions of a tool;
+- `versions` - defines different named versions of a tool;
 
- * Each version is defined by an instance of `Version` where:
+- Each version is defined by an instance of `Version` where:
 
-   * `location` - identifies the path on the **host** where the tool is installed,
-     this path can use the `Tool.HOST_ROOT` variable that will be resolved to a
-     complete path using the value specified in the [configuration](../config/bw_yaml.md);
+  - `location` - identifies the path on the **host** where the tool is installed,
+    this path can use the `Tool.HOST_ROOT` variable that will be resolved to a
+    complete path using the value specified in the [configuration](../config/bw_yaml.md);
 
-   * `version` - sets the version number for the tool, this is to make it distinct
-     from other declarations;
+  - `version` - sets the version number for the tool, this is to make it distinct
+    from other declarations;
 
-   * `env` - dictionary of variables to append into the container's shell environment;
+  - `env` - dictionary of variables to append into the container's shell environment;
 
-   * `paths` - dictionary of lists, where each list entry is a section to append to
-     a `$PATH`-type variable within the container's shell environment.
+  - `paths` - dictionary of lists, where each list entry is a section to append to
+    a `$PATH`-type variable within the container's shell environment.
 
 !!!note
 
@@ -152,9 +152,9 @@ class PythonSite(Tool):
 
 The `Require` class takes two arguments:
 
- * `tool` - which must carry a `Tool` definition;
- * `version` - which can either be omitted (implicitly selecting the default
-   version) or can be a string identifying a version number.
+- `tool` - which must carry a `Tool` definition;
+- `version` - which can either be omitted (implicitly selecting the default
+  version) or can be a string identifying a version number.
 
 ## Actions and Invocations
 
@@ -181,7 +181,7 @@ class GTKWave(Tool):
                 paths    = { "PATH": [Tool.CNTR_ROOT / "src"] }),
     ]
 
-    @Tool.action("GTKWave", default=True)
+    @Tool.action(default=True)
     def view(self,
              ctx      : Context
              wavefile : str,
@@ -233,7 +233,7 @@ is okay, but `/home/fred/outside.vcd` is not.
 
 ## Installers
 
-Blockwork provides a special `@Tool.installer(...)` decorator for registering a
+Blockwork provides a special `@Tool.installer()` decorator for registering a
 specific action for installing a tool's binaries/libraries in some way. How a
 tool is installed (i.e. by downloading or compiling) is up to the action to
 determine.
@@ -257,7 +257,7 @@ class Python(Tool):
                              "LD_LIBRARY_PATH": [Tool.CNTR_ROOT / "lib"] })
     ]
 
-    @Tool.installer("Python")
+    @Tool.installer()
     def install(self, context : Context, *args : List[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(TOOL_ROOT)

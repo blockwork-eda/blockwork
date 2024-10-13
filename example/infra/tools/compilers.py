@@ -19,7 +19,7 @@ class GCC(Tool):
         ),
     ]
 
-    @Tool.installer("GCC")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
@@ -59,7 +59,7 @@ class M4(Tool):
         ),
     ]
 
-    @Tool.installer("M4")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
@@ -98,7 +98,7 @@ class Flex(Tool):
         ),
     ]
 
-    @Tool.installer("Flex")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
@@ -135,7 +135,7 @@ class Bison(Tool):
         ),
     ]
 
-    @Tool.installer("Bison")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
@@ -169,7 +169,7 @@ class Autoconf(Tool):
         ),
     ]
 
-    @Tool.installer("Autoconf")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
@@ -203,7 +203,7 @@ class CMake(Tool):
         ),
     ]
 
-    @Tool.installer("CMake")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         arch_str = ["x86_64", "aarch64"][ctx.host_architecture is HostArchitecture.ARM]
@@ -239,7 +239,7 @@ class CCache(Tool):
         ),
     ]
 
-    @Tool.installer("CCache")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
@@ -275,7 +275,7 @@ class Help2Man(Tool):
         ),
     ]
 
-    @Tool.installer("Help2Man")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
@@ -309,7 +309,7 @@ class GPerf(Tool):
         ),
     ]
 
-    @Tool.installer("GPerf")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
@@ -343,7 +343,7 @@ class Automake(Tool):
         ),
     ]
 
-    @Tool.installer("Automake")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
@@ -377,7 +377,7 @@ class PkgConfig(Tool):
         ),
     ]
 
-    @Tool.installer("PkgConfig")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
