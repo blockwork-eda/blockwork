@@ -23,9 +23,9 @@ class Python(Tool):
     ]
 
     @Tool.installer("Python")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://www.python.org/ftp/python/{vernum}/Python-{vernum}.tgz",
             f"tar -xf Python-{vernum}.tgz",
@@ -38,7 +38,7 @@ class Python(Tool):
             f"rm -rf Python-{vernum} ./*.tgz*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,
@@ -62,13 +62,13 @@ class PythonSite(Tool):
     ]
 
     @Tool.action("PythonSite")
-    def run(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        return Invocation(version=version, execute="python3", args=args)
+    def run(self, ctx: Context, *args: list[str]) -> Invocation:
+        return Invocation(tool=self, execute="python3", args=args)
 
     @Tool.installer("PythonSite")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
         return Invocation(
-            version=version,
+            tool=self,
             execute="python3",
             args=[
                 "-m",
@@ -95,13 +95,13 @@ class Make(Tool):
     ]
 
     @Tool.action("Make", default=True)
-    def run(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        return Invocation(version=version, execute="make", args=args)
+    def run(self, ctx: Context, *args: list[str]) -> Invocation:
+        return Invocation(tool=self, execute="make", args=args)
 
     @Tool.installer("Make")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://ftp.gnu.org/gnu/make/make-{vernum}.tar.gz",
             f"tar -xf make-{vernum}.tar.gz",
@@ -113,7 +113,7 @@ class Make(Tool):
             f"rm -rf make-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,

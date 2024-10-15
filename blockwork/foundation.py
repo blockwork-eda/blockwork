@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .containers import Container
 from .context import Context, ContextContainerPathError
-from .tools import Invocation, Tool, Version
+from .tools import Invocation, Tool
 
 cntr_dir = Path(__file__).absolute().parent / "containerfiles"
 
@@ -37,7 +37,7 @@ class Foundation(Container):
             workdir=context.container_root,
             **kwargs,
         )
-        self.__tools = {}
+        self.__tools: dict[str, Tool] = {}
         self.bind(self.context.host_scratch, self.context.container_scratch)
         # Ensure various standard $PATHs are present
         self.append_env_path("PATH", "/usr/local/sbin")
@@ -55,38 +55,31 @@ class Foundation(Container):
     def add_input(self, path: Path, name: str | None = None) -> None:
         self.bind_readonly(path, Path("/input") / (name or path.name))
 
-    def add_tool(self, tool: type[Tool] | Tool | Version, readonly: bool = True) -> None:
+    def add_tool(self, tool: type[Tool] | Tool, readonly: bool = True) -> None:
         # If class has been provided, create an instance
-        if not isinstance(tool, Tool | Version):
+        if not isinstance(tool, Tool):
             if not issubclass(tool, Tool):
                 raise Foundation("Tool definitions must inherit from the Tool class")
             tool = tool()
-        # Grab the default
-        tool_ver = tool if isinstance(tool, Version) else tool.default
-        tool = tool_ver.tool
+        tool_ver = tool.version
         # Check tool is not already registered
         if tool.base_id in self.__tools:
-            if self.__tools[tool.base_id] is tool_ver:
+            if self.__tools[tool.base_id].version is tool_ver:
                 return
             raise FoundationError(f"Tool already registered for ID '{tool.base_id}'")
         # Load any requirements
         for req in tool_ver.requires:
-            req_ver = req.tool().get_version(req.version)
-            if req_ver is None:
-                raise FoundationError(
-                    f"Could not resolve version {req.version} for {req.tool.base_id}"
-                )
-            elif req.tool.base_id in self.__tools:
-                if (rv := req_ver.version) != (xv := self.__tools[req.base_id].version):
+            if req.tool.base_id in self.__tools:
+                if (rv := req.tool.version) != (xv := self.__tools[req.tool.base_id].version):
                     raise FoundationError(
                         f"Version clash for tool '{req.tool.base_id}': {rv} != {xv}"
                     )
             else:
-                self.add_tool(req_ver, readonly=readonly)
+                self.add_tool(req.tool, readonly=readonly)
         # Register tool and bind in the base folder
-        self.__tools[tool.base_id] = tool_ver
-        host_loc = tool_ver.get_host_path(self.context)
-        cntr_loc = tool_ver.get_container_path(self.context)
+        self.__tools[tool.base_id] = tool
+        host_loc = tool.get_host_path(self.context)
+        cntr_loc = tool.get_container_path(self.context)
         logging.debug(f"Binding '{host_loc}' to '{cntr_loc}' {readonly=}")
         self.bind(host_loc, cntr_loc, readonly=readonly)
         # Overlay the environment, expanding any paths
@@ -94,7 +87,7 @@ class Foundation(Container):
             env = {}
             for key, value in tool_ver.env.items():
                 if isinstance(value, Path):
-                    env[key] = tool_ver.get_container_path(self.context, value).as_posix()
+                    env[key] = tool.get_container_path(self.context, value).as_posix()
                 else:
                     env[key] = value
             self.overlay_env(env, strict=True)
@@ -102,7 +95,7 @@ class Foundation(Container):
         for key, paths in tool_ver.paths.items():
             for segment in paths:
                 if isinstance(segment, Path):
-                    segment = tool_ver.get_container_path(self.context, segment).as_posix()
+                    segment = tool.get_container_path(self.context, segment).as_posix()
                 self.prepend_env_path(key, segment)
 
     def invoke(self, context: Context, invocation: Invocation, readonly: bool = True) -> int:
@@ -120,7 +113,7 @@ class Foundation(Container):
             self.build()
 
         # Add the tool into the container (also adds dependencies)
-        self.add_tool(invocation.version, readonly=readonly)
+        self.add_tool(invocation.tool, readonly=readonly)
 
         # Bind files and folders to host and remap path args
         args = self.bind_and_map_args(context, args=invocation.args, host_okay=invocation.host)
@@ -128,7 +121,7 @@ class Foundation(Container):
         # Resolve the binary
         command = invocation.execute
         if isinstance(command, Path):
-            command = invocation.version.get_container_path(self.context, command).as_posix()
+            command = invocation.tool.get_container_path(self.context, command).as_posix()
         # Determine and create (if required) the working directory
         c_workdir = invocation.workdir or context.container_root
         try:

@@ -24,10 +24,10 @@ class GTKWave(Tool):
     ]
 
     @Tool.action("GTKWave", default=True)
-    def view(self, ctx: Context, version: Version, wavefile: str, *args: list[str]) -> Invocation:
+    def view(self, ctx: Context, wavefile: str, *args: list[str]) -> Invocation:
         path = Path(wavefile).absolute()
         return Invocation(
-            version=version,
+            tool=self,
             execute="gtkwave",
             args=[path, *args],
             display=True,
@@ -35,18 +35,18 @@ class GTKWave(Tool):
         )
 
     @Tool.action("GTKWave")
-    def version(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
+    def gtk_version(self, ctx: Context, *args: list[str]) -> Invocation:
         return Invocation(
-            version=version,
+            tool=self,
             execute="gtkwave",
             args=["--version", *args],
             display=True,
         )
 
     @Tool.installer("GTKWave")
-    def install(self, ctx: Context, version: Version, *args: list[str]) -> Invocation:
-        vernum = version.version
-        tool_dir = Path("/tools") / version.location.relative_to(Tool.HOST_ROOT)
+    def install(self, ctx: Context, *args: list[str]) -> Invocation:
+        vernum = self.vernum
+        tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
         script = [
             f"wget --quiet https://github.com/gtkwave/gtkwave/archive/refs/tags/v{vernum}.tar.gz",
             f"tar -xf v{vernum}.tar.gz",
@@ -58,7 +58,7 @@ class GTKWave(Tool):
             f"rm -rf gtkwave-{vernum} ./*.tar.*",
         ]
         return Invocation(
-            version=version,
+            tool=self,
             execute="bash",
             args=["-c", " && ".join(script)],
             workdir=tool_dir,

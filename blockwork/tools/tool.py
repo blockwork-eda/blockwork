@@ -19,11 +19,12 @@ from collections.abc import Callable, Iterable, Sequence
 from contextlib import contextmanager
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Any, ClassVar, TextIO, Union
+from typing import Any, ClassVar, NoReturn, TextIO, TypeVar, Union
 
 from ..common.registry import RegisteredClass
-from ..common.singleton import Singleton
 from ..context import Context
+
+_TDefault = TypeVar("_TDefault")
 
 
 class ToolMode(StrEnum):
@@ -42,19 +43,18 @@ class ToolActionError(ToolError):
 class Require:
     """Forms a requirement on another tool and version"""
 
-    def __init__(self, tool: "Tool", version: str | None = None) -> None:
-        self.tool = tool
+    def __init__(self, tool: type["Tool"], version: str | None = None) -> None:
+        self.tool_cls = tool
         self.version = version
         if not inspect.isclass(tool) or not issubclass(tool, Tool):
             raise ToolError("Requirement tool must be of type Tool")
         if (self.version is not None) and not isinstance(self.version, str):
             raise ToolError("Requirement version must be None or a string")
 
-    def resolve(self) -> "Version":
-        if self.version:
-            return self.tool().get_version(self.version)
-        else:
-            return self.tool().default
+    @property
+    @functools.lru_cache  # noqa B019
+    def tool(self) -> "Tool":
+        return self.tool_cls(self.version)
 
 
 class Version:
@@ -75,7 +75,7 @@ class Version:
         self.paths = paths or {}
         self.requires = requires
         self.default = default
-        self.tool: "Tool" | None = None
+        self.tool_cls: type["Tool"] | None = None
         # Sanitise arguments
         self.requires = self.requires or []
         self.paths = self.paths or {}
@@ -100,7 +100,12 @@ class Version:
     @property
     @functools.lru_cache  # noqa: B019
     def id_tuple(self) -> str:
-        return (*self.tool.base_id_tuple, self.version)
+        return (*self.tool_cls.base_id_tuple, self.version)
+
+    @property
+    @functools.lru_cache  # noqa: B019
+    def tool(self) -> "Tool":
+        return self.tool_cls(self.version)
 
     @property
     @functools.lru_cache  # noqa: B019
@@ -113,33 +118,20 @@ class Version:
 
     @functools.lru_cache  # noqa: B019
     def resolve_requirements(self) -> set["Version"]:
-        return {x.resolve() for x in self.requires}
+        return {x.tool.version for x in self.requires}
 
     @property
     def path_chunk(self) -> Path:
-        if self.tool.vendor is not Tool.NO_VENDOR:
-            return Path(self.tool.vendor.lower()) / self.tool.name / self.version
+        if self.tool_cls.vendor is not Tool.NO_VENDOR:
+            return Path(self.tool_cls.vendor.lower()) / self.tool_cls.name / self.version
         else:
-            return Path(self.tool.name) / self.version
+            return Path(self.tool_cls.name) / self.version
 
     def get_action(self, name: str) -> Callable:
-        action = self.tool.get_action(name)
-
-        # Return a wrapper that inserts the active version
-        def _wrap(context, *args, **kwargs):
-            return action(context, self, *args, **kwargs)
-
-        return _wrap
+        return self.tool.get_action(name)
 
     def get_installer(self) -> Callable | None:
-        if (action := self.tool.get_installer()) is None:
-            return None
-
-        # Return a wrapper that inserts the active version
-        def _wrap(context, *args, **kwargs):
-            return action(context, self, *args, **kwargs)
-
-        return _wrap
+        return self.tool.get_installer()
 
     def __getattribute__(self, name: str) -> Any:
         try:
@@ -150,63 +142,8 @@ class Version:
             except ToolActionError:
                 raise e from None
 
-    def get_host_path(self, ctx: Context, absolute: bool = True) -> Path:
-        """
-        Expand the location to get the full path to the tool on the host system.
-        Substitutes Tool.HOST_ROOT for the 'host_tools' path from Context.
 
-        :param ctx:      Context object
-        :param absolute: When enabled this will flatten symlinks in the hierarchy
-        :returns:        Resolved path
-        """
-        if self.location.is_relative_to(Tool.HOST_ROOT):
-            path = ctx.host_tools / self.location.relative_to(Tool.HOST_ROOT)
-        else:
-            path = self.location
-        return path.absolute() if absolute else path
-
-    def get_container_path(self, ctx: Context, path: Path | None = None) -> Path:
-        """
-        Expand the location to get the full path to the tool within the contained
-        environment, substituting Tool.CNTR_ROOT for the 'container_tools' path
-        from Context.
-
-        :param ctx:  Context object
-        :param path: When provided, this path is resolved relative to the tool's
-                     root (if defined using Tool.CNTR_ROOT)
-        :returns:    Resolved path
-        """
-        base = ctx.container_tools / self.path_chunk
-        if path:
-            if path.is_relative_to(Tool.CNTR_ROOT):
-                return base / path.relative_to(Tool.CNTR_ROOT)
-            else:
-                return path
-        else:
-            return base
-
-    def as_interface(self, ctx: Context):
-        from ..transforms import EnvPolicy, IEnv, IPath
-
-        def normalise(value):
-            if isinstance(value, Path):
-                if value.is_relative_to(Tool.CNTR_ROOT) or value.is_relative_to(Tool.HOST_ROOT):
-                    value = value.relative_to(Tool.CNTR_ROOT)
-                    value = IPath(
-                        self.get_host_path(ctx) / value, self.get_container_path(ctx) / value
-                    )
-            return value
-
-        env = []
-        for key, value in self.env.items():
-            env.append(IEnv(key, normalise(value), policy=EnvPolicy.CONFLICT))
-        for key, values in self.paths.items():
-            env.append(IEnv(key, list(map(normalise, values)), policy=EnvPolicy.PREPEND))
-
-        return {"env": env, "root": IPath(self.get_host_path(ctx), self.get_container_path(ctx))}
-
-
-class Tool(RegisteredClass, metaclass=Singleton):
+class Tool(RegisteredClass):
     """Base class for tools"""
 
     # Tool root locator
@@ -224,82 +161,97 @@ class Tool(RegisteredClass, metaclass=Singleton):
     RESERVED = ("installer", "default")
 
     # Placeholders
-    vendor: str | None = None
-    versions: Sequence[Version] | None = None
+    vendor: str
+    versions: Sequence[Version]
+    name: str
+    base_id_tuple: tuple[str, str]
+    base_id: str
 
-    def __init__(self) -> None:
-        self.vendor = self.vendor.strip() if isinstance(self.vendor, str) else Tool.NO_VENDOR
-        self.versions = self.versions or []
-        if not isinstance(self.versions, list | tuple):
-            raise ToolError(f"Versions of tool {self.name} must be a list or a tuple")
-        if not all(isinstance(x, Version) for x in self.versions):
-            raise ToolError(f"Versions of tool {self.name} must be a list of Version objects")
+    @classmethod
+    @functools.lru_cache
+    def _validate(cls) -> None:
+        cls.vendor = getattr(cls, "vendor", Tool.NO_VENDOR).strip()
+        cls.versions = getattr(cls, "versions", [])
+        cls.name = cls.__name__.lower()
+        cls.base_id_tuple = (cls.vendor.lower(), cls.name)
+        if cls.vendor.casefold() == Tool.NO_VENDOR.casefold():
+            cls.base_id = cls.name
+        else:
+            cls.base_id = f"{cls.vendor}_{cls.name}"
+        if not isinstance(cls.versions, list | tuple):
+            raise ToolError(f"Versions of tool {cls.name} must be a list or a tuple")
+        if not all(isinstance(x, Version) for x in cls.versions):
+            raise ToolError(f"Versions of tool {cls.name} must be a list of Version objects")
         # If only one version is defined, make that the default
-        if len(self.versions) == 1:
-            self.versions[0].default = True
-            self.versions[0].tool = self
-            self.default = self.versions[0]
+        if len(cls.versions) == 1:
+            cls.versions[0].default = True
+            cls.versions[0].tool_cls = cls
+            cls.default = cls.versions[0]
         else:
             # Check for collisions between versions and multiple defaults
             default_version = None
             version_nums = []
-            for version in self.versions:
-                version.tool = self
+            for version in cls.versions:
+                version.tool_cls = cls
                 # Check for multiple defaults
                 if version.default:
                     if default_version is not None:
                         raise ToolError(
-                            f"Multiple versions marked default for tool {self.name} "
-                            f"from vendor {self.vendor}"
+                            f"Multiple versions marked default for tool {cls.name} "
+                            f"from vendor {cls.vendor}"
                         )
                     default_version = version
                 # Check for repeated version numbers
                 if version.version in version_nums:
                     raise ToolError(
                         f"Duplicate version {version.version} for tool "
-                        f"{self.name} from vendor {self.vendor}"
+                        f"{cls.name} from vendor {cls.vendor}"
                     )
                 version_nums.append(version.version)
             # Check the default has been identified
             if default_version is None:
                 raise ToolError(
-                    f"No version of tool {self.name} from vendor "
-                    f"{self.vendor} marked as default"
+                    f"No version of tool {cls.name} from vendor " f"{cls.vendor} marked as default"
                 )
-            self.default = default_version
+            cls.default = default_version
+
+    def __init_subclass__(cls, *args, **kwargs):
+        super().__init_subclass__(*args, **kwargs)
+        # Validate cls properties on class creation
+        cls._validate()
+        return super().__init_subclass__()
+
+    def __init__(self, version: str | None = None) -> None:
+        self.version = self.get_version(version, self.default)
 
     def __iter__(self) -> Iterable[Version]:
         yield from self.versions
 
     @property
-    @functools.lru_cache  # noqa: B019
-    def name(self) -> str:
-        return type(self).__name__.lower()
+    def vernum(self) -> str:
+        return self.version.version
 
     @property
-    @functools.lru_cache  # noqa: B019
-    def base_id_tuple(self) -> str:
-        return (self.vendor.lower(), self.name)
+    def location(self) -> Path:
+        return self.version.location
 
-    @property
-    @functools.lru_cache  # noqa: B019
-    def base_id(self) -> str:
-        vend, name = self.base_id_tuple
-        if vend.casefold() == Tool.NO_VENDOR.casefold():
-            return name
-        else:
-            return "_".join((vend, name))
-
-    @functools.lru_cache  # noqa: B019
-    def get_version(self, version: str) -> Version:
+    @classmethod
+    @functools.lru_cache
+    def get_version(cls, version: str | None, default: _TDefault = NoReturn) -> Version | _TDefault:
         """
         Retrieve a specific version of a tool from the version name.
 
         :param version: Version name
         :returns:       Matching Version instance, or None if it doesn't exist
         """
-        match = [x for x in self.versions if x.version == version]
-        return match[0] if match else None
+        if version is None:
+            return cls.default
+        match = [x for x in cls.versions if x.version == version]
+        if match:
+            return match[0]
+        if default is NoReturn:
+            raise KeyError(f"Invalid version `{version}` for tool `{cls.name}`")
+        return default
 
     @classmethod
     def action(cls, tool_name: str, name: str | None = None, default: bool = False) -> Callable:
@@ -404,6 +356,69 @@ class Tool(RegisteredClass, metaclass=Singleton):
 
         return _wrap
 
+    def get_installer(self):
+        """
+        Return the installer registered for this tool if it exists.
+
+        :returns:       The instance wrapped decorated method if known, else excepts
+        """
+        return self.get_action("installer")
+
+    def get_host_path(self, ctx: Context, absolute: bool = True) -> Path:
+        """
+        Expand the location to get the full path to the tool on the host system.
+        Substitutes Tool.HOST_ROOT for the 'host_tools' path from Context.
+
+        :param ctx:      Context object
+        :param absolute: When enabled this will flatten symlinks in the hierarchy
+        :returns:        Resolved path
+        """
+        if self.location.is_relative_to(Tool.HOST_ROOT):
+            path = ctx.host_tools / self.location.relative_to(Tool.HOST_ROOT)
+        else:
+            path = self.location
+        return path.absolute() if absolute else path
+
+    def get_container_path(self, ctx: Context, path: Path | None = None) -> Path:
+        """
+        Expand the location to get the full path to the tool within the contained
+        environment, substituting Tool.CNTR_ROOT for the 'container_tools' path
+        from Context.
+
+        :param ctx:  Context object
+        :param path: When provided, this path is resolved relative to the tool's
+                     root (if defined using Tool.CNTR_ROOT)
+        :returns:    Resolved path
+        """
+        base = ctx.container_tools / self.version.path_chunk
+        if path:
+            if path.is_relative_to(Tool.CNTR_ROOT):
+                return base / path.relative_to(Tool.CNTR_ROOT)
+            else:
+                return path
+        else:
+            return base
+
+    def as_interface(self, ctx: Context):
+        from ..transforms import EnvPolicy, IEnv, IPath
+
+        def normalise(value):
+            if isinstance(value, Path):
+                if value.is_relative_to(Tool.CNTR_ROOT) or value.is_relative_to(Tool.HOST_ROOT):
+                    value = value.relative_to(Tool.CNTR_ROOT)
+                    value = IPath(
+                        self.get_host_path(ctx) / value, self.get_container_path(ctx) / value
+                    )
+            return value
+
+        env = []
+        for key, value in self.version.env.items():
+            env.append(IEnv(key, normalise(value), policy=EnvPolicy.CONFLICT))
+        for key, values in self.version.paths.items():
+            env.append(IEnv(key, list(map(normalise, values)), policy=EnvPolicy.PREPEND))
+
+        return {"env": env, "root": IPath(self.get_host_path(ctx), self.get_container_path(ctx))}
+
     # ==========================================================================
     # Registry Handling
     # ==========================================================================
@@ -423,7 +438,7 @@ class Tool(RegisteredClass, metaclass=Singleton):
         vend_or_name: str,
         name: str | None = None,
         version: str | None = None,
-    ) -> Union["Version", None]:
+    ) -> Union["Tool", None]:
         """
         Retrieve a tool registered for a given vendor, name, and version. If only a
         name is given, then NO_VENDOR is assumed for the vendor field. If no version
@@ -439,52 +454,21 @@ class Tool(RegisteredClass, metaclass=Singleton):
         tool_def: type[Tool] = cls.get_by_name((vendor, name))
         if not tool_def:
             return None
-        tool = tool_def()
-        if version:
-            return tool.get_version(version)
-        else:
-            return tool.default
-
-    @classmethod
-    def select_version(
-        cls,
-        vend_or_name: str,
-        name: str | None = None,
-        version: str | None = None,
-    ) -> None:
-        """
-        Select a specific version of a tool as the default, overriding whatever
-        default version the tool itself has nominated.
-
-        :param vend_or_name:    Vendor or tool name is no associated vendor
-        :param name:            Name if a vendor is specified
-        :param version:         Version of the tool (required)
-        """
+        version = tool_def.get_version(version, None)
         if version is None:
-            raise ToolError("A version must be provided")
-        vendor = vend_or_name.lower() if name else Tool.NO_VENDOR.lower()
-        name = (name if name else vend_or_name).lower()
-        tool_def: Tool = cls.get_by_name((vendor, name))
-        if not tool_def:
-            raise ToolError(f"No tool known for name '{name}' from vendor '{vendor}'")
-        tool = tool_def()
-        tool.default.default = False
-        tool.default = tool.get_version(version)
-        tool.default.default = True
+            return None
+        return tool_def(version)
 
     @classmethod
     @contextmanager
     def temp_registry(cls):
         "Context managed temporary registry for use in tests"
         with super().temp_registry():
-            instance = Tool.INSTANCES
             actions = Tool.ACTIONS
-            Tool.INSTANCES = {}
             Tool.ACTIONS = defaultdict(dict)
             try:
                 yield None
             finally:
-                Tool.INSTANCES = instance
                 Tool.ACTIONS = actions
 
 
@@ -513,7 +497,7 @@ class Invocation:
 
     def __init__(
         self,
-        version: Version,
+        tool: Tool,
         execute: Path | str,
         args: Sequence[str | Path] | None = None,
         workdir: Path | None = None,
@@ -526,7 +510,7 @@ class Invocation:
         env: dict[str, str] | None = None,
         path: dict[str, list[Path]] | None = None,
     ) -> None:
-        self.version = version
+        self.tool = tool
         self.execute = execute
         self.args = args or []
         self.workdir = workdir
