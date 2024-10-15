@@ -161,14 +161,23 @@ class Tool(RegisteredClass):
     RESERVED = ("installer", "default")
 
     # Placeholders
-    vendor: str | None = None
-    versions: Sequence[Version] | None = None
+    vendor: str
+    versions: Sequence[Version]
+    name: str
+    base_id_tuple: tuple[str, str]
+    base_id: str
 
     @classmethod
     @functools.lru_cache
     def _validate(cls) -> None:
-        cls.vendor = cls.vendor.strip() if isinstance(cls.vendor, str) else Tool.NO_VENDOR
-        cls.versions = cls.versions or []
+        cls.vendor = getattr(cls, "vendor", Tool.NO_VENDOR).strip()
+        cls.versions = getattr(cls, "versions", [])
+        cls.name = cls.__name__.lower()
+        cls.base_id_tuple = (cls.vendor.lower(), cls.name)
+        if cls.vendor.casefold() == Tool.NO_VENDOR.casefold():
+            cls.base_id = cls.name
+        else:
+            cls.base_id = f"{cls.vendor}_{cls.name}"
         if not isinstance(cls.versions, list | tuple):
             raise ToolError(f"Versions of tool {cls.name} must be a list or a tuple")
         if not all(isinstance(x, Version) for x in cls.versions):
@@ -217,28 +226,6 @@ class Tool(RegisteredClass):
 
     def __iter__(self) -> Iterable[Version]:
         yield from self.versions
-
-    @classmethod
-    @property
-    @functools.lru_cache
-    def name(cls) -> str:
-        return cls.__name__.lower()
-
-    @classmethod
-    @property
-    @functools.lru_cache
-    def base_id_tuple(cls) -> str:
-        return (cls.vendor.lower(), cls.name)
-
-    @classmethod
-    @property
-    @functools.lru_cache
-    def base_id(cls) -> str:
-        vend, name = cls.base_id_tuple
-        if vend.casefold() == Tool.NO_VENDOR.casefold():
-            return name
-        else:
-            return "_".join((vend, name))
 
     @property
     def vernum(self) -> str:
