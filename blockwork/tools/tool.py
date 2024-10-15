@@ -279,7 +279,7 @@ class Tool(RegisteredClass):
         return default
 
     @classmethod
-    def action(cls, default: bool = False) -> _TWrap:
+    def action(cls, default: bool = False):
         """
         Decorator to mark a Tool method as an action, which can be called either
         by other tools or from the command line.
@@ -288,7 +288,6 @@ class Tool(RegisteredClass):
                             for the tool
         """
 
-        # TYPING
         def _inner(method: _TWrap) -> _TWrap:
             # Annotate the method
             setattr(method, TOOL_ACTION_MARK, True)
@@ -299,7 +298,7 @@ class Tool(RegisteredClass):
         return _inner
 
     @classmethod
-    def installer(cls) -> _TWrap:
+    def installer(cls):
         """
         Special decorator to mark an action that installs the tool by downloading
         it from a central store.
