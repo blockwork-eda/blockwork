@@ -25,7 +25,7 @@ class IVerilog(Tool):
         ),
     ]
 
-    @Tool.installer("IVerilog")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum.replace(".", "_")
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
@@ -71,11 +71,11 @@ class Verilator(Tool):
         ),
     ]
 
-    @Tool.action("Verilator")
+    @Tool.action()
     def run(self, ctx: Context, *args: list[str]) -> Invocation:
         return Invocation(version=self, execute="verilator", args=args)
 
-    @Tool.installer("Verilator")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)

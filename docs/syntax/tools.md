@@ -181,7 +181,7 @@ class GTKWave(Tool):
                 paths    = { "PATH": [Tool.CNTR_ROOT / "src"] }),
     ]
 
-    @Tool.action("GTKWave", default=True)
+    @Tool.action(default=True)
     def view(self,
              ctx      : Context
              wavefile : str,
@@ -233,7 +233,7 @@ is okay, but `/home/fred/outside.vcd` is not.
 
 ## Installers
 
-Blockwork provides a special `@Tool.installer(...)` decorator for registering a
+Blockwork provides a special `@Tool.installer()` decorator for registering a
 specific action for installing a tool's binaries/libraries in some way. How a
 tool is installed (i.e. by downloading or compiling) is up to the action to
 determine.
@@ -257,7 +257,7 @@ class Python(Tool):
                              "LD_LIBRARY_PATH": [Tool.CNTR_ROOT / "lib"] })
     ]
 
-    @Tool.installer("Python")
+    @Tool.installer()
     def install(self, context : Context, *args : List[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(TOOL_ROOT)

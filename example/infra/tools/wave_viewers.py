@@ -23,7 +23,7 @@ class GTKWave(Tool):
         ),
     ]
 
-    @Tool.action("GTKWave", default=True)
+    @Tool.action(default=True)
     def view(self, ctx: Context, wavefile: str, *args: list[str]) -> Invocation:
         path = Path(wavefile).absolute()
         return Invocation(
@@ -34,7 +34,7 @@ class GTKWave(Tool):
             binds=[path.parent],
         )
 
-    @Tool.action("GTKWave")
+    @Tool.action()
     def gtk_version(self, ctx: Context, *args: list[str]) -> Invocation:
         return Invocation(
             tool=self,
@@ -43,7 +43,7 @@ class GTKWave(Tool):
             display=True,
         )
 
-    @Tool.installer("GTKWave")
+    @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:
         vernum = self.vernum
         tool_dir = Path("/tools") / self.location.relative_to(Tool.HOST_ROOT)
