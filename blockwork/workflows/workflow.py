@@ -376,6 +376,7 @@ class Workflow:
                     tracking=track_dirx,
                     sched_opts={"concurrency": concurrency},
                     glyph="🧱 Blockwork",
+                    hub="0.0.0.0:8080",
                     # TODO @intuity: In the long term a waiver system should be
                     #                introduced to suppress errors if they are
                     #                false, for now just set to a high value
