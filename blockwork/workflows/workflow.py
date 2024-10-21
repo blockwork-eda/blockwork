@@ -300,14 +300,14 @@ class Workflow:
             + (f" with concurrency of {concurrency}" if parallel else "")
         )
 
-        root_group = JobGroup(id="blockwork", cwd=ctx.host_root.as_posix())
+        root_group = JobGroup(ident="blockwork", cwd=ctx.host_root.as_posix())
         idx_group = itertools.count()
         prev_group = None
         while run_scheduler.incomplete:
             # Create group and chain dependency
-            group = JobGroup(id=f"stage_{next(idx_group)}")
+            group = JobGroup(ident=f"stage_{next(idx_group)}")
             if prev_group is not None:
-                group.on_pass.append(prev_group.id)
+                group.on_pass.append(prev_group.ident)
             prev_group = group
             root_group.jobs.append(group)
 
@@ -321,7 +321,7 @@ class Workflow:
                     logging.info(f"Skipped transform (due to cached dependents): {transform}")
                 elif parallel:
                     # Assemble a unique job ID
-                    job_id = f"{group.id}_{idx_job}"
+                    job_id = f"{group.ident}_{idx_job}"
                     # Serialise the transform
                     spec_file = spec_dirx / f"{job_id}.json"
                     logging.debug(
@@ -341,7 +341,7 @@ class Workflow:
                     if DebugScope.current.VERBOSE:
                         args.insert(0, "--verbose")
                     job = Job(
-                        id=f"{group.id}_job_{idx_job}",
+                        ident=f"{group.ident}_job_{idx_job}",
                         cwd=ctx.host_root.as_posix(),
                         command="bw",
                         args=args,
@@ -390,7 +390,7 @@ class Workflow:
                 # Resolve the job
                 for idx, part in enumerate(job_id[1:]):
                     for sub in ptr.jobs:
-                        if sub.id == part:
+                        if sub.ident == part:
                             ptr = sub
                             break
                     else:
