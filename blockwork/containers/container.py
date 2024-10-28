@@ -26,7 +26,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event
 from typing import TextIO
@@ -108,7 +108,8 @@ class Container:
         # Configuration
         type_name = type(self).__name__.lower()
         issued_id = next(Container.LAUNCH_ID)
-        self.__id: str = f"bw_{os.getpid()}_{type_name}_{issued_id}"
+        now = datetime.now(UTC).timestamp()
+        self.__id: str = f"bw_{os.getpid()}_{now}_{type_name}_{issued_id}"
         self.__binds: list[ContainerBind] = []
         self.__environment: dict[str, str] = {}
         if isinstance(environment, dict):
