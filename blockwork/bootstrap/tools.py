@@ -17,6 +17,8 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from ordered_set import OrderedSet as OSet
+
 from ..context import Context
 from ..foundation import Foundation
 from ..tools import Tool, ToolError
@@ -29,8 +31,11 @@ def install_tools(context: Context, last_run: datetime) -> bool:
     """
     Run the install action for all known tools
     """
-    # Get instances of all of the tools and select the default version
-    all_tools = {x.default for x in Tool.get_all().values()}
+    # Get instances of all of the tools and install all specified versions
+    all_tools = OSet([])
+    for tool in Tool.get_all().values():
+        for version in tool.versions:
+            all_tools.add(version)
 
     # Order by requirements
     resolved = []
