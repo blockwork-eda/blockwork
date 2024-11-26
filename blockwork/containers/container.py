@@ -195,13 +195,27 @@ class Container:
                 else:
                     raise ContainerBindError(host, container, readonly, bind)
 
-            # If new bind parent of existing bind, allow if the relationship
-            # between the host and container path is the same
+            # If new bind is subpath of existing bind, allow if we can match
+            # them up.
             if bind.container_path.is_relative_to(container):
                 cont_relative = bind.container_path.relative_to(container)
-                host_relative = bind.host_path.relative_to(host)
-                if not cont_relative == host_relative:
-                    raise ContainerBindError(host, container, readonly, bind)
+
+                # If host path exact match for container subpath, allow
+                if bind.host_path.samefile(host / cont_relative):
+                    if bind.readonly != readonly:
+                        raise ContainerBindError(host, container, readonly, bind)
+
+                # If host path also a subpath and the subpaths are the same
+                # we've already bound in a directory and are now trying to
+                # bind in a subpath, which is safe.
+                elif bind.host_path.is_relative_to(host):
+                    host_relative = bind.host_path.relative_to(host)
+                    # And the subpaths are the same, we've already bound in a
+                    # directory and are now trying to bind in a subpath, which
+                    # can be ignored
+                    if cont_relative != host_relative or bind.readonly != readonly:
+                        raise ContainerBindError(host, container, readonly, bind)
+
         if mkdir and not host.exists():
             host.mkdir(parents=True, exist_ok=True)
         self.__binds.append(ContainerBind(host, container, readonly))
