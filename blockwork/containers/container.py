@@ -38,7 +38,7 @@ from docker.errors import ImageNotFound
 from filelock import FileLock
 
 from ..context import Context, ContextHostPathError
-from .common import forwarding_host, read_stream, write_stream
+from .common import decode_partial_utf8, forwarding_host, read_stream, write_stream
 from .runtime import Runtime
 
 
@@ -564,14 +564,17 @@ class Container:
                     os.system("cls || clear")
             # Otherwise, track the task
             else:
+                partial_bytes = b""
                 for stream, b_line in socket_utils.frames_iter(cntr_sock, tty=False):
-                    line = b_line.decode("utf-8")
+                    line, partial_bytes = decode_partial_utf8(partial_bytes + b_line)
                     if stream == socket_utils.STDOUT:
                         stdout.write(line)
                     elif stream == socket_utils.STDERR:
                         stderr.write(line)
                     else:
                         raise RuntimeError(f"Unexpected stream `{stream}` for line `{line}`")
+                # If there are remaining partial bytes, this will except
+                partial_bytes.decode("utf-8", errors="strict")
                 stdout.flush()
                 stderr.flush()
             # Get the result (carries the status code)
