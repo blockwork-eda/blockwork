@@ -67,6 +67,29 @@ def get_raw_input():
         fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fcntl)
 
 
+def decode_partial_utf8(buffer: bytes, errors: str = "strict") -> tuple[str, bytes]:
+    """
+    Detect if the bytes sequence ends mid-way through a multi-byte unicode
+    character, and if so decode up to that point, returning the decoded
+    unicode string and the remaining undecoded bytes.
+
+    See:
+    https://www.ibm.com/docs/en/db2/11.5?topic=support-unicode-character-encoding#c0004816__utf8utf16
+    """
+    if len(buffer) > 0 and (buffer[-1] & 0b1100_0000) == 0b1100_0000:
+        # Last byte is start of a multi-byte sequence
+        complete, partial = buffer[:-1], buffer[-1:]
+    elif len(buffer) > 1 and ((buffer[-2] & 0b1110_0000) == 0b1110_0000):
+        # Second to last byte is start of a three or four byte sequence
+        complete, partial = buffer[:-2], buffer[-2:]
+    elif len(buffer) > 2 and ((buffer[-3] & 0b1111_0000) == 0b1111_0000):
+        # Third to last byte is start of a four byte sequence
+        complete, partial = buffer[:-3], buffer[-3:]
+    else:
+        complete, partial = buffer, b""
+    return complete.decode("utf-8", errors), partial
+
+
 def read_stream(socket: SocketIO, stdout: TextIO, e_done: Event) -> Thread:
     """Wrapped thread method to capture from the container STDOUT"""
 
@@ -75,18 +98,21 @@ def read_stream(socket: SocketIO, stdout: TextIO, e_done: Event) -> Thread:
             # Move socket into non-blocking mode
             base = fcntl.fcntl(socket, fcntl.F_GETFL)
             fcntl.fcntl(socket, fcntl.F_SETFL, base | os.O_NONBLOCK)
+            # Keep track of partial unicode characters
+            partial_bytes = b""
             # Keep reading until done event set (or we break out)
             while not e_done.is_set():
                 rlist, _, _ = select.select([socket], [], [], 0.1)
                 if rlist:
                     buff = socket.read(1024)
-                    # @edwardk: Not entirely sure why this replace is necessary
-                    # but otherwise we don't get carriage returns
-                    buff = buff.replace(b"\n", b"\r\n")
-                    if len(buff) > 0:
-                        stdout.write(buff.decode("utf-8", errors="backslashreplace"))
+                    string, partial_bytes = decode_partial_utf8(partial_bytes + buff)
+
+                    if len(buff):
+                        stdout.write(string)
                         stdout.flush()
                     else:
+                        # If there are remaining partial bytes, this will except
+                        partial_bytes.decode("utf-8", errors="strict")
                         break
         except BrokenPipeError:
             pass
