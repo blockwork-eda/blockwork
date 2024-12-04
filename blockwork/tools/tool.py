@@ -492,7 +492,6 @@ class Invocation:
     :param workdir:     Working directory within the container
     :param display:     Whether to forward X11 display (forces interactive mode)
     :param interactive: Whether to attach an interactive shell
-    :param host:        Whether to detect and bind host paths
     :param binds:       Paths to bind into the container from the host. Can be
                         provided as a single path in which case the container
                         path will be inferred, or as a tuple of a host path and
@@ -511,7 +510,6 @@ class Invocation:
         interactive: bool = False,
         stdout: TextIO | None = None,
         stderr: TextIO | None = None,
-        host: bool = False,
         binds: Sequence[Path | tuple[Path, Path]] | None = None,
         env: dict[str, str] | None = None,
         path: dict[str, list[Path]] | None = None,
@@ -524,7 +522,6 @@ class Invocation:
         self.interactive = interactive or display
         self.stdout = stdout
         self.stderr = stderr
-        self.host = host
         self.binds = binds or []
         self.env = env or {}
         self.path = path or {}

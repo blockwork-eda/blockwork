@@ -114,9 +114,10 @@ class Foundation(Container):
 
         # Add the tool into the container (also adds dependencies)
         self.add_tool(invocation.tool, readonly=readonly)
+        # Convert remaining paths
+        args = [a.as_posix() if isinstance(a, Path) else a for a in invocation.args]
 
-        # Bind files and folders to host and remap path args
-        args = self.bind_and_map_args(context, args=invocation.args, host_okay=invocation.host)
+        # Bind files and directories
         self.bind_many(context, binds=invocation.binds)
         # Resolve the binary
         command = invocation.execute

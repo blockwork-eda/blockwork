@@ -76,10 +76,9 @@ class PythonSite(Tool):
                 "--no-cache-dir",
                 "install",
                 "-r",
-                ctx.host_root / "infra" / "tools" / "pythonsite.txt",
+                ctx.container_root / "infra" / "tools" / "pythonsite.txt",
             ],
             interactive=True,
-            host=True,
         )
 
 

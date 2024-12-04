@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import sys
+from collections.abc import Sequence
 
 import click
 from rich.console import Console
@@ -75,7 +76,7 @@ def tool(
     version: str | None,
     tool_action: str,
     tool_mode: str,
-    runargs: list[str],
+    runargs: Sequence[str],
 ) -> None:
     """
     Run an action defined by a specific tool. The tool and action is selected by
@@ -96,11 +97,10 @@ def tool(
         raise Exception(f"No action known for '{action}' on tool {tool}") from None
     # Run the action and forward the exit code
     container = Foundation(ctx, hostname=f"{ctx.config.project}_{tool}_{action}")
+    runargs = container.bind_and_map_args(ctx, runargs)
     invocation = act_def(ctx, *runargs)
     # Actions may sometimes return null invocations if they have no work to do
     if invocation is None:
         return
-    # Remap to host
-    invocation = invocation.where(host=True)
     # Launch the invocation
     sys.exit(container.invoke(ctx, invocation, readonly=(ToolMode(tool_mode) == ToolMode.READONLY)))
