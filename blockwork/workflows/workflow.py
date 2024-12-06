@@ -82,8 +82,33 @@ class Workflow:
 
     def __call__(self, fn: Callable[..., Config]) -> Callable[..., None]:
         @click.command()
+        @click.option(
+            "--parallel",
+            "-P",
+            is_flag=True,
+            default=False,
+            help=(
+                "Use Gator to run workflows in parallel, with the maximum number"
+                "of jobs set by the concurrency parameter"
+            ),
+        )
+        @click.option(
+            "--concurrency",
+            "-c",
+            type=int,
+            default=max(1, multiprocessing.cpu_count() // 2),
+            help="Specify the maximum number of jobs allowed to run in parallel",
+        )
+        @click.option(
+            "--hub",
+            type=str,
+            default=None,
+            help="The gator hub url",
+        )
         @click.pass_obj
-        def command(ctx, project=None, target=None, parallel=False, concurrency=1, *args, **kwargs):
+        def command(
+            ctx, project=None, target=None, parallel=False, concurrency=1, hub=None, *args, **kwargs
+        ):
             site_api = ConfigApi(ctx).with_site(ctx.site, self.SITE_TYPE)
 
             if project:
@@ -96,31 +121,14 @@ class Workflow:
             with site_api:
                 inst = fn(ctx, *args, **kwargs)
             self._run(
-                ctx, *self.get_transform_tree(inst), concurrency=concurrency, parallel=parallel
+                ctx,
+                *self.get_transform_tree(inst),
+                concurrency=concurrency,
+                parallel=parallel,
+                hub=hub,
             )
 
         option_fns = []
-        option_fns.append(
-            click.option(
-                "--parallel",
-                "-P",
-                is_flag=True,
-                default=False,
-                help=(
-                    "Use Gator to run workflows in parallel, with the maximum number"
-                    "of jobs set by the concurrency parameter"
-                ),
-            )
-        )
-        option_fns.append(
-            click.option(
-                "--concurrency",
-                "-c",
-                type=int,
-                default=max(1, multiprocessing.cpu_count() // 2),
-                help="Specify the maximum number of jobs allowed to run in parallel",
-            )
-        )
         if self.project_type:
             option_fns.append(click.option("--project", "-p", type=str, required=True))
         if self.target_type:
@@ -242,6 +250,7 @@ class Workflow:
         dependent_map: dict[Transform, OSet[Transform]],
         parallel: bool,
         concurrency: int,
+        hub: str | None,
     ):
         """
         Run the workflow from transform dependency data.
@@ -300,14 +309,14 @@ class Workflow:
             + (f" with concurrency of {concurrency}" if parallel else "")
         )
 
-        root_group = JobGroup(id="blockwork", cwd=ctx.host_root.as_posix())
+        root_group = JobGroup(ident="blockwork", cwd=ctx.host_root.as_posix())
         idx_group = itertools.count()
         prev_group = None
         while run_scheduler.incomplete:
             # Create group and chain dependency
-            group = JobGroup(id=f"stage_{next(idx_group)}")
+            group = JobGroup(ident=f"stage_{next(idx_group)}")
             if prev_group is not None:
-                group.on_pass.append(prev_group.id)
+                group.on_pass.append(prev_group.ident)
             prev_group = group
             root_group.jobs.append(group)
 
@@ -321,7 +330,7 @@ class Workflow:
                     logging.info(f"Skipped transform (due to cached dependents): {transform}")
                 elif parallel:
                     # Assemble a unique job ID
-                    job_id = f"{group.id}_{idx_job}"
+                    job_id = f"{group.ident}_{idx_job}"
                     # Serialise the transform
                     spec_file = spec_dirx / f"{job_id}.json"
                     logging.debug(
@@ -341,7 +350,7 @@ class Workflow:
                     if DebugScope.current.VERBOSE:
                         args.insert(0, "--verbose")
                     job = Job(
-                        id=f"{group.id}_job_{idx_job}",
+                        ident=f"{group.ident}_job_{idx_job}",
                         cwd=ctx.host_root.as_posix(),
                         command="bw",
                         args=args,
@@ -376,6 +385,7 @@ class Workflow:
                     tracking=track_dirx,
                     sched_opts={"concurrency": concurrency},
                     glyph="🧱 Blockwork",
+                    hub=hub,
                     # TODO @intuity: In the long term a waiver system should be
                     #                introduced to suppress errors if they are
                     #                false, for now just set to a high value
@@ -389,7 +399,7 @@ class Workflow:
                 # Resolve the job
                 for idx, part in enumerate(job_id[1:]):
                     for sub in ptr.jobs:
-                        if sub.id == part:
+                        if sub.ident == part:
                             ptr = sub
                             break
                     else:
