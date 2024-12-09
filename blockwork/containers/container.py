@@ -274,31 +274,38 @@ class Container:
 
         # Identify all host paths that need to be bound in
         for arg in args:
-            # If this is a string, but appears to be a path, convert it
-            if isinstance(arg, str) and (
-                arg.startswith("/") or arg.startswith("./") or arg.startswith("../")
-            ):
-                arg = Path.cwd() / arg
-            # For path arguments convert to str...
-            if isinstance(arg, Path):
-                if host_okay:
-                    # ...and conditionally try binding host paths to container
-                    # try our best with paths that look like directories or files
-                    arg = arg.absolute().resolve()
-                    if arg.suffix:
-                        h_path, h_name = arg.parent, arg.name
-                    else:
-                        h_path, h_name = arg, ""
-                    try:
-                        c_path = context.map_to_container(h_path)
-                        binds.append((h_path, c_path))
-                        arg = c_path / h_name
-                    except ContextHostPathError:
-                        logging.debug(f"Assuming '{arg}' is a container-relative path")
-                mapped_args.append(arg.as_posix())
-            # Otherwise, just pass through the argument
+            mapped_parts = []
+
+            # Split strings as they might be passed in as e.g. `command '--path <mypath>'`
+            if isinstance(arg, str):
+                parts = shlex.split(arg)
             else:
-                mapped_args.append(arg)
+                parts = [arg]
+
+            for part in parts:
+                # If this is a string, but appears to be a path, convert it
+                if isinstance(part, str) and (
+                    part.startswith("/") or part.startswith("./") or part.startswith("../")
+                ):
+                    part = Path.cwd() / part
+                # For path arguments convert to str...
+                if isinstance(part, Path):
+                    if host_okay:
+                        # ...and conditionally try binding host paths to container
+                        # try our best with paths that look like directories or files
+                        part = part.absolute().resolve()
+                        h_path, h_name = part, ""
+                        try:
+                            c_path = context.map_to_container(h_path)
+                            binds.append((h_path, c_path))
+                            part = c_path / h_name
+                        except ContextHostPathError:
+                            logging.debug(f"Assuming '{part}' is a container-relative path")
+                    mapped_parts.append(part.as_posix())
+                # Otherwise, just pass through the argument
+                else:
+                    mapped_parts.append(part)
+            mapped_args.append(shlex.join(mapped_parts))
 
         for h_path, c_path in binds:
             self.bind(h_path, c_path, False)
