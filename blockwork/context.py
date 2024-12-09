@@ -17,6 +17,7 @@ import functools
 import hashlib
 import importlib
 import logging
+import os
 import platform
 import sys
 from datetime import datetime
@@ -247,6 +248,10 @@ class Context:
         cache)
         """
         return self.__force_cache
+
+    @property
+    def hub_url(self):
+        return os.environ.get("BW_HUB_URL", self.config.hub_url)
 
     @property
     @functools.lru_cache  # noqa: B019

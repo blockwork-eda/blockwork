@@ -25,6 +25,7 @@ class Blockwork:
     host_scratch: str = "../{project}.scratch"
     host_state: str = "../{project}.state"
     host_tools: str = "../{project}.tools"
+    hub_url: str | None = None
     config: list[str] = field(default_factory=list)
     bootstrap: list[str] = field(default_factory=list)
     tooldefs: list[str] = field(default_factory=list)
