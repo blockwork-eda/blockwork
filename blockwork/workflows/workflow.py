@@ -250,7 +250,7 @@ class Workflow:
         dependent_map: dict[Transform, OSet[Transform]],
         parallel: bool,
         concurrency: int,
-        hub: str | None,
+        hub: str | None = None,
     ):
         """
         Run the workflow from transform dependency data.
