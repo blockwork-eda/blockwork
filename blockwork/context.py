@@ -251,7 +251,7 @@ class Context:
 
     @property
     def hub_url(self):
-        return os.environ.get("BW_HUB_URL", self.config.hub_url)
+        return os.environ.get("BW_HUB_URL", "") or self.config.hub_url
 
     @property
     @functools.lru_cache  # noqa: B019
