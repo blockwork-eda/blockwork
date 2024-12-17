@@ -415,9 +415,14 @@ class Workflow:
                 logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
 
             # Check for failure
-            if (failed := summary.get("sub_failed", 0)) > 0:
-                raise WorkflowError(f"Detected {failed} jobs failed")
-
+            metrics = summary["metrics"]
+            if (
+                (len(failed := summary["failed_ids"]) != 0)
+                or (metrics["sub_passed"] != metrics["sub_total"])
+                or (metrics["msg_error"] != 0)
+                or (metrics["msg_critical"] != 0)
+            ):
+                raise WorkflowError(f"Detected {failed or ''} jobs failed")
         # Prune the caches down to size at the end
         if is_caching:
             Cache.prune_all(ctx)
