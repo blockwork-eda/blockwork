@@ -857,8 +857,8 @@ Werkzeug = "2.3.7"
 [package.source]
 type = "git"
 url = "https://github.com/Intuity/gator.git"
-reference = "e7149da4f51ebd27511885ccacbf6be4bc7c9611"
-resolved_reference = "e7149da4f51ebd27511885ccacbf6be4bc7c9611"
+reference = "d99f0a47120ef3a09f6fc307e88699742dbc5284"
+resolved_reference = "d99f0a47120ef3a09f6fc307e88699742dbc5284"
 
 [[package]]
 name = "ghp-import"
@@ -3185,4 +3185,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "d5bb31e93d406135e2b8e14a3b2ce90e06da57de2102fd956d144c2727f5b74a"
+content-hash = "cf566f84b1fd581fa3e7bbfa68209ae187914b483a1ba429e218a9766a4f3bdb"
