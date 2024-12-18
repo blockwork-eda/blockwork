@@ -394,7 +394,7 @@ class Workflow:
             )
 
             # For any failed IDs, resolve them to their log files
-            for job_id in summary.get("failed_ids", []):
+            for job_id in summary.failed_ids:
                 ptr = root_group
                 # Resolve the job
                 for idx, part in enumerate(job_id[1:]):
@@ -415,8 +415,8 @@ class Workflow:
                 logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
 
             # Check for failure
-            if (failed := summary.get("sub_failed", 0)) > 0:
-                raise WorkflowError(f"Detected {failed} jobs failed")
+            if summary.failed:
+                raise WorkflowError("Some jobs failed!")
 
         # Prune the caches down to size at the end
         if is_caching:
