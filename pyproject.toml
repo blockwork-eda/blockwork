@@ -22,7 +22,7 @@ ordered-set = "4.1.0"
 filelock = "3.14.0"
 pytz = "2024.1"
 requests = "2.31.0"
-gator-eda = { git = "https://github.com/Intuity/gator.git", rev = "2b05d9838aedae10dd8163c90756491c84dff16a" }
+gator-eda = { git = "https://github.com/Intuity/gator.git", rev = "67f1f4ebcd571154615630a447b2fc514b1cd0d4" }
 boto3 = "1.34.103"
 
 [tool.poetry.group.dev.dependencies]
