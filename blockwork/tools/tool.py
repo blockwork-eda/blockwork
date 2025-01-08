@@ -496,6 +496,7 @@ class Invocation:
                         provided as a single path in which case the container
                         path will be inferred, or as a tuple of a host path and
                         a container path.
+    :param ro_binds:    Readonly binds.
     :param env:         Environment variables to add to the container
     :param path:        Path variables to extend within the container
     """
@@ -511,6 +512,7 @@ class Invocation:
         stdout: TextIO | None = None,
         stderr: TextIO | None = None,
         binds: Sequence[Path | tuple[Path, Path]] | None = None,
+        ro_binds: Sequence[Path | tuple[Path, Path]] | None = None,
         env: dict[str, str] | None = None,
         path: dict[str, list[Path]] | None = None,
     ) -> None:
@@ -523,6 +525,7 @@ class Invocation:
         self.stdout = stdout
         self.stderr = stderr
         self.binds = binds or []
+        self.ro_binds = ro_binds or []
         self.env = env or {}
         self.path = path or {}
 
