@@ -18,7 +18,7 @@ class Copy(Transform):
     to: Path = Transform.OUT(init=True)
 
     def execute(self, ctx):
-        result = yield self.bash.cp(ctx, frm=self.frm, to=self.to)
+        result = yield self.bash.cp(frm=self.frm, to=self.to)
         # Below optional if expecting exit code zero
         if result.exit_code == 1:
             result.accept()
@@ -76,7 +76,6 @@ result = yield copy(ctx, frm=iface.frm, to=iface.to)
 > to the copy action. Actions must be yielded in order to run. The result value
 > can be inspected and accepted or rejected. An exit_code of zero is accepted by
 > default.
-
 
 ## Basic Use
 

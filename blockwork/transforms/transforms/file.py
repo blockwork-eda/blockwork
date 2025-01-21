@@ -10,4 +10,4 @@ class Copy(Transform):
     bash: tools.Bash = Transform.TOOL()
 
     def execute(self, ctx):
-        yield self.bash.cp(ctx, frm=self.frm, to=self.to)
+        yield self.bash.cp(frm=self.frm, to=self.to)

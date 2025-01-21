@@ -20,7 +20,7 @@ import click
 
 from ..build.caching import Cache
 from ..context import Context
-from ..transforms.transform import Transform, TSerialTransform
+from ..transforms.transform import TITransformSerial, run_transform
 
 
 @click.group(name="wf")
@@ -45,13 +45,12 @@ def wf_step(ctx: Context, spec_path: Path):
     # TODO @intuity: We should consider making wf_step part of non-parallel
     #                executions so that there is a single execution path
     # Reload the serialised workflow step specification
-    spec: TSerialTransform = json.loads(spec_path.read_text(encoding="utf-8"))
+    spec: TITransformSerial = json.loads(spec_path.read_text(encoding="utf-8"))
     # Run the relevant transform
-    tf = Transform.deserialize(spec)
-    result = tf.run(ctx)
+    result = run_transform(ctx, spec)
 
     # duration = stop - start
     # Whether a cache is in place
     is_caching = Cache.enabled(ctx)
-    if is_caching and Cache.store_transform_to_any(ctx, tf, result.run_time):
-        logging.info("Stored transform to cache: %s", tf)
+    if is_caching and Cache.store_transform_to_any(ctx, result.transform, result.run_time):
+        logging.info("Stored transform to cache: %s", result.transform)
