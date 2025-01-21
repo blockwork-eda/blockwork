@@ -118,7 +118,9 @@ class Foundation(Container):
         args = [a.as_posix() if isinstance(a, Path) else a for a in invocation.args]
 
         # Bind files and directories
-        self.bind_many(context, binds=invocation.binds)
+        self.bind_many(context, binds=invocation.binds, readonly=False)
+        self.bind_many(context, binds=invocation.ro_binds, readonly=True)
+
         # Resolve the binary
         command = invocation.execute
         if isinstance(command, Path):
