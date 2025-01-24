@@ -356,6 +356,7 @@ class Workflow:
                         args=args,
                         resources=[Cores(count=1), Memory(size=1, unit="GB")],
                     )
+                    run_transforms.add(transform)
                     group.jobs.append(job)
                     scheduled.append(transform)
                 else:
@@ -421,6 +422,17 @@ class Workflow:
         # Prune the caches down to size at the end
         if is_caching:
             Cache.prune_all(ctx)
+
+        # Run reporting stages
+        run_transform_instances = defaultdict(OSet)
+        for transform in run_transforms:
+            run_transform_instances[type(transform)].add(transform)
+            if (tf_report := getattr(transform, "tf_report", None)) is not None:
+                tf_report(ctx)
+
+        for transform_class, transforms in run_transform_instances.items():
+            if (tf_cls_report := getattr(transform_class, "tf_cls_report", None)) is not None:
+                tf_cls_report(ctx, list(transforms))
 
         # This is primarily returned for unit-testing
         return SimpleNamespace(

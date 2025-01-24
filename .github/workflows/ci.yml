@@ -62,7 +62,7 @@ jobs:
         uses: actions/deploy-pages@v2
 
   unit_tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     strategy:
       fail-fast: false

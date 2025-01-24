@@ -1160,5 +1160,16 @@ class Transform:
         """
         raise NotImplementedError
 
+    def tf_report(self, ctx: "Context", /) -> None:
+        """
+        Host hook to report on this transform after all transforms have run.
+        """
+
+    @classmethod
+    def tf_cls_report(cls, ctx: "Context", transforms: list[Self], /) -> None:
+        """
+        Host hook to report on all instances of this transform after all transforms have run.
+        """
+
     def __repr__(self) -> str:
         return f"<{type(self).__name__} hash='{self._cached_input_hash}'>"
