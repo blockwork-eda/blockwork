@@ -312,127 +312,130 @@ class Workflow:
         root_group = JobGroup(ident="blockwork", cwd=ctx.host_root.as_posix())
         idx_group = itertools.count()
         prev_group = None
-        while run_scheduler.incomplete:
-            # Create group and chain dependency
-            group = JobGroup(ident=f"stage_{next(idx_group)}")
-            if prev_group is not None:
-                group.on_pass.append(prev_group.ident)
-            prev_group = group
-            root_group.jobs.append(group)
+        try:
+            while run_scheduler.incomplete:
+                # Create group and chain dependency
+                group = JobGroup(ident=f"stage_{next(idx_group)}")
+                if prev_group is not None:
+                    group.on_pass.append(prev_group.ident)
+                prev_group = group
+                root_group.jobs.append(group)
 
-            # Place all currently schedulable jobs into this group
-            scheduled = []
-            for idx_job, transform in enumerate(run_scheduler.schedulable):
-                run_scheduler.schedule(transform)
-                if transform in fetched_transforms:
-                    logging.info(f"Skipped cached {transform}")
-                elif transform in skipped_transforms:
-                    logging.info(f"Skipped transform (due to cached dependents): {transform}")
-                elif parallel:
-                    # Assemble a unique job ID
-                    job_id = f"{group.ident}_{idx_job}"
-                    # Serialise the transform
-                    spec_file = spec_dirx / f"{job_id}.json"
-                    logging.debug(
-                        f"Serializing scheduled {type(transform).__name__} -> "
-                        f"{spec_file.relative_to(ctx.host_scratch)}"
-                    )
-                    with spec_file.open("w", encoding="utf-8") as fh:
-                        json.dump(transform.serialize(), fh)
-                    # Launch the job
-                    # TODO @intuity: Make the resource requests parameterisable
-                    args = [
-                        "--scratch",
-                        ctx.host_scratch.as_posix(),
-                        "_wf_step",
-                        spec_file.as_posix(),
-                    ]
-                    if DebugScope.current.VERBOSE:
-                        args.insert(0, "--verbose")
-                    job = Job(
-                        ident=f"{group.ident}_job_{idx_job}",
-                        cwd=ctx.host_root.as_posix(),
-                        command="bw",
-                        args=args,
-                        resources=[Cores(count=1), Memory(size=1, unit="GB")],
-                    )
-                    run_transforms.add(transform)
-                    group.jobs.append(job)
-                    scheduled.append(transform)
-                else:
-                    logging.info("Running transform: %s", transform)
-                    result = transform.run(ctx)
-                    run_transforms.add(transform)
-                    if is_caching and Cache.store_transform_to_any(ctx, transform, result.run_time):
-                        stored_transforms.add(transform)
-                        logging.info("Stored transform to cache: %s", transform)
-
-                # Mark transform as finished (if running in parallel, Gator will
-                # maintain the ordering requirements)
-                run_scheduler.finish(transform)
-
-        # If parallel run is enabled, start up a Gator process
-        if parallel and root_group.expected_jobs:
-            # Suppress messages coming from websockets within Gator
-            logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
-
-            # Launch the Gator run
-            logging.info(
-                f"Executing {root_group.expected_jobs} jobs with concurrency of {concurrency}"
-            )
-            summary = asyncio.run(
-                (launch if DebugScope.current.VERBOSE else launch_progress)(
-                    spec=root_group,
-                    tracking=track_dirx,
-                    sched_opts={"concurrency": concurrency},
-                    glyph="🧱 Blockwork",
-                    hub=hub or ctx.hub_url,
-                    # TODO @intuity: In the long term a waiver system should be
-                    #                introduced to suppress errors if they are
-                    #                false, for now just set to a high value
-                    limits=MessageLimits(error=10000),
-                )
-            )
-
-            # For any failed IDs, resolve them to their log files
-            for job_id in summary.failed_ids:
-                ptr = root_group
-                # Resolve the job
-                for idx, part in enumerate(job_id[1:]):
-                    for sub in ptr.jobs:
-                        if sub.ident == part:
-                            ptr = sub
-                            break
-                    else:
-                        raise Exception(
-                            f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}"
+                # Place all currently schedulable jobs into this group
+                scheduled = []
+                for idx_job, transform in enumerate(run_scheduler.schedulable):
+                    run_scheduler.schedule(transform)
+                    if transform in fetched_transforms:
+                        logging.info(f"Skipped cached {transform}")
+                    elif transform in skipped_transforms:
+                        logging.info(f"Skipped transform (due to cached dependents): {transform}")
+                    elif parallel:
+                        # Assemble a unique job ID
+                        job_id = f"{group.ident}_{idx_job}"
+                        # Serialise the transform
+                        spec_file = spec_dirx / f"{job_id}.json"
+                        logging.debug(
+                            f"Serializing scheduled {type(transform).__name__} -> "
+                            f"{spec_file.relative_to(ctx.host_scratch)}"
                         )
-                # Grab the spec JSON
-                *_, spec_json = ptr.args
-                with Path(spec_json).open("r", encoding="utf-8") as fh:
-                    spec_data = json.load(fh)
-                # Grab the tracking directory
-                job_trk_dirx = track_dirx / "/".join(job_id[1:])
-                logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
+                        with spec_file.open("w", encoding="utf-8") as fh:
+                            json.dump(transform.serialize(), fh)
+                        # Launch the job
+                        # TODO @intuity: Make the resource requests parameterisable
+                        args = [
+                            "--scratch",
+                            ctx.host_scratch.as_posix(),
+                            "_wf_step",
+                            spec_file.as_posix(),
+                        ]
+                        if DebugScope.current.VERBOSE:
+                            args.insert(0, "--verbose")
+                        job = Job(
+                            ident=f"{group.ident}_job_{idx_job}",
+                            cwd=ctx.host_root.as_posix(),
+                            command="bw",
+                            args=args,
+                            resources=[Cores(count=1), Memory(size=1, unit="GB")],
+                        )
+                        run_transforms.add(transform)
+                        group.jobs.append(job)
+                        scheduled.append(transform)
+                    else:
+                        logging.info("Running transform: %s", transform)
+                        result = transform.run(ctx)
+                        run_transforms.add(transform)
+                        if is_caching and Cache.store_transform_to_any(
+                            ctx, transform, result.run_time
+                        ):
+                            stored_transforms.add(transform)
+                            logging.info("Stored transform to cache: %s", transform)
 
-            # Check for failure
-            if summary.failed:
-                raise WorkflowError("Some jobs failed!")
+                    # Mark transform as finished (if running in parallel, Gator will
+                    # maintain the ordering requirements)
+                    run_scheduler.finish(transform)
 
-        # Prune the caches down to size at the end
-        if is_caching:
-            Cache.prune_all(ctx)
+            # If parallel run is enabled, start up a Gator process
+            if parallel and root_group.expected_jobs:
+                # Suppress messages coming from websockets within Gator
+                logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
 
-        # Run reporting stages
-        run_transform_instances = defaultdict(OSet)
-        for transform in run_transforms:
-            run_transform_instances[type(transform)].add(transform)
-            if (tf_report := getattr(transform, "tf_report", None)) is not None:
-                tf_report(ctx)
+                # Launch the Gator run
+                logging.info(
+                    f"Executing {root_group.expected_jobs} jobs with concurrency of {concurrency}"
+                )
+                summary = asyncio.run(
+                    (launch if DebugScope.current.VERBOSE else launch_progress)(
+                        spec=root_group,
+                        tracking=track_dirx,
+                        sched_opts={"concurrency": concurrency},
+                        glyph="🧱 Blockwork",
+                        hub=hub or ctx.hub_url,
+                        # TODO @intuity: In the long term a waiver system should be
+                        #                introduced to suppress errors if they are
+                        #                false, for now just set to a high value
+                        limits=MessageLimits(error=10000),
+                    )
+                )
 
-        for transform_class, transforms in run_transform_instances.items():
-            if (tf_cls_report := getattr(transform_class, "tf_cls_report", None)) is not None:
-                tf_cls_report(ctx, list(transforms))
+                # For any failed IDs, resolve them to their log files
+                for job_id in summary.failed_ids:
+                    ptr = root_group
+                    # Resolve the job
+                    for idx, part in enumerate(job_id[1:]):
+                        for sub in ptr.jobs:
+                            if sub.ident == part:
+                                ptr = sub
+                                break
+                        else:
+                            raise Exception(
+                                f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}"
+                            )
+                    # Grab the spec JSON
+                    *_, spec_json = ptr.args
+                    with Path(spec_json).open("r", encoding="utf-8") as fh:
+                        spec_data = json.load(fh)
+                    # Grab the tracking directory
+                    job_trk_dirx = track_dirx / "/".join(job_id[1:])
+                    logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
+
+                # Check for failure
+                if summary.failed:
+                    raise WorkflowError("Some jobs failed!")
+        finally:
+            # Prune the caches down to size at the end
+            if is_caching:
+                Cache.prune_all(ctx)
+
+            # Run reporting stages
+            run_transform_instances = defaultdict(OSet)
+            for transform in run_transforms:
+                run_transform_instances[type(transform)].add(transform)
+                if (tf_report := getattr(transform, "tf_report", None)) is not None:
+                    tf_report(ctx)
+
+            for transform_class, transforms in run_transform_instances.items():
+                if (tf_cls_report := getattr(transform_class, "tf_cls_report", None)) is not None:
+                    tf_cls_report(ctx, list(transforms))
 
         # This is primarily returned for unit-testing
         return SimpleNamespace(
