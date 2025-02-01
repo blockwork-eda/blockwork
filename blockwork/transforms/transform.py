@@ -1239,8 +1239,22 @@ class TransformSerializer(PrimitiveSerializer["TITransformSerial", "Transform"])
                 interface_values[tf_field.name] = ifield.bind(
                     ctx, container, tf_field, value, ifield.direction
                 )
-            else:
-                raise NotImplementedError("Transforms as inputs/outputs not currently supported")
+            elif direction.is_input:
+                # On the input interface, bind both inputs and outputs as if
+                # they are direct inputs
+                interface_values[tf_field.name] = ifield.bind(
+                    ctx, container, tf_field, value, direction
+                )
+            elif direction.is_output:
+                # On the output interface, bind inputs as if they are direct
+                # outputs, and don't bind outputs.
+                if ifield.direction.is_input:
+                    interface_values[tf_field.name] = ifield.bind(
+                        ctx, container, tf_field, value, direction
+                    )
+                else:
+                    interface_values[tf_field.name] = None
+
         # Reconstruct transform with bound values
         tf = transform_cls.__new__(transform_cls)
         object.__setattr__(tf, "_tf_execute_proxy", True)
@@ -1252,17 +1266,35 @@ class TransformSerializer(PrimitiveSerializer["TITransformSerial", "Transform"])
     def default_factory(
         cls, token: type["Transform"] | str, name: str, api: ConfigApi, field: "IField"
     ) -> "Transform":
-        raise NotImplementedError("Transforms as inputs/outputs not currently supported")
+        if isinstance(token, str):
+            cls.default_error(token, name, api, field)
+        result = token()
+        return result
 
 
 TIAny = TIConstLeaf | TIPrimitives | IFace | Sequence["TIAny"] | dict[str, "TIAny"] | Transform
 "The valid types for an interface"
 
 
+def collect(transform: Transform, direction: Direction | None = None):
+    for _name, serial in transform._serial_interfaces.items():
+        if direction is not None and serial.direction != direction:
+            continue
+        yield from serial.transforms
+
+
 def run_transform(ctx: "Context", transform: Transform | TITransformSerial) -> Result:
     """Run the transform in a container."""
+
+    direct_transform = None
     if isinstance(transform, Transform):
+        direct_transform = transform
         transform = cast(TITransformSerial, SerialInterface(transform).value)
+
+    if direct_transform:
+        # Run input transforms
+        for sub_transform in collect(direct_transform, Direction.INPUT):
+            run_transform(ctx, sub_transform)
 
     tf_start = time.time()
 
@@ -1301,11 +1333,10 @@ def run_transform(ctx: "Context", transform: Transform | TITransformSerial) -> R
             result.resolve()
     tf_stop = time.time()
 
-    def execute(self, ctx: "Context", /) -> Generator["Invocation", Result, None]:
-        """
-        Execute method to be implemented in subclasses.
-        """
-        raise NotImplementedError
+    if direct_transform:
+        # Run output transforms
+        for sub_transform in collect(direct_transform, Direction.OUTPUT):
+            run_transform(ctx, sub_transform)
 
     # Return a result object with the final exit_code and total run_time
     return Result(exit_code=exit_code, run_time=(tf_stop - tf_start), ident=str(tf), transform=tf)

@@ -36,7 +36,7 @@ from ..config.api import ConfigApi
 from ..config.base import Config, Project, Site
 from ..config.scheduler import Scheduler
 from ..context import Context, DebugScope
-from ..transforms.transform import Medial, SerialInterface, Transform
+from ..transforms.transform import Medial, SerialInterface, Transform, collect
 
 
 class WorkflowError(Exception):
@@ -164,6 +164,11 @@ class Workflow:
                 yield desc, transforms, target_transforms
 
         with config.api:
+            transforms = list[Transform]()
+            for config_transform in config.iter_transforms():
+                for transform in collect(config_transform):
+                    transforms.append(transform)
+
             transforms = list(config.iter_transforms())
         transform_filter = partial(config.transform_filter, config=config)
         target_transforms = list(filter(transform_filter, transforms))
