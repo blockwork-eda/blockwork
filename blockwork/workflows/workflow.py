@@ -36,7 +36,7 @@ from ..config.api import ConfigApi
 from ..config.base import Config, Project, Site
 from ..config.scheduler import Scheduler
 from ..context import Context, DebugScope
-from ..transforms.transform import Medial, Transform
+from ..transforms.transform import Medial, SerialInterface, Transform
 
 
 class WorkflowError(Exception):
@@ -195,9 +195,9 @@ class Workflow:
                 dependent_map[transform] = OSet()
 
                 # Record transform inputs and outputs
-                for direction, serial in transform._serial_interfaces.values():
+                for serial in transform._serial_interfaces.values():
                     for medial in serial.medials:
-                        if direction.is_input:
+                        if serial.direction.is_input:
                             medial_transforms_consumers[medial].append(transform)
                         else:
                             medial_transform_producers[medial].append(transform)
@@ -338,7 +338,7 @@ class Workflow:
                         f"{spec_file.relative_to(ctx.host_scratch)}"
                     )
                     with spec_file.open("w", encoding="utf-8") as fh:
-                        json.dump(transform.serialize(), fh)
+                        json.dump(SerialInterface(transform).value, fh)
                     # Launch the job
                     # TODO @intuity: Make the resource requests parameterisable
                     args = [

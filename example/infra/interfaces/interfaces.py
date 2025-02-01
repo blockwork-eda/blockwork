@@ -12,18 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterable
 from pathlib import Path
 
 from blockwork.transforms import IFace
 
 
 class DesignInterface(IFace):
-    sources: Iterable[Path] = IFace.FIELD(default_factory=list)
-    headers: Iterable[Path] = IFace.FIELD(default_factory=list)
-
-    def resolve(self):
-        return {
-            "sources": list(self.sources),
-            "headers": list(self.headers),
-        }
+    sources: list[Path] = IFace.FIELD(default_factory=list)
+    headers: list[Path] = IFace.FIELD(default_factory=list)
