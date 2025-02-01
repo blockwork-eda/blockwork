@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
@@ -22,34 +22,34 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/composites/setup
-      with:
-        python-version: 3.11
-    - name: Run Ruff formatting check
-      run: poetry run ruff format --check .
-    - name: Run Ruff linting check
-      run: poetry run ruff check .
-    - name: Run precommit checks
-      env:
-        SKIP: no-commit-to-branch
-      run: poetry run pre-commit run --all-files
+      - uses: actions/checkout@v4
+      - uses: ./.github/composites/setup
+        with:
+          python-version: 3.11
+      - name: Run Ruff formatting check
+        run: poetry run ruff format --check .
+      - name: Run Ruff linting check
+        run: poetry run ruff check .
+      - name: Run precommit checks
+        env:
+          SKIP: no-commit-to-branch
+        run: poetry run pre-commit run --all-files
 
   build_docs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/composites/setup
-      with:
-        python-version: 3.11
-    - name: Build documentation
-      run: |
-        poe docs
-    - name: Upload documentation artifact
-      uses: actions/upload-pages-artifact@v1
-      with:
-        path: ./site
+      - uses: actions/checkout@v4
+      - uses: ./.github/composites/setup
+        with:
+          python-version: 3.11
+      - name: Build documentation
+        run: |
+          poe docs
+      - name: Upload documentation artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: ./site
 
   deploy_docs:
     runs-on: ubuntu-latest
@@ -71,17 +71,17 @@ jobs:
         python-version: ["3.11"]
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/composites/setup
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Run tests
-      timeout-minutes: 5
-      run: poe test
-      env:
-        TMPDIR: ${{ runner.temp }}
-    - name: Archive code coverage results
-      uses: actions/upload-artifact@v3
-      with:
-        name: pytest-cov
-        path: htmlcov
+      - uses: actions/checkout@v4
+      - uses: ./.github/composites/setup
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run tests
+        timeout-minutes: 5
+        run: poe test
+        env:
+          TMPDIR: ${{ runner.temp }}
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-cov
+          path: htmlcov
