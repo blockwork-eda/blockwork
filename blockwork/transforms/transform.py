@@ -30,6 +30,7 @@ from typing import (
     Generic,
     Literal,
     NoReturn,
+    Self,
     TypedDict,
     TypeVar,
     TypeVarTuple,
