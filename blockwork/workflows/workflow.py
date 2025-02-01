@@ -362,7 +362,9 @@ class Workflow:
                         logging.info("Running transform: %s", transform)
                         result = transform.run(ctx)
                         run_transforms.add(transform)
-                        if is_caching and Cache.store_transform_to_any(ctx, transform, result.run_time):
+                        if is_caching and Cache.store_transform_to_any(
+                            ctx, transform, result.run_time
+                        ):
                             stored_transforms.add(transform)
                             logging.info("Stored transform to cache: %s", transform)
 
@@ -405,7 +407,7 @@ class Workflow:
                         else:
                             raise Exception(
                                 f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}"
-                        )
+                            )
                         with spec_file.open("w", encoding="utf-8") as fh:
                             json.dump(transform.serialize(), fh)
                         # Launch the job
