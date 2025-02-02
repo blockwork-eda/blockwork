@@ -17,14 +17,8 @@ def create_with_text(path: Path, text: str):
 
 
 class ComplexOutIface(IFace):
-    base: Path
-
-    def resolve(self):
-        return {"p0": self.base / "p0", "p1": self.base / "p1"}
-
-    @classmethod
-    def from_field(cls, transform, field, name):
-        return cls(base=transform.api.path(name))
+    base: Path = IFace.FIELD()
+    paths: dict[str, Path] = IFace.FIELD(derive=(base, lambda b: {"p0": b / "p0", "p1": b / "p1"}))
 
 
 @pytest.mark.usefixtures("api")
@@ -208,7 +202,7 @@ class TestTransforms:
         to: ComplexOutIface = Transform.OUT()
 
         def execute(self, ctx):
-            yield self.bash.script(ctx, f"echo -n {self.frm} > {self.to['p0']}")
+            yield self.bash.script(ctx, f"echo -n {self.frm} > {self.to.paths['p0']}")
 
     def test_complex_out(self, api: ConfigApi):
         text = "hello world"
