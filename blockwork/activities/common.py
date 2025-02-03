@@ -100,10 +100,7 @@ class BwExecCommand(Command):
             matched: Tool = Tool.get(vendor, name, version or None)
             if not matched:
                 raise Exception(f"Failed to identify tool '{vendor}:{name}={version}'")
-            logging.info(
-                f"Binding tool {matched.tool.name} from {matched.tool.vendor} "
-                f"version {matched.version} into shell"
-            )
+            logging.info(f"Binding tool {name} from {vendor} version {version} into shell")
             container.add_tool(matched, readonly=readonly)
             specified_tools.add(matched.base_id)
 
