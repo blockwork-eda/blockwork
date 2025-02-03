@@ -47,7 +47,7 @@ jobs:
       run: |
         poe docs
     - name: Upload documentation artifact
-      uses: actions/upload-pages-artifact@v1
+      uses: actions/upload-pages-artifact@v3
       with:
         path: ./site
 
@@ -59,7 +59,7 @@ jobs:
     steps:
       - name: Deploy to GitHub pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
 
   unit_tests:
     runs-on: ubuntu-22.04
@@ -81,7 +81,7 @@ jobs:
       env:
         TMPDIR: ${{ runner.temp }}
     - name: Archive code coverage results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: pytest-cov
         path: htmlcov
