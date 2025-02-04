@@ -463,7 +463,7 @@ class Tool(RegisteredClass):
         version = tool_def.get_version(version, None)
         if version is None:
             return None
-        return tool_def(version)
+        return tool_def(version.version)
 
     @classmethod
     @contextmanager
