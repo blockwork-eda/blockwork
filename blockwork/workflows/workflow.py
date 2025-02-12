@@ -297,8 +297,14 @@ class Workflow:
 
         # Create groups out of transforms with the same set of input and
         # output dependencies to simplify ordering requirements.
-        transform_dependencies = {k: frozenset(v) for k, v in scheduler._dependency_map.items()}
-        transform_dependents = {k: frozenset(v) for k, v in scheduler._dependent_map.items()}
+        transform_dependencies = {}
+        transform_dependents = {}
+
+        _dependency_map = scheduler._dependency_map.copy()
+        _dependent_map = scheduler._dependent_map.copy()
+        for transform in scheduler._all:
+            transform_dependencies[transform] = frozenset(_dependency_map[transform])
+            transform_dependents[transform] = frozenset(_dependent_map[transform])
 
         group_counter = itertools.count()
 
@@ -346,11 +352,8 @@ class Workflow:
                     if DebugScope.current.VERBOSE:
                         args.insert(0, "--verbose")
                     # Give jobs a descriptive name where possible
-                    spec = transform.api.target.unit
-                    if transform.api.target.target:
-                        spec += "/" + transform.api.target.target
                     job = Job(
-                        ident=f"{spec}/{job_id}:{type(transform).__name__}",
+                        ident=f"{transform.api.pathname}/{job_id}",
                         cwd=ctx.host_root.as_posix(),
                         command="bw",
                         args=args,
@@ -372,7 +375,7 @@ class Workflow:
             else:
                 # Attempt to give the group a nice name
                 if len(jobs):
-                    ident = re_ident_prefix.sub(str(group["idx"]) + ":", jobs[0].ident)
+                    ident = re_ident_prefix.sub(str(group["idx"]), jobs[0].ident)
                 else:
                     ident = str(group["idx"])
                 group["group"] = JobGroup(ident=ident, jobs=jobs)

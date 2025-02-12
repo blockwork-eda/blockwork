@@ -141,6 +141,14 @@ class ConfigApi(Scope):
             return self._target.path(path)
         return Path(path).absolute()
 
+    @property
+    def pathname(self):
+        if self._transform:
+            return self._transform.pathname
+        if self._target:
+            return self._target.pathname
+        return "root"
+
 
 ConfigType = TypeVar("ConfigType")
 
@@ -255,6 +263,12 @@ class TargetApi(ConfigApiBase["Config"]):
         scratch_path = self.scratch_path / path
         return project_path if project_path.exists() else scratch_path
 
+    @property
+    def pathname(self):
+        if self.target:
+            return f"{self.unit}/{self.target}"
+        return self.unit
+
 
 class NodeApi:
     def __init__(self, api: ConfigApi, node: yaml.Node) -> None:
@@ -293,3 +307,10 @@ class TransformApi:
         # Fall back to using the transform's ID
         except ApiAccessError:
             return self.api.ctx.host_scratch / self.id / path
+
+    @property
+    def pathname(self):
+        name = type(self.transform).__name__
+        if target := self.api._target:
+            return f"{target.pathname}:{name}"
+        return name
