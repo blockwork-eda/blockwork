@@ -268,8 +268,6 @@ class Workflow:
                         status.stored.add(transform)
                         logging.info("Stored transform to cache: %s", transform)
 
-                # Mark transform as finished (if running in parallel, Gator will
-                # maintain the ordering requirements)
                 scheduler.finish(transform)
 
     def _run_parallel(
