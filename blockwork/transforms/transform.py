@@ -100,7 +100,9 @@ class Medial:
         if self._producers is not None:
             raise RuntimeError("Producers already bound to medial!")
         if len(producers) > 1:
-            raise RuntimeError(f"Medial `{self}` produced by more than one transform `{producers}`")
+            raise RuntimeError(
+                f"Medial `{self}` produced by more than one transform `{producers}`"
+            )
         self._producers = producers
 
     def _input_hash(self) -> str:
@@ -191,7 +193,11 @@ class PrimitiveSerializer(Generic[TIPrimitive, TIType]):
 
     @classmethod
     def resolve(
-        cls, token: TIPrimitive, ctx: Context, container: Container, direction: Direction
+        cls,
+        token: TIPrimitive,
+        ctx: Context,
+        container: Container,
+        direction: Direction,
     ) -> TIType:
         raise NotImplementedError
 
@@ -217,7 +223,9 @@ class PrimitiveSerializer(Generic[TIPrimitive, TIType]):
         yield token
 
 
-class InterfaceSerializer(PrimitiveSerializer["TISerialAny", "TIAny"], metaclass=Singleton):
+class InterfaceSerializer(
+    PrimitiveSerializer["TISerialAny", "TIAny"], metaclass=Singleton
+):
     """
     The top level serializer which knows about all others.
     """
@@ -252,7 +260,11 @@ class InterfaceSerializer(PrimitiveSerializer["TISerialAny", "TIAny"], metaclass
 
     @classmethod
     def resolve(
-        cls, token: "TISerialAny", ctx: Context, container: Container, direction: Direction
+        cls,
+        token: "TISerialAny",
+        ctx: Context,
+        container: Container,
+        direction: Direction,
     ) -> "TIAny":
         "Resolve a token against a container, binding values in as required"
         if (serializer := cls.key_map.get(token["typ"])) is not None:
@@ -349,7 +361,11 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
 
     @classmethod
     def resolve(
-        cls, token: "TIPathSerial", ctx: Context, container: Container, direction: Direction
+        cls,
+        token: "TIPathSerial",
+        ctx: Context,
+        container: Container,
+        direction: Direction,
     ):
         "Resolve a path against a container, binding value as required"
         if token["host"] is not None:
@@ -374,7 +390,9 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
                 container.bind(host_path, cont_path, readonly=readonly, mkdir=True)
             else:
                 # Otherwise bind the directory above for efficiency
-                container.bind(host_path.parent, cont_path.parent, readonly=readonly, mkdir=True)
+                container.bind(
+                    host_path.parent, cont_path.parent, readonly=readonly, mkdir=True
+                )
         else:
             if token["cont"] is None:
                 raise ValueError("Both host path and container path cannot be None!")
@@ -397,7 +415,11 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
     @classmethod
     def walk_hashable(cls, token: "TIPathSerial"):
         # Omit the paths themselves as they are likely to be generated
-        yield {**token, "host": token["host"] is not None, "cont": token["cont"] is not None}
+        yield {
+            **token,
+            "host": token["host"] is not None,
+            "cont": token["cont"] is not None,
+        }
 
 
 class IEnv:
@@ -406,7 +428,11 @@ class IEnv:
     """
 
     def __init__(
-        self, key: str, val: "TIEnv", policy: EnvPolicy = EnvPolicy.CONFLICT, _wrap: bool = True
+        self,
+        key: str,
+        val: "TIEnv",
+        policy: EnvPolicy = EnvPolicy.CONFLICT,
+        _wrap: bool = True,
     ):
         """
         :param key: The environment variable name
@@ -424,7 +450,9 @@ class IEnv:
                     " float, None, Path, IPath, and lists thereof are allowed."
                 )
         if not isinstance(policy, EnvPolicy):
-            raise ValueError(f"Policy `{policy}` is not valid in IEnv, use the EnvPolicy enum.")
+            raise ValueError(
+                f"Policy `{policy}` is not valid in IEnv, use the EnvPolicy enum."
+            )
         self.key = key
         self.val = val
         self.policy = policy
@@ -476,7 +504,9 @@ class EnvSerializer(PrimitiveSerializer["TIEnvSerial", "IEnv"]):
     ):
         "Resolve env against a container, binding values in as required"
         key = token["key"]
-        val = cast(TIEnv, InterfaceSerializer.resolve(token["val"], ctx, container, direction))
+        val = cast(
+            TIEnv, InterfaceSerializer.resolve(token["val"], ctx, container, direction)
+        )
         try:
             policy = EnvPolicy[token["policy"]]
         except KeyError as e:
@@ -530,13 +560,19 @@ class DictSerializer(PrimitiveSerializer["TIDictSerial", "dict"]):
                 const = False
             serialized[key] = serialized_value
         if const:
-            return ConstSerializer.serialize({k: v["val"] for k, v in serialized.items()})
+            return ConstSerializer.serialize(
+                {k: v["val"] for k, v in serialized.items()}
+            )
         else:
             return {"typ": "dict", "val": serialized}
 
     @classmethod
     def resolve(
-        cls, token: "TIDictSerial", ctx: Context, container: Container, direction: Direction
+        cls,
+        token: "TIDictSerial",
+        ctx: Context,
+        container: Container,
+        direction: Direction,
     ):
         return {
             k: InterfaceSerializer.resolve(v, ctx, container, direction)
@@ -587,9 +623,16 @@ class ListSerializer(PrimitiveSerializer["TIListSerial", "list"]):
 
     @classmethod
     def resolve(
-        cls, token: "TIListSerial", ctx: Context, container: Container, direction: Direction
+        cls,
+        token: "TIListSerial",
+        ctx: Context,
+        container: Container,
+        direction: Direction,
     ):
-        return [InterfaceSerializer.resolve(v, ctx, container, direction) for v in token["val"]]
+        return [
+            InterfaceSerializer.resolve(v, ctx, container, direction)
+            for v in token["val"]
+        ]
 
     @classmethod
     def walk_medials(cls, token: "TIListSerial"):
@@ -621,7 +664,11 @@ class ConstSerializer(PrimitiveSerializer["TIConstSerial", "TIConstLeaf"]):
 
     @classmethod
     def resolve(
-        cls, token: "TIListSerial", ctx: Context, container: Container, direction: Direction
+        cls,
+        token: "TIListSerial",
+        ctx: Context,
+        container: Container,
+        direction: Direction,
     ):
         return token["val"]
 
@@ -643,7 +690,9 @@ class IFace:
 
     @classmethod
     def from_field(cls, transform: "Transform", field: "IField", name: str) -> Self:
-        raise NotImplementedError("IFace `{cls}` cannot be auto-resolved as an output field.")
+        raise NotImplementedError(
+            f"IFace `{cls}` cannot be auto-resolved as an output field."
+        )
 
 
 @InterfaceSerializer.register("__never__", (IFace,))
@@ -706,7 +755,12 @@ class TIEnvSerial(TypedDict):
 
 
 TISerialAny = (
-    TIConstSerial | TIPathSerial | TIListSerial | TIDictSerial | TIEnvListSerial | TIEnvSerial
+    TIConstSerial
+    | TIPathSerial
+    | TIListSerial
+    | TIDictSerial
+    | TIEnvListSerial
+    | TIEnvSerial
 )
 "The JSON-serializable interface specification format"
 
@@ -792,7 +846,9 @@ class IField(Generic[TIField]):
         self.default = default
         self.default_factory = default_factory
         if self.default is not ... and self.default_factory is not None:
-            raise ValueError("One of default and default_factory may be set, but not both!")
+            raise ValueError(
+                "One of default and default_factory may be set, but not both!"
+            )
         self.direction = direction
         if direction.is_output and env is not ...:
             raise ValueError("IEnv can only be set for input interfaces")
@@ -821,7 +877,10 @@ class IField(Generic[TIField]):
         if self.env is not ...:
             # Note env val is type checked
             interface_value = IEnv(
-                key=self.env, val=cast(Any, field_value), policy=self.env_policy, _wrap=False
+                key=self.env,
+                val=cast(Any, field_value),
+                policy=self.env_policy,
+                _wrap=False,
             )
         else:
             interface_value = field_value
@@ -829,7 +888,11 @@ class IField(Generic[TIField]):
         return SerialInterface.from_interface(interface_value)
 
     def bind(
-        self, ctx: Context, container: Container, field: Field[TIField], serial: SerialInterface
+        self,
+        ctx: Context,
+        container: Container,
+        field: Field[TIField],
+        serial: SerialInterface,
     ):
         "Bind a field value to the container and return the resolved value"
         return serial.resolve(ctx, container, self.direction)
@@ -860,7 +923,11 @@ class ITool(IField):
         return SerialInterface.from_interface(field_value.vernum)
 
     def bind(
-        self, ctx: Context, container: Container, field: Field[TIField], serial: SerialInterface
+        self,
+        ctx: Context,
+        container: Container,
+        field: Field[TIField],
+        serial: SerialInterface,
     ):
         # Bind tool to container and return
         tool = field.type(serial.resolve(ctx, container, self.direction))
@@ -966,7 +1033,9 @@ class Result:
     exit_code: int | None
     run_time: float
     ident: str
-    _accepted: bool = field(init=False, default=False, compare=False, repr=False, hash=False)
+    _accepted: bool = field(
+        init=False, default=False, compare=False, repr=False, hash=False
+    )
 
     def resolve(self):
         "Resolve this result, raising an error if it has not been accepted"
@@ -984,7 +1053,9 @@ class Result:
         return True
 
 
-@dataclass_transform(kw_only_default=True, frozen_default=True, field_specifiers=(IN, OUT, TOOL))
+@dataclass_transform(
+    kw_only_default=True, frozen_default=True, field_specifiers=(IN, OUT, TOOL)
+)
 class Transform:
     """
     Base class for Transforms. Transforms are specified using dataclass
@@ -1019,7 +1090,9 @@ class Transform:
         dataclass(kw_only=True, frozen=True, eq=False, repr=False)(cls)
         # Ensure not defined inline as we rely on transforms being locatable
         if "<locals>" in cls.__qualname__:
-            raise RuntimeError(f"Transforms must not be defined inline, got: {cls.__qualname__}")
+            raise RuntimeError(
+                f"Transforms must not be defined inline, got: {cls.__qualname__}"
+            )
 
     def __init__(self):
         raise RuntimeError("Cannot instantiate transform directly, subclass it!")
@@ -1120,7 +1193,9 @@ class Transform:
                 )
             ifield = tf_field.default
             _direction, serial = self._serial_interfaces[tf_field.name]
-            interface_values[tf_field.name] = ifield.bind(ctx, container, tf_field, serial)
+            interface_values[tf_field.name] = ifield.bind(
+                ctx, container, tf_field, serial
+            )
 
         # Construct transform instance
         cls = type(self)
@@ -1140,7 +1215,9 @@ class Transform:
                 exit_code = container.invoke(ctx, invocation)
                 ivk_stop = time.time()
                 result = Result(
-                    exit_code=exit_code, run_time=(ivk_stop - ivk_start), ident=str(invocation)
+                    exit_code=exit_code,
+                    run_time=(ivk_stop - ivk_start),
+                    ident=str(invocation),
                 )
                 # Pass the result object back
                 invocation = invocation_iter.send(result)
