@@ -50,7 +50,7 @@ class Design(base.Config):
         yield from self.transforms
 
     def iter_transforms(self) -> Iterable[Transform]:
-        idesign = DesignInterface(sources=map(self.api.path, self.sources), headers=[])
+        idesign = DesignInterface(sources=list(map(self.api.path, self.sources)), headers=[])
         yield VerilatorLintTransform(design=idesign)
 
 
