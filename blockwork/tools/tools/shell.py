@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from blockwork.context import Context
 
 from ..tool import Invocation, Tool, Version
@@ -18,5 +20,5 @@ class Bash(Tool):
         return Invocation(tool=self, execute="bash", args=["-c", " && ".join(script)])
 
     @Tool.action()
-    def cp(self, ctx: Context, frm: str, to: str) -> Invocation:
+    def cp(self, ctx: Context, frm: str | Path, to: str | Path) -> Invocation:
         return Invocation(tool=self, execute="cp", args=["-r", frm, to])
