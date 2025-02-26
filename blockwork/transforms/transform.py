@@ -194,7 +194,11 @@ class PrimitiveSerializer(Generic[TIPrimitive, TIType]):
 
     @classmethod
     def resolve(
-        cls, token: TIPrimitive, ctx: Context, container: Foundation, direction: Direction
+        cls,
+        token: TIPrimitive,
+        ctx: Context,
+        container: Foundation,
+        direction: Direction,
     ) -> "TIAny":
         raise NotImplementedError
 
@@ -261,7 +265,11 @@ class InterfaceSerializer(PrimitiveSerializer["TISerialAny", "TIAny"], metaclass
 
     @classmethod
     def resolve(
-        cls, token: "TISerialAny", ctx: Context, container: Foundation, direction: Direction
+        cls,
+        token: "TISerialAny",
+        ctx: Context,
+        container: Foundation,
+        direction: Direction,
     ) -> "TIAny":
         "Resolve a token against a container, binding values in as required"
         if (serializer := cls.key_map.get(token["typ"])) is not None:
@@ -352,14 +360,22 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
             meta.update_medials(Medial(host_path))
         # Omit the paths themselves as they are likely to be generated
         meta.update_hash(
-            {**serial, "host": serial["host"] is not None, "cont": serial["cont"] is not None}
+            {
+                **serial,
+                "host": serial["host"] is not None,
+                "cont": serial["cont"] is not None,
+            }
         )
 
         return serial
 
     @classmethod
     def resolve(
-        cls, token: "TIPathSerial", ctx: Context, container: Foundation, direction: Direction
+        cls,
+        token: "TIPathSerial",
+        ctx: Context,
+        container: Foundation,
+        direction: Direction,
     ):
         "Resolve a path against a container, binding value as required"
         if token["host"] is not None:
@@ -393,7 +409,11 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
 
     @classmethod
     def default_factory(
-        cls, token: type[Path] | type[IPath] | str, name: str, api: ConfigApi, field: "IField"
+        cls,
+        token: type[Path] | type[IPath] | str,
+        name: str,
+        api: ConfigApi,
+        field: "IField",
     ) -> Path | IPath:
         if field.direction.is_input:
             super().default_factory(token, name, api, field)
@@ -406,7 +426,11 @@ class IEnv:
     """
 
     def __init__(
-        self, key: str, val: "TIEnv", policy: EnvPolicy = EnvPolicy.CONFLICT, _wrap: bool = True
+        self,
+        key: str,
+        val: "TIEnv",
+        policy: EnvPolicy = EnvPolicy.CONFLICT,
+        _wrap: bool = True,
     ):
         """
         :param key: The environment variable name
@@ -532,7 +556,11 @@ class DictSerializer(PrimitiveSerializer["TIDictSerial", "dict"]):
 
     @classmethod
     def resolve(
-        cls, token: "TIDictSerial", ctx: Context, container: Foundation, direction: Direction
+        cls,
+        token: "TIDictSerial",
+        ctx: Context,
+        container: Foundation,
+        direction: Direction,
     ):
         return {
             k: InterfaceSerializer.resolve(v, ctx, container, direction)
@@ -575,7 +603,11 @@ class ListSerializer(PrimitiveSerializer["TIListSerial", "list"]):
 
     @classmethod
     def resolve(
-        cls, token: "TIListSerial", ctx: Context, container: Foundation, direction: Direction
+        cls,
+        token: "TIListSerial",
+        ctx: Context,
+        container: Foundation,
+        direction: Direction,
     ):
         return [InterfaceSerializer.resolve(v, ctx, container, direction) for v in token["val"]]
 
@@ -600,7 +632,11 @@ class ConstSerializer(PrimitiveSerializer["TIConstSerial", "TIConstLeaf"]):
 
     @classmethod
     def resolve(
-        cls, token: "TIConstSerial", ctx: Context, container: Foundation, direction: Direction
+        cls,
+        token: "TIConstSerial",
+        ctx: Context,
+        container: Foundation,
+        direction: Direction,
     ):
         return cast(TIAny, token["val"])
 
@@ -782,15 +818,20 @@ class IField(FieldProtocol[TIField]):
                 field_value = InterfaceSerializer.default_factory(field.type, field.name, api, self)
             # Set the resolved value on the transform
             object.__setattr__(target, field.name, field_value)
-            self.value = field_value
 
         if self.env is not ...:
             # Note env val is type checked
             interface_value = IEnv(
-                key=self.env, val=cast(Any, field_value), policy=self.env_policy, _wrap=False
+                key=self.env,
+                val=cast(Any, field_value),
+                policy=self.env_policy,
+                _wrap=False,
             )
         else:
             interface_value = field_value
+
+        # Update the value on the field itself
+        self.value = field_value
 
         return SerialInterface(interface_value, self.direction)
 
@@ -998,13 +1039,20 @@ class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
         }
         # TODO HASH?
         meta.update_hash(
-            {**serial, "ifields": {k: v.tokens for k, v in token._serial_interfaces.items()}}
+            {
+                **serial,
+                "ifields": {k: v.tokens for k, v in token._serial_interfaces.items()},
+            }
         )
         return serial
 
     @classmethod
     def resolve(
-        cls, token: "TIFaceSerial", ctx: Context, container: Foundation, direction: Direction
+        cls,
+        token: "TIFaceSerial",
+        ctx: Context,
+        container: Foundation,
+        direction: Direction,
     ) -> "IFace":
         # Get IFace module
         mod = importlib.import_module(token["mod"])
