@@ -20,7 +20,7 @@ import click
 
 from ..build.caching import Cache
 from ..context import Context
-from ..transforms.transform import TITransformSerial, run_transform
+from ..transforms.transform import TITransformSerial, Transform
 
 
 @click.group(name="wf")
@@ -47,10 +47,11 @@ def wf_step(ctx: Context, spec_path: Path):
     # Reload the serialised workflow step specification
     spec: TITransformSerial = json.loads(spec_path.read_text(encoding="utf-8"))
     # Run the relevant transform
-    result = run_transform(ctx, spec)
+    tf = Transform.deserialize(spec)
+    result = tf.run(ctx)
 
     # duration = stop - start
     # Whether a cache is in place
     is_caching = Cache.enabled(ctx)
-    if is_caching and Cache.store_transform_to_any(ctx, result.transform, result.run_time):
-        logging.info("Stored transform to cache: %s", result.transform)
+    if is_caching and Cache.store_transform_to_any(ctx, tf, result.run_time):
+        logging.info("Stored transform to cache: %s", tf)

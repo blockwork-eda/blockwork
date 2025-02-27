@@ -37,7 +37,7 @@ from ..config.api import ConfigApi
 from ..config.base import Config, Project, Site
 from ..config.scheduler import Scheduler
 from ..context import Context, DebugScope
-from ..transforms.transform import Medial, SerialInterface, Transform
+from ..transforms.transform import Medial, Transform
 
 re_ident_prefix = re.compile(r"[0-9]+_[0-9]:")
 
@@ -338,7 +338,7 @@ class Workflow:
                         f"{spec_file.relative_to(ctx.host_scratch)}"
                     )
                     with spec_file.open("w", encoding="utf-8") as fh:
-                        json.dump(SerialInterface(transform).value, fh)
+                        json.dump(transform.serialize(), fh)
                     # Launch the job
                     # TODO @intuity: Make the resource requests parameterisable
                     args = [

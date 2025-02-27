@@ -194,7 +194,7 @@ class PrimitiveSerializer(Generic[TIPrimitive, TIType]):
     """
 
     @classmethod
-    def serialize(cls, token: TIType, meta: "SerialInterface") -> "TISerialAny":
+    def serialize(cls, token: TIType) -> "TIPrimitive":
         raise NotImplementedError
 
     @classmethod
@@ -231,6 +231,10 @@ class PrimitiveSerializer(Generic[TIPrimitive, TIType]):
             f"{transform_str}: `{name}: {type_str} = {field_str}`"
         )
 
+    @classmethod
+    def walk(cls, token: "TIPrimitive", meta: "SerialInterface"):
+        meta.update_hash(token)
+
 
 TISerializer = TypeVar("TISerializer", bound=PrimitiveSerializer[Any, Any])
 
@@ -256,15 +260,15 @@ class InterfaceSerializer(PrimitiveSerializer["TISerialAny", "TIAny"], metaclass
         return inner
 
     @classmethod
-    def serialize(cls, token: "TIAny", meta: "SerialInterface") -> "TISerialAny":
+    def serialize(cls, token: "TIAny") -> "TISerialAny":
         # Try the quick map
         if (serializer := cls.quick_type_map.get(type(token))) is not None:
-            return serializer.serialize(token, meta)
+            return serializer.serialize(token)
 
         # Try the slow map
         for types, serializer in cls.slow_type_map.items():
             if isinstance(token, types):
-                return serializer.serialize(token, meta)
+                return serializer.serialize(token)
 
         raise RuntimeError(f"Invalid interface type: `{token}`")
 
@@ -303,6 +307,14 @@ class InterfaceSerializer(PrimitiveSerializer["TISerialAny", "TIAny"], metaclass
 
         return super().default_factory(token, name, api, field)
 
+    @classmethod
+    def walk(cls, token: "TISerialAny", meta: "SerialInterface"):
+        "Walk over all tokens"
+        if (serializer := cls.key_map.get(token["typ"])) is not None:
+            serializer.walk(token, meta)
+        else:
+            raise RuntimeError(f"Invalid interface type: `{token}`")
+
 
 class IPath:
     """
@@ -335,7 +347,7 @@ class IPath:
 @InterfaceSerializer.register("path", (Path, IPath))
 class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
     @classmethod
-    def serialize(cls, token: "Path | IPath", meta: "SerialInterface") -> "TIPathSerial":
+    def serialize(cls, token: "Path | IPath") -> "TIPathSerial":
         "Serialize a path into the interface spec format"
 
         if isinstance(token, Path):
@@ -354,25 +366,7 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
             else:
                 cont_path = cont_path.resolve().as_posix()
 
-        serial: TIPathSerial = {
-            "typ": "path",
-            "host": host_path,
-            "cont": cont_path,
-            "is_dir": is_dir,
-        }
-
-        if host_path:
-            meta.update_medials(Medial(host_path))
-        # Omit the paths themselves as they are likely to be generated
-        meta.update_hash(
-            {
-                **serial,
-                "host": serial["host"] is not None,
-                "cont": serial["cont"] is not None,
-            }
-        )
-
-        return serial
+        return {"typ": "path", "host": host_path, "cont": cont_path, "is_dir": is_dir}
 
     @classmethod
     def resolve(
@@ -424,6 +418,15 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
             super().default_factory(token, name, api, field)
         return api.path(name)
 
+    @classmethod
+    def walk(cls, token: "TIPathSerial", meta: "SerialInterface"):
+        if token["host"] is not None:
+            meta.update_medials(Medial(token["host"]))
+        # Omit the paths themselves as they are likely to be generated
+        meta.update_hash(
+            {**token, "host": token["host"] is not None, "cont": token["cont"] is not None}
+        )
+
 
 class IEnv:
     """
@@ -473,10 +476,10 @@ class IEnv:
 @InterfaceSerializer.register("env", (IEnv,))
 class EnvSerializer(PrimitiveSerializer["TIEnvSerial", "IEnv"]):
     @classmethod
-    def serialize(cls, token: "IEnv", meta: "SerialInterface") -> "TIEnvSerial":
+    def serialize(cls, token: "IEnv") -> "TIEnvSerial":
         val = cast(
             TIConstSerial | TIPathSerial | TIEnvListSerial,
-            InterfaceSerializer.serialize(token.val, meta),
+            InterfaceSerializer.serialize(token.val),
         )
         serial: TIEnvSerial = {
             "typ": "env",
@@ -485,7 +488,6 @@ class EnvSerializer(PrimitiveSerializer["TIEnvSerial", "IEnv"]):
             "policy": token.policy.name,
             "wrap": token._wrap,
         }
-        meta.update_hash({**serial, "val": None})
         return serial
 
     @classmethod
@@ -533,11 +535,16 @@ class EnvSerializer(PrimitiveSerializer["TIEnvSerial", "IEnv"]):
             return IEnv(key=key, val=val, policy=policy)
         return val
 
+    @classmethod
+    def walk(cls, token: "TIEnvSerial", meta: "SerialInterface"):
+        InterfaceSerializer.walk(token["val"], meta)
+        meta.update_hash({**token, "val": None})
+
 
 @InterfaceSerializer.register("dict", (dict,))
 class DictSerializer(PrimitiveSerializer["TIDictSerial", "dict"]):
     @classmethod
-    def serialize(cls, token: dict, meta: "SerialInterface") -> "TIDictSerial | TIConstSerial":
+    def serialize(cls, token: dict) -> "TIDictSerial | TIConstSerial":
         """
         Serialize a dict into the interface spec format.
 
@@ -547,17 +554,14 @@ class DictSerializer(PrimitiveSerializer["TIDictSerial", "dict"]):
         serialized = {}
         for key, value_token in token.items():
             assert isinstance(key, str), "Keys must be string"
-            serialized_value = InterfaceSerializer.serialize(value_token, meta)
+            serialized_value = InterfaceSerializer.serialize(value_token)
             if serialized_value["typ"] != "const":
                 const = False
             serialized[key] = serialized_value
         if const:
-            serial = ConstSerializer.serialize({k: v["val"] for k, v in serialized.items()}, meta)
+            return ConstSerializer.serialize({k: v["val"] for k, v in serialized.items()})
         else:
-            serial = cast(TIDictSerial, {"typ": "dict", "val": serialized})
-
-        meta.update_hash({**serial, "val": None})
-        return serial
+            return {"typ": "dict", "val": serialized}
 
     @classmethod
     def resolve(
@@ -573,6 +577,12 @@ class DictSerializer(PrimitiveSerializer["TIDictSerial", "dict"]):
         }
 
     @classmethod
+    def walk(cls, token: "TIDictSerial", meta: "SerialInterface"):
+        for value in token["val"].values():
+            InterfaceSerializer.walk(value, meta)
+        meta.update_hash({**token, "val": sorted(token["val"].keys())})
+
+    @classmethod
     def default_factory(
         cls, token: type[dict] | str, name: str, api: ConfigApi, field: "IField"
     ) -> dict:
@@ -585,7 +595,7 @@ class DictSerializer(PrimitiveSerializer["TIDictSerial", "dict"]):
 @InterfaceSerializer.register("list", (list,))
 class ListSerializer(PrimitiveSerializer["TIListSerial", "list"]):
     @classmethod
-    def serialize(cls, token: list, meta: "SerialInterface") -> "TIListSerial | TIConstSerial":
+    def serialize(cls, token: list) -> "TIListSerial | TIConstSerial":
         """
         Serialize a list into the interface spec format
 
@@ -594,17 +604,14 @@ class ListSerializer(PrimitiveSerializer["TIListSerial", "list"]):
         const = True
         serialized = []
         for value_token in token:
-            serialized_value = InterfaceSerializer.serialize(value_token, meta)
+            serialized_value = InterfaceSerializer.serialize(value_token)
             if serialized_value["typ"] != "const":
                 const = False
             serialized.append(serialized_value)
         if const:
-            serial = ConstSerializer.serialize([v["val"] for v in serialized], meta)
+            return ConstSerializer.serialize([v["val"] for v in serialized])
         else:
-            serial = cast(TIListSerial, {"typ": "list", "val": serialized})
-
-        meta.update_hash({**serial, "val": None})
-        return serial
+            return cast(TIListSerial, {"typ": "list", "val": serialized})
 
     @classmethod
     def resolve(
@@ -615,6 +622,12 @@ class ListSerializer(PrimitiveSerializer["TIListSerial", "list"]):
         direction: Direction,
     ):
         return [InterfaceSerializer.resolve(v, ctx, container, direction) for v in token["val"]]
+
+    @classmethod
+    def walk(cls, token: "TIListSerial", meta: "SerialInterface"):
+        for value in token["val"]:
+            InterfaceSerializer.walk(value, meta)
+        meta.update_hash({**token, "val": None})
 
     @classmethod
     def default_factory(
@@ -629,11 +642,9 @@ class ListSerializer(PrimitiveSerializer["TIListSerial", "list"]):
 @InterfaceSerializer.register("const", (str, int, float, bool, NoneType))
 class ConstSerializer(PrimitiveSerializer["TIConstSerial", "TIConstLeaf"]):
     @classmethod
-    def serialize(cls, token: "TIConst", meta: "SerialInterface") -> "TIConstSerial":
+    def serialize(cls, token: "TIConst") -> "TIConstSerial":
         "Serialize a constant value into the interface spec format"
-        serial: TIConstSerial = {"typ": "const", "val": token}
-        meta.update_hash(serial)
-        return serial
+        return {"typ": "const", "val": token}
 
     @classmethod
     def resolve(
@@ -696,22 +707,26 @@ class SerialInterface:
     _cached_input_hash: str | None = None
     "The (cached) hash of this serial interface"
 
-    def __init__(self, value: "TIAny", direction: Direction = Direction.INPUT):
+    def __init__(self, value: "TISerialAny", direction: Direction = Direction.INPUT):
         "The interface in interface specification format"
         self.direction = direction
         self.medials = list[Medial]()
-        self.transforms = list["Transform"]()
         self.tokens = list[Any]()
-        self.value = InterfaceSerializer.serialize(value, self)
+        self.value = value
+        InterfaceSerializer.walk(self.value, self)
+
+    @classmethod
+    def from_interface(
+        cls, token: "TIAny", direction: Direction = Direction.INPUT
+    ) -> "SerialInterface":
+        "Factory to create from an interface"
+        return cls(InterfaceSerializer.serialize(token), direction)
 
     def update_hash(self, *tokens: Any):
         self.tokens += tokens
 
     def update_medials(self, *medials: Medial):
         self.medials += medials
-
-    def update_transforms(self, *transforms: "Transform"):
-        self.transforms += transforms
 
     def resolve(self, ctx: Context, container: Foundation, direction: Direction):
         "Resolve against a container, binding values in as required"
@@ -838,7 +853,7 @@ class IField(FieldProtocol[TIField]):
         # Update the value on the field itself
         self.value = field_value
 
-        return SerialInterface(interface_value, self.direction)
+        return SerialInterface.from_interface(interface_value, self.direction)
 
     def bind(
         self,
@@ -877,7 +892,7 @@ class ITool(FieldProtocol[Tool]):
             # Set the resolved value on the transform
             object.__setattr__(target, field.name, field_value)
         # Serialise the tool version
-        return SerialInterface(field_value.vernum, self.direction)
+        return SerialInterface.from_interface(field_value.vernum, self.direction)
 
     def bind(
         self,
@@ -994,6 +1009,12 @@ class IFace:
     TOOL = TOOL
 
     _serial_interfaces: dict[str, SerialInterface]
+    "The internal representation of (sub) interfaces"
+
+    _cached_input_hash: str | None = None
+    "The (cached) hash of this transforms inputs"
+
+    api: ConfigApi
 
     def __init_subclass__(cls, *args, **kwargs):
         super().__init_subclass__(*args, **kwargs)
@@ -1009,17 +1030,16 @@ class IFace:
             return
         object.__setattr__(self, "api", ConfigApi.current)
         object.__setattr__(self, "_serial_interfaces", {})
-        # Wrapped here since if they are overriden they still
-        # must be cached.
-        for iface_field in fields(cast(Any, self)):
-            if not isinstance(iface_field.default, IField | ITool):
-                raise ValueError(
-                    "All transform interfaces must be specified with a direction"
-                    ", e.g. `myinput: Path = Transform.IN()`"
-                )
-            ifield = iface_field.default
-            ifield.direction = self._direction
-            self._serial_interfaces[iface_field.name] = ifield.resolve(self, self.api, iface_field)
+        with self.api as api:
+            for iface_field in fields(cast(Any, self)):
+                if not isinstance(iface_field.default, IField | ITool):
+                    raise ValueError(
+                        "All transform interfaces must be specified with a direction"
+                        ", e.g. `myinput: Path = Transform.IN()`"
+                    )
+                ifield = iface_field.default
+                ifield.direction = self._direction
+                self._serial_interfaces[iface_field.name] = ifield.resolve(self, api, iface_field)
 
     def __init__(self):
         raise RuntimeError("Cannot instantiate IFace directly, subclass it!")
@@ -1035,30 +1055,13 @@ class TIFaceSerial(TypedDict):
 @InterfaceSerializer.register("IFace", (IFace,))
 class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
     @classmethod
-    def serialize(cls, token: IFace, meta: "SerialInterface") -> "TIFaceSerial":
-        medials = []
-        values = {}
-        tokens = {}
-        for k, v in token._serial_interfaces.items():
-            medials += v.medials
-            values[k] = v.value
-            tokens[k] = v.tokens
-
-        serial: TIFaceSerial = {
+    def serialize(cls, token: IFace) -> "TIFaceSerial":
+        return {
             "typ": "IFace",
             "mod": type(token).__module__,
             "name": type(token).__qualname__,
-            "ifields": values,
+            "ifields": {k: v.value for k, v in token._serial_interfaces.items()},
         }
-
-        meta.update_medials(*medials)
-        meta.update_hash(
-            {
-                **serial,
-                "ifields": tokens,
-            }
-        )
-        return serial
 
     @classmethod
     def resolve(
@@ -1106,6 +1109,12 @@ class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
         token._direction = Direction.INPUT
         return result
 
+    @classmethod
+    def walk(cls, token: "TIFaceSerial", meta: "SerialInterface"):
+        for value in token["ifields"].values():
+            InterfaceSerializer.walk(value, meta)
+        meta.update_hash({**token, "ifields": sorted(token["ifields"].keys())})
+
 
 class TITransformSerial(TypedDict):
     typ: Literal["Transform"]
@@ -1126,10 +1135,12 @@ TISerialAny = (
 )
 "The JSON-serializable interface specification format"
 
+TIAny = TIConstLeaf | TIPrimitives | IFace | Sequence["TIAny"] | dict[str, "TIAny"]
+"The valid types for an interface"
+
 
 @dataclass(frozen=True, kw_only=True)
 class Result:
-    transform: "Transform"
     exit_code: int | None
     run_time: float
     ident: str
@@ -1208,6 +1219,14 @@ class Transform:
                 ifield = tf_field.default
                 self._serial_interfaces[tf_field.name] = ifield.resolve(self, api, tf_field)
 
+    def serialize(self) -> TITransformSerial:
+        return {
+            "typ": "Transform",
+            "mod": type(self).__module__,
+            "name": type(self).__qualname__,
+            "ifaces": {k: v.value for k, v in self._serial_interfaces.items()},
+        }
+
     def _import_hash(self) -> str:
         return Cache.hash_imported_package(self.__class__.__module__)
 
@@ -1233,8 +1252,86 @@ class Transform:
         object.__setattr__(self, "_cached_input_hash", digest)
         return digest
 
+    @staticmethod
+    def deserialize(spec: TITransformSerial) -> "Transform":
+        # Get transform module
+        mod = importlib.import_module(spec["mod"])
+        # Get class from module (using reduce to navigate module namespacing)
+        cls: Transform = reduce(getattr, spec["name"].split("."), mod)
+        tf = cls.__new__(cls)
+
+        object.__setattr__(tf, "_serial_interfaces", {})
+        for tf_field in fields(cast(Any, tf)):
+            if not isinstance(tf_field.default, IField | ITool):
+                raise ValueError(
+                    "All transform interfaces must be specified with a direction"
+                    ", e.g. `myinput: Path = Transform.IN()`"
+                )
+            ifield = tf_field.default
+            tf._serial_interfaces[tf_field.name] = SerialInterface(
+                spec["ifaces"][tf_field.name], direction=ifield.direction
+            )
+
+        return tf
+
     def run(self, ctx: "Context") -> Result:
-        return run_transform(ctx, self)
+        """Run the transform in a container."""
+        tf_start = time.time()
+
+        # Create  a container
+        # Note need to do this import here to avoid circular import
+        from ..foundation import Foundation
+
+        container = Foundation(ctx)
+
+        # Bind interfaces to container
+        interface_values: dict[str, Any] = {}
+
+        # Cast to Any to satisfy type checkers as the base Transform class will
+        # not be a dataclass, but subclasses will.
+        for tf_field in fields(cast(Any, self)):
+            if not isinstance(tf_field.default, IField | ITool):
+                raise ValueError(
+                    "All transform interfaces must be specified with a direction"
+                    ", e.g. `myinput: Path = Transform.IN()`"
+                )
+            ifield = tf_field.default
+            serial = self._serial_interfaces[tf_field.name]
+            interface_values[tf_field.name] = ifield.bind(
+                ctx, container, tf_field, serial.value, ifield.direction
+            )
+
+        # Construct transform instance
+        cls = type(self)
+        tf = cls.__new__(cls)
+        object.__setattr__(tf, "_tf_execute_proxy", True)
+        tf.__init__(**interface_values)
+
+        invocation_iter = tf.execute(ctx)
+        exit_code = None
+        result = None
+        try:
+            # Get the first
+            invocation = next(invocation_iter)
+            while True:
+                # Invoke and create result object
+                ivk_start = time.time()
+                exit_code = container.invoke(ctx, invocation)
+                ivk_stop = time.time()
+                result = Result(
+                    exit_code=exit_code, run_time=(ivk_stop - ivk_start), ident=str(invocation)
+                )
+                # Pass the result object back
+                invocation = invocation_iter.send(result)
+                # Resolve the result before handling next invocation
+                result.resolve()
+        except StopIteration:
+            # Resolve last iteration if it stopped on send
+            if result:
+                result.resolve()
+        tf_stop = time.time()
+        # Return a result object with the final exit_code and total run_time
+        return Result(exit_code=exit_code, run_time=(tf_stop - tf_start), ident=str(tf))
 
     def execute(self, ctx: "Context", /) -> Generator["Invocation", Result, None]:
         """
@@ -1255,131 +1352,3 @@ class Transform:
 
     def __repr__(self) -> str:
         return f"<{type(self).__name__} hash='{self._cached_input_hash}'>"
-
-
-@InterfaceSerializer.register("Transform", (Transform,))
-class TransformSerializer(PrimitiveSerializer["TITransformSerial", "Transform"]):
-    @classmethod
-    def serialize(cls, token: Transform, meta: "SerialInterface") -> "TITransformSerial":
-        ifaces = {}
-        for k, v in token._serial_interfaces.items():
-            if meta.direction != v.direction:
-                # Update from the inputs of outputs and the outputs of inputs
-                meta.update_hash(k, *v.tokens)
-                meta.update_medials(*v.medials)
-
-            if meta.direction.is_input:
-                # Update transforms from both input and outputs of inputs
-                meta.update_transforms(*v.transforms)
-
-            ifaces[k] = v.value
-
-        serial: TITransformSerial = {
-            "typ": "Transform",
-            "mod": type(token).__module__,
-            "name": type(token).__qualname__,
-            "ifaces": ifaces,
-        }
-        meta.update_transforms(token)
-        meta.update_hash({**serial, "ifaces": None})
-        return serial
-
-    @classmethod
-    def resolve(
-        cls,
-        token: "TITransformSerial",
-        ctx: Context,
-        container: Foundation,
-        direction: Direction | None,
-    ) -> "Transform":
-        # Get transform module
-        mod = importlib.import_module(token["mod"])
-        # Get class from module (using reduce to navigate module namespacing)
-        transform_cls: type[Transform] = reduce(getattr, token["name"].split("."), mod)
-
-        # Bind interfaces to container
-        interface_values: dict[str, Any] = {}
-
-        for tf_field in fields(cast(Any, transform_cls)):
-            if not isinstance(tf_field.default, IField | ITool):
-                raise ValueError(
-                    "All transform interfaces must be specified with a direction"
-                    ", e.g. `myinput: Path = Transform.IN()`"
-                )
-            ifield = tf_field.default
-            value = token["ifaces"][tf_field.name]
-
-            if direction is None:
-                interface_values[tf_field.name] = ifield.bind(
-                    ctx, container, tf_field, value, ifield.direction
-                )
-            else:
-                raise NotImplementedError("Transforms as inputs/outputs not currently supported")
-        # Reconstruct transform with bound values
-        tf = transform_cls.__new__(transform_cls)
-        object.__setattr__(tf, "_tf_execute_proxy", True)
-        tf.__init__(**interface_values)
-
-        return tf
-
-    @classmethod
-    def default_factory(
-        cls, token: type["Transform"] | str, name: str, api: ConfigApi, field: "IField"
-    ) -> "Transform":
-        raise NotImplementedError("Transforms as inputs/outputs not currently supported")
-
-
-TIAny = TIConstLeaf | TIPrimitives | IFace | Sequence["TIAny"] | dict[str, "TIAny"] | Transform
-"The valid types for an interface"
-
-
-def run_transform(ctx: "Context", transform: Transform | TITransformSerial) -> Result:
-    """Run the transform in a container."""
-    if isinstance(transform, Transform):
-        transform = cast(TITransformSerial, SerialInterface(transform).value)
-
-    tf_start = time.time()
-
-    # Create  a container
-    # Note need to do this import here to avoid circular import
-    from ..foundation import Foundation
-
-    container = Foundation(ctx)
-
-    tf = TransformSerializer.resolve(transform, ctx, container, None)
-
-    invocation_iter = tf.execute(ctx)
-    exit_code = None
-    result = None
-    try:
-        # Get the first
-        invocation = next(invocation_iter)
-        while True:
-            # Invoke and create result object
-            ivk_start = time.time()
-            exit_code = container.invoke(ctx, invocation)
-            ivk_stop = time.time()
-            result = Result(
-                exit_code=exit_code,
-                run_time=(ivk_stop - ivk_start),
-                ident=str(invocation),
-                transform=tf,
-            )
-            # Pass the result object back
-            invocation = invocation_iter.send(result)
-            # Resolve the result before handling next invocation
-            result.resolve()
-    except StopIteration:
-        # Resolve last iteration if it stopped on send
-        if result:
-            result.resolve()
-    tf_stop = time.time()
-
-    def execute(self, ctx: "Context", /) -> Generator["Invocation", Result, None]:
-        """
-        Execute method to be implemented in subclasses.
-        """
-        raise NotImplementedError
-
-    # Return a result object with the final exit_code and total run_time
-    return Result(exit_code=exit_code, run_time=(tf_stop - tf_start), ident=str(tf), transform=tf)
