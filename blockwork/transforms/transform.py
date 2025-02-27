@@ -1031,17 +1031,26 @@ class TIFaceSerial(TypedDict):
 class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
     @classmethod
     def serialize(cls, token: IFace, meta: "SerialInterface") -> "TIFaceSerial":
+        medials = []
+        values = {}
+        tokens = {}
+        for k, v in token._serial_interfaces.items():
+            medials += v.medials
+            values[k] = v.value
+            tokens[k] = v.tokens
+
         serial: TIFaceSerial = {
             "typ": "IFace",
             "mod": type(token).__module__,
             "name": type(token).__qualname__,
-            "ifields": {k: v.value for k, v in token._serial_interfaces.items()},
+            "ifields": values,
         }
-        # TODO HASH?
+
+        meta.update_medials(*medials)
         meta.update_hash(
             {
                 **serial,
-                "ifields": {k: v.tokens for k, v in token._serial_interfaces.items()},
+                "ifields": tokens,
             }
         )
         return serial
