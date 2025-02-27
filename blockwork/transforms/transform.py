@@ -88,9 +88,11 @@ class Medial:
               up
             - Currently unused but could be used for graphing later
         """
-        if self._consumers is not None:
+        if self._consumers is None:
+            self._consumers = consumers
+
+        if self._consumers is not consumers:
             raise RuntimeError("Consumers already bound to medial!")
-        self._consumers = consumers
 
     def bind_producers(self, producers: list["Transform"]):
         """
@@ -100,11 +102,14 @@ class Medial:
             - This deliberately binds a list by reference as it is built
               up
         """
-        if self._producers is not None:
+        if self._producers is None:
+            self._producers = producers
+
+        if self._producers is not producers:
             raise RuntimeError("Producers already bound to medial!")
+
         if len(producers) > 1:
             raise RuntimeError(f"Medial `{self}` produced by more than one transform `{producers}`")
-        self._producers = producers
 
     def _input_hash(self) -> str:
         """
