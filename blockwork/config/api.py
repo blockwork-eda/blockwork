@@ -266,8 +266,10 @@ class TargetApi(ConfigApiBase["Config"]):
     @property
     def pathname(self):
         if self.target:
-            return f"{self.unit}/{self.target}"
-        return self.unit
+            name = f"{self.unit}_{self.target}"
+        else:
+            name = self.unit
+        return name.replace("/", "_")
 
 
 class NodeApi:
@@ -312,5 +314,5 @@ class TransformApi:
     def pathname(self):
         name = type(self.transform).__name__
         if target := self.api._target:
-            return f"{target.pathname}:{name}"
+            return f"{target.pathname}-{name}"
         return name
