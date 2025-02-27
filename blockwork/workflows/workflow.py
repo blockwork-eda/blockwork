@@ -351,7 +351,7 @@ class Workflow:
                         args.insert(0, "--verbose")
                     # Give jobs a descriptive name where possible
                     job = Job(
-                        ident=f"{transform.api.pathname}/{job_id}",
+                        ident=f"{transform.api.pathname}_{job_id}",
                         cwd=ctx.host_root.as_posix(),
                         command="bw",
                         args=args,
