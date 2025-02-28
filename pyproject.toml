@@ -32,7 +32,7 @@ pytest-mock = "3.14.0"
 ruff = "0.2.2"
 mkdocs = "1.5.3"
 mkdocs-material = "9.5.17"
-mkdocstrings = { extras = ["python"], version = "0.21.2" }
+mkdocstrings = { extras = ["python"], version = "^0.26.1" }
 pre-commit = "3.7.0"
 
 [tool.poetry.scripts]
