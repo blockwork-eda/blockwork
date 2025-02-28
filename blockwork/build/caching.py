@@ -271,8 +271,8 @@ class Cache(ABC):
     def fetch_transform_from_any(ctx: Context, transform: "Transform") -> bool:
         'Fetch all the output interfaces for a transform'
         medials: dict[str, MedialFetchData] = {}
-        for name, (direction, serial) in transform._serial_interfaces.items():
-            if direction.is_input:
+        for name, serial in transform._serial_interfaces.items():
+            if serial.direction.is_input:
                 continue
             for medial in serial.medials:
                 medials[name] = MedialFetchData(dst=medial.val)
@@ -289,8 +289,8 @@ class Cache(ABC):
         'Store all the output interfaces for a transform'
         medials: dict[str, MedialStoreData] = {}
         byte_size = 0
-        for name, (direction, serial) in transform._serial_interfaces.items():
-            if direction.is_input:
+        for name, serial in transform._serial_interfaces.items():
+            if serial.direction.is_input:
                 continue
             for medial in serial.medials:
                 byte_size += get_byte_size(medial.val)

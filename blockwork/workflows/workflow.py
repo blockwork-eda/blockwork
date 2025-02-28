@@ -186,8 +186,8 @@ class Workflow:
                  tree (inverted dependency tree)'
         """
         # Join interfaces together and get transform dependencies
-        medial_transforms_consumers: dict[Medial, list[Transform]] = defaultdict(list)
-        medial_transform_producers: dict[Medial, list[Transform]] = defaultdict(list)
+        medial_transforms_consumers: dict[Medial, OSet[Transform]] = defaultdict(OSet)
+        medial_transform_producers: dict[Medial, OSet[Transform]] = defaultdict(OSet)
         dependency_map: dict[Transform, OSet[Transform]] = {}
         dependent_map: dict[Transform, OSet[Transform]] = {}
         targets: OSet[Transform] = OSet()
@@ -198,12 +198,12 @@ class Workflow:
                 dependent_map[transform] = OSet()
 
                 # Record transform inputs and outputs
-                for direction, serial in transform._serial_interfaces.values():
+                for serial in transform._serial_interfaces.values():
                     for medial in serial.medials:
-                        if direction.is_input:
-                            medial_transforms_consumers[medial].append(transform)
+                        if serial.direction.is_input:
+                            medial_transforms_consumers[medial].add(transform)
                         else:
-                            medial_transform_producers[medial].append(transform)
+                            medial_transform_producers[medial].add(transform)
                         # Note this deliberately binds the consumer list by
                         # reference as it may be added to by later
                         # transforms
