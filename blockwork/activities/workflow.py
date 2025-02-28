@@ -20,7 +20,7 @@ import click
 
 from ..build.caching import Cache
 from ..context import Context
-from ..transforms.transform import TITransformSerial, Transform
+from ..transforms.transform import SerialTransform, Transform
 
 
 @click.group(name="wf")
@@ -45,7 +45,7 @@ def wf_step(ctx: Context, spec_path: Path):
     # TODO @intuity: We should consider making wf_step part of non-parallel
     #                executions so that there is a single execution path
     # Reload the serialised workflow step specification
-    spec: TITransformSerial = json.loads(spec_path.read_text(encoding="utf-8"))
+    spec: SerialTransform = json.loads(spec_path.read_text(encoding="utf-8"))
     # Run the relevant transform
     tf = Transform.deserialize(spec)
     result = tf.run(ctx)

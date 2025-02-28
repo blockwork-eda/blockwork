@@ -40,6 +40,8 @@ from typing import (
     get_origin,
 )
 
+from ordered_set import OrderedSet as OSet
+
 from blockwork.common.singleton import Singleton
 from blockwork.foundation import Foundation
 from blockwork.tools import Tool
@@ -60,9 +62,9 @@ class Medial:
 
     val: str
     "Medial value"
-    _producers: "list[Transform] | None"
+    _producers: "OSet[Transform] | None"
     "The transforms that produce this medial"
-    _consumers: "list[Transform] | None"
+    _consumers: "OSet[Transform] | None"
     "The transfoms that consume this medial (implemented but unused)"
     _cached_input_hash: str | None
     "The (cached) hash of this medials inputs"
@@ -79,9 +81,9 @@ class Medial:
     def __eq__(self, other: object):
         return isinstance(other, Medial) and (self.val == other.val)
 
-    def bind_consumers(self, consumers: list["Transform"]):
+    def bind_consumers(self, consumers: OSet["Transform"]):
         """
-        Bind a list of transform that consume this medial.
+        Bind a list of transforms that consume this medial.
 
         Note:
             - This deliberately binds a list by reference as it is built
@@ -90,11 +92,10 @@ class Medial:
         """
         if self._consumers is None:
             self._consumers = consumers
-
-        if self._consumers is not consumers:
+        elif self._consumers is not consumers:
             raise RuntimeError("Consumers already bound to medial!")
 
-    def bind_producers(self, producers: list["Transform"]):
+    def bind_producers(self, producers: OSet["Transform"]):
         """
         Bind the transforms that produce this medial.
 
@@ -104,8 +105,7 @@ class Medial:
         """
         if self._producers is None:
             self._producers = producers
-
-        if self._producers is not producers:
+        elif self._producers is not producers:
             raise RuntimeError("Producers already bound to medial!")
 
         if len(producers) > 1:
@@ -1116,7 +1116,7 @@ class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
         meta.update_hash({**token, "ifields": sorted(token["ifields"].keys())})
 
 
-class TITransformSerial(TypedDict):
+class SerialTransform(TypedDict):
     typ: Literal["Transform"]
     mod: str
     name: str
@@ -1131,7 +1131,6 @@ TISerialAny = (
     | TIEnvListSerial
     | TIEnvSerial
     | TIFaceSerial
-    | TITransformSerial
 )
 "The JSON-serializable interface specification format"
 
@@ -1219,7 +1218,7 @@ class Transform:
                 ifield = tf_field.default
                 self._serial_interfaces[tf_field.name] = ifield.resolve(self, api, tf_field)
 
-    def serialize(self) -> TITransformSerial:
+    def serialize(self) -> SerialTransform:
         return {
             "typ": "Transform",
             "mod": type(self).__module__,
@@ -1253,7 +1252,7 @@ class Transform:
         return digest
 
     @staticmethod
-    def deserialize(spec: TITransformSerial) -> "Transform":
+    def deserialize(spec: SerialTransform) -> "Transform":
         # Get transform module
         mod = importlib.import_module(spec["mod"])
         # Get class from module (using reduce to navigate module namespacing)
