@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
@@ -22,18 +22,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/composites/setup
-        with:
-          python-version: 3.11
-      - name: Run Ruff formatting check
-        run: poetry run ruff format --check .
-      - name: Run Ruff linting check
-        run: poetry run ruff check .
-      - name: Run precommit checks
-        env:
-          SKIP: no-commit-to-branch
-        run: poetry run pre-commit run --all-files
+    - uses: actions/checkout@v4
+    - uses: ./.github/composites/setup
+      with:
+        python-version: 3.11
+    - name: Run Ruff formatting check
+      run: poetry run ruff format --check .
+    - name: Run Ruff linting check
+      run: poetry run ruff check .
+    - name: Run precommit checks
+      env:
+        SKIP: no-commit-to-branch
+      run: poetry run pre-commit run --all-files
 
   build_docs:
     runs-on: ubuntu-latest
