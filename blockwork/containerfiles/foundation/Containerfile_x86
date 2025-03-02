@@ -14,8 +14,9 @@ RUN \
                    xcb-util.i686 xcb-util-wm xcb-util-image xcb-util-keysyms \
                    xcb-util-renderutil libxkbcommon-x11 mesa-dri-drivers \
                    xorg-x11-utils xorg-x11-xauth libXScrnSaver numactl-libs \
-                   mesa-libGL time bc && \
+                   mesa-libGL time bc gcc-c++ libstdc++-devel m4 && \
     ln -s /usr/lib64/libbz2.so.1 /usr/lib64/libbz2.so.1.0
+RUN dnf --enablerepo=crb install -y libstdc++-static
 # Set locale
 ENV LANG=en_GB.utf8
 # Ensure launch shell is executable
