@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from blockwork.config.api import ConfigApi
-from blockwork.containers import ContainerBindError
+from blockwork.executors import ExecutorBindError
 from blockwork.tools import tools
 from blockwork.transforms import EnvPolicy, IEnv, IFace, Transform, transforms
 
@@ -41,7 +41,7 @@ class TestTransforms:
         t.i.parent.mkdir(parents=True)
         t.i.touch()
 
-        with pytest.raises(ContainerBindError):
+        with pytest.raises(ExecutorBindError):
             t.run(api.ctx)
 
     def test_cp(self, api: ConfigApi):

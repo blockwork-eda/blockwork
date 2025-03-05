@@ -17,16 +17,22 @@ import sys
 import click
 
 from ..context import Context
-from ..foundation import Foundation
+from ..executors import Invoker
 from ..tools import ToolMode
 from .common import BwExecCommand
 
 
 @click.command(cls=BwExecCommand)
 @click.pass_obj
-def shell(ctx: Context, tool: list[str], no_tools: bool, tool_mode: str):
+def shell(
+    ctx: Context,
+    tool: list[str],
+    no_tools: bool,
+    tool_mode: str,
+    invoker: type[Invoker],
+):
     """Launch a shell within the container environment"""
-    container = Foundation(ctx, hostname=f"{ctx.config.project}_shell")
+    container = invoker(ctx)
     container.bind(ctx.host_root, ctx.container_root, False)
     BwExecCommand.bind_tools(container, no_tools, tool, ToolMode(tool_mode))
     # Launch the shell and forward the exit code

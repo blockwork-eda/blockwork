@@ -12,13 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 import logging
 
 import click
 from click.core import Command, Option
 
+from ..executors import Executor
 from ..foundation import Foundation
 from ..tools import Tool, ToolMode
+
+
+class ClassType(click.ParamType):
+    """
+    Parse a class-path argument the class itself
+    """
+
+    name = "module.submodule.classname"
+
+    def convert(self, value, param, ctx):
+        module_path, klass_name = value.rsplit(".", 1)
+        module = importlib.import_module(module_path)
+        klass = getattr(module, klass_name)
+        return klass
 
 
 class BwExecCommand(Command):
@@ -72,6 +88,15 @@ class BwExecCommand(Command):
                 help="Do not bind any tools by default",
             ),
         )
+        self.params.insert(
+            0,
+            Option(
+                ("--invoker",),
+                default=Foundation,
+                type=ClassType(),
+                help="???",
+            ),
+        )
 
     @staticmethod
     def decode_tool(fullname: str) -> tuple[str, str, str | None]:
@@ -90,7 +115,7 @@ class BwExecCommand(Command):
 
     @staticmethod
     def bind_tools(
-        container: Foundation, no_tools: bool, tools: list[str], tool_mode: ToolMode
+        executor: Executor, no_tools: bool, tools: list[str], tool_mode: ToolMode
     ) -> None:
         readonly = tool_mode == ToolMode.READONLY
         specified_tools = set()
@@ -101,7 +126,7 @@ class BwExecCommand(Command):
             if not matched:
                 raise Exception(f"Failed to identify tool '{vendor}:{name}={version}'")
             logging.info(f"Binding tool {name} from {vendor} version {version} into shell")
-            container.add_tool(matched, readonly=readonly)
+            executor.add_tool(matched, readonly=readonly)
             specified_tools.add(matched.base_id)
 
         # If auto-binding allowed bind default versions of remaining tools
@@ -109,4 +134,4 @@ class BwExecCommand(Command):
             logging.info("Binding all tools into shell")
             for tool in Tool.get_all().values():
                 if tool.base_id not in specified_tools:
-                    container.add_tool(tool, readonly=readonly)
+                    executor.add_tool(tool, readonly=readonly)
