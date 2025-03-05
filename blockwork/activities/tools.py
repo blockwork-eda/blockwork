@@ -20,10 +20,11 @@ from rich.console import Console
 from rich.table import Table
 
 from ..context import Context
+from ..executors import Invoker
 from ..foundation import Foundation
 from ..tools import Tool
 from ..tools.tool import ToolActionError
-from .common import BwExecCommand, ToolMode
+from .common import BwExecCommand, ClassType, ToolMode
 
 
 @click.command()
@@ -70,6 +71,12 @@ def tools(ctx: Context):
 )
 @click.argument("tool_action", type=str)
 @click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
+@click.option(
+    "--invoker",
+    default=Foundation,
+    type=ClassType(),
+    help="???",
+)
 @click.pass_obj
 def tool(
     ctx: Context,
@@ -77,6 +84,7 @@ def tool(
     tool_action: str,
     tool_mode: str,
     runargs: Sequence[str],
+    invoker: type[Invoker],
 ) -> None:
     """
     Run an action defined by a specific tool. The tool and action is selected by
@@ -96,7 +104,7 @@ def tool(
     except ToolActionError:
         raise Exception(f"No action known for '{action}' on tool {tool}") from None
     # Run the action and forward the exit code
-    container = Foundation(ctx, hostname=f"{ctx.config.project}_{tool}_{action}")
+    container = invoker(ctx)
     runargs = container.bind_and_map_args(ctx, runargs)
     invocation = act_def(ctx, *runargs)
     # Actions may sometimes return null invocations if they have no work to do

@@ -13,8 +13,9 @@
 # limitations under the License.
 
 # Expose various definitions
-from .container import Container, ContainerBindError, ContainerError
+from .common import Executor, ExecutorBindError, ExecutorError, Invoker
+from .container import Container
 from .runtime import Runtime
 
 # Unused import lint guards
-assert all((Container, ContainerError, ContainerBindError, Runtime))
+assert all((Container, Executor, Invoker, ExecutorError, ExecutorBindError, Runtime))

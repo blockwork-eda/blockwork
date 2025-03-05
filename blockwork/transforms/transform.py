@@ -42,13 +42,13 @@ from typing import (
 
 from ordered_set import OrderedSet as OSet
 
-from blockwork.common.singleton import Singleton
-from blockwork.foundation import Foundation
-from blockwork.tools import Tool
-
 from ..build.caching import Cache
+from ..common.singleton import Singleton
 from ..config.api import ConfigApi
 from ..context import Context
+from ..executors import Executor, Invoker
+from ..foundation import Foundation
+from ..tools import Tool
 
 if TYPE_CHECKING:
     from ..context import Context
@@ -139,7 +139,7 @@ class Medial:
 class Direction(Enum):
     """
     Used to identify if an interface is acting as an input-to or output-from
-    a container
+    a transform
     """
 
     INPUT = auto()
@@ -190,7 +190,7 @@ class PrimitiveSerializer(Generic[TIPrimitive, TIType]):
     """
     Primitive serialisers are used to serializer interface values.
 
-    And resolve the serialized value against a container.
+    And resolve the serialized value against an executor.
     """
 
     @classmethod
@@ -202,7 +202,7 @@ class PrimitiveSerializer(Generic[TIPrimitive, TIType]):
         cls,
         token: TIPrimitive,
         ctx: Context,
-        container: Foundation,
+        executor: Executor,
         direction: Direction,
     ) -> "TIAny":
         raise NotImplementedError
@@ -277,12 +277,12 @@ class InterfaceSerializer(PrimitiveSerializer["TISerialAny", "TIAny"], metaclass
         cls,
         token: "TISerialAny",
         ctx: Context,
-        container: Foundation,
+        executor: Executor,
         direction: Direction,
     ) -> "TIAny":
-        "Resolve a token against a container, binding values in as required"
+        "Resolve a token against a executor, binding values in as required"
         if (serializer := cls.key_map.get(token["typ"])) is not None:
-            return serializer.resolve(token, ctx, container, direction)
+            return serializer.resolve(token, ctx, executor, direction)
         raise RuntimeError(f"Invalid interface type: `{token}`")
 
     @classmethod
@@ -318,7 +318,7 @@ class InterfaceSerializer(PrimitiveSerializer["TISerialAny", "TIAny"], metaclass
 
 class IPath:
     """
-    An interface primitive that can be used to bind paths to containers
+    An interface primitive that can be used to bind paths to executors
     when Path does not provide enough control.
     """
 
@@ -373,10 +373,10 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
         cls,
         token: "TIPathSerial",
         ctx: Context,
-        container: Foundation,
+        executor: Executor,
         direction: Direction,
     ):
-        "Resolve a path against a container, binding value as required"
+        "Resolve a path against a executor, binding value as required"
         if token["host"] is not None:
             # Resolve symlinks in the host path as we can bind the linked path
             # directly. For inputs this must succeed.
@@ -396,10 +396,10 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
             if token["is_dir"] or host_path.name != cont_path.name:
                 # If last path component differs for files, we need to bind file
                 # directly as we can't bind directory and get file within it
-                container.bind(host_path, cont_path, readonly=readonly, mkdir=True)
+                executor.bind(host_path, cont_path, readonly=readonly, mkdir=True)
             else:
                 # Otherwise bind the directory above for efficiency
-                container.bind(host_path.parent, cont_path.parent, readonly=readonly, mkdir=True)
+                executor.bind(host_path.parent, cont_path.parent, readonly=readonly, mkdir=True)
         else:
             if token["cont"] is None:
                 raise ValueError("Both host path and container path cannot be None!")
@@ -495,12 +495,12 @@ class EnvSerializer(PrimitiveSerializer["TIEnvSerial", "IEnv"]):
         cls,
         token: "TIEnvSerial",
         ctx: Context,
-        container: Foundation,
+        executor: Executor,
         direction: Direction,
     ):
-        "Resolve env against a container, binding values in as required"
+        "Resolve env against an executor, binding values in as required"
         key = token["key"]
-        val = cast(TIEnv, InterfaceSerializer.resolve(token["val"], ctx, container, direction))
+        val = cast(TIEnv, InterfaceSerializer.resolve(token["val"], ctx, executor, direction))
         try:
             policy = EnvPolicy[token["policy"]]
         except KeyError as e:
@@ -515,20 +515,20 @@ class EnvSerializer(PrimitiveSerializer["TIEnvSerial", "IEnv"]):
             item = str(item)
             match policy:
                 case EnvPolicy.APPEND:
-                    container.append_env_path(key, item)
+                    executor.append_env_path(key, item)
                 case EnvPolicy.PREPEND:
-                    container.prepend_env_path(key, item)
+                    executor.prepend_env_path(key, item)
                 case EnvPolicy.REPLACE:
-                    container.set_env(key, item)
+                    executor.set_env(key, item)
                 case EnvPolicy.CONFLICT:
-                    current_val = container.get_env(key)
+                    current_val = executor.get_env(key)
                     if current_val is not None and item != current_val:
                         raise ValueError(
                             f"Can't set `${key}` to `{item}` as it's"
                             f" already set to `{current_val}` and"
                             f" replacement policy is `{policy}`"
                         )
-                    container.set_env(key, item)
+                    executor.set_env(key, item)
                 case _:
                     raise ValueError(f"Invalid env policy {policy}")
         if wrap:
@@ -568,11 +568,11 @@ class DictSerializer(PrimitiveSerializer["TIDictSerial", "dict"]):
         cls,
         token: "TIDictSerial",
         ctx: Context,
-        container: Foundation,
+        executor: Executor,
         direction: Direction,
     ):
         return {
-            k: InterfaceSerializer.resolve(v, ctx, container, direction)
+            k: InterfaceSerializer.resolve(v, ctx, executor, direction)
             for k, v in token["val"].items()
         }
 
@@ -618,10 +618,10 @@ class ListSerializer(PrimitiveSerializer["TIListSerial", "list"]):
         cls,
         token: "TIListSerial",
         ctx: Context,
-        container: Foundation,
+        executor: Executor,
         direction: Direction,
     ):
-        return [InterfaceSerializer.resolve(v, ctx, container, direction) for v in token["val"]]
+        return [InterfaceSerializer.resolve(v, ctx, executor, direction) for v in token["val"]]
 
     @classmethod
     def walk(cls, token: "TIListSerial", meta: "SerialInterface"):
@@ -651,7 +651,7 @@ class ConstSerializer(PrimitiveSerializer["TIConstSerial", "TIConstLeaf"]):
         cls,
         token: "TIConstSerial",
         ctx: Context,
-        container: Foundation,
+        executor: Executor,
         direction: Direction,
     ):
         return cast(TIAny, token["val"])
@@ -728,9 +728,9 @@ class SerialInterface:
     def update_medials(self, *medials: Medial):
         self.medials += medials
 
-    def resolve(self, ctx: Context, container: Foundation, direction: Direction):
-        "Resolve against a container, binding values in as required"
-        return InterfaceSerializer.resolve(self.value, ctx, container, direction)
+    def resolve(self, ctx: Context, executor: Executor, direction: Direction):
+        "Resolve against an executor, binding values in as required"
+        return InterfaceSerializer.resolve(self.value, ctx, executor, direction)
 
     def _input_hash(self) -> str:
         """
@@ -773,12 +773,12 @@ class FieldProtocol(Generic[TField]):
     def bind(
         self,
         ctx: Context,
-        container: Foundation,
+        executor: Executor,
         field: Field[TField],
         token: "TISerialAny",
         direction: Direction,
     ) -> TField:
-        "Bind a field value to the container and return the resolved value"
+        "Bind a field value to the executor and return the resolved value"
         raise NotImplementedError()
 
 
@@ -858,13 +858,13 @@ class IField(FieldProtocol[TIField]):
     def bind(
         self,
         ctx: Context,
-        container: Foundation,
+        executor: Executor,
         field: Field[TIField],
         token: "TISerialAny",
         direction: Direction,
     ):
-        "Bind a field value to the container and return the resolved value"
-        return InterfaceSerializer.resolve(token, ctx, container, direction)
+        "Bind a field value to the executor and return the resolved value"
+        return InterfaceSerializer.resolve(token, ctx, executor, direction)
 
 
 class ITool(FieldProtocol[Tool]):
@@ -897,15 +897,49 @@ class ITool(FieldProtocol[Tool]):
     def bind(
         self,
         ctx: Context,
-        container: Foundation,
+        executor: Executor,
         field: Field[Tool],
         token: "TISerialAny",
         direction: Direction,
     ) -> Tool:
-        "Bind a field value to the container and return the resolved value"
-        tool = field.type(InterfaceSerializer.resolve(token, ctx, container, direction))
-        container.add_tool(tool)
+        "Bind a field value to the executor and return the resolved value"
+        tool = field.type(InterfaceSerializer.resolve(token, ctx, executor, direction))
+        executor.add_tool(tool)
         return tool
+
+
+class IExec(FieldProtocol[type[Executor]]):
+    def __init__(self, is_default: bool = True, init: bool = False):
+        self.is_default = is_default
+        self.init = init
+        self.direction = Direction.INPUT
+
+    def resolve(
+        self, target: "Transform | IFace", api: ConfigApi, field: Field[Executor]
+    ) -> SerialInterface:
+        "Resolve missing field values and returns a serialisable interface"
+        field_value = getattr(target, field.name)
+        if field_value is self:
+            # Value not specified in constructor
+            # Create from version
+            field_value = field.type
+
+            # Set the resolved value on the transform
+            object.__setattr__(target, field.name, field_value)
+
+        # Serialise the tool version
+        return SerialInterface.from_interface(self.is_default, self.direction)
+
+    def bind(
+        self,
+        ctx: Context,
+        executor: Executor,
+        field: Field[Tool],
+        token: "TISerialAny",
+        direction: Direction,
+    ) -> None:
+        # Don't want to expose the executor inside the transform
+        return None
 
 
 def IN(  # noqa: N802
@@ -1003,6 +1037,23 @@ def TOOL(  # noqa: N802
     )
 
 
+def EXEC(  # noqa: N802
+    *,
+    init=False,
+) -> TIField:
+    """
+    Marks a transform field as a tool input.
+
+    :param init: Whether this field should be set in the constructor. \
+                 There is no foreseen reason to set this to True.
+    :param version: The version to use, uses default if not specified.
+    """
+    return cast(
+        TIField,
+        IExec(is_default=True, init=init),
+    )
+
+
 @dataclass_transform(kw_only_default=True, frozen_default=True)
 class IFace:
     FIELD = IN
@@ -1068,7 +1119,7 @@ class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
         cls,
         token: "TIFaceSerial",
         ctx: Context,
-        container: Foundation,
+        executor: Executor,
         direction: Direction,
     ) -> "IFace":
         # Get IFace module
@@ -1076,7 +1127,7 @@ class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
         # Get class from module (using reduce to navigate module namespacing)
         iface_cls: type[IFace] = reduce(getattr, token["name"].split("."), mod)
 
-        # Bind interfaces to container
+        # Bind interfaces to executor
         ifield_values: dict[str, Any] = {}
         for iface_field in fields(cast(Any, iface_cls)):
             if not isinstance(iface_field.default, IField | ITool):
@@ -1087,7 +1138,7 @@ class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
             value = token["ifields"][iface_field.name]
             ifield = iface_field.default
             ifield_values[iface_field.name] = ifield.bind(
-                ctx, container, iface_field, value, direction
+                ctx, executor, iface_field, value, direction
             )
 
         # Construct iface instance
@@ -1181,6 +1232,7 @@ class Transform:
     IN = IN
     OUT = OUT
     TOOL = TOOL
+    EXEC = EXEC
 
     _serial_interfaces: dict[str, SerialInterface]
     "The internal representation of interfaces"
@@ -1210,7 +1262,7 @@ class Transform:
         # must be cached.
         with self.api as api:
             for tf_field in fields(cast(Any, self)):
-                if not isinstance(tf_field.default, IField | ITool):
+                if not isinstance(tf_field.default, IField | ITool | IExec):
                     raise ValueError(
                         "All transform interfaces must be specified with a direction"
                         ", e.g. `myinput: Path = Transform.IN()`"
@@ -1274,30 +1326,37 @@ class Transform:
         return tf
 
     def run(self, ctx: "Context") -> Result:
-        """Run the transform in a container."""
+        """Run the transform using an executor."""
         tf_start = time.time()
 
-        # Create  a container
+        # Create an executor
         # Note need to do this import here to avoid circular import
-        from ..foundation import Foundation
+        tf_fields = cast(tuple[Field[IField[Any] | ITool | IExec], ...], fields(cast(Any, self)))
 
-        container = Foundation(ctx)
+        default_executor = None
+        for tf_field in tf_fields:
+            ifield = tf_field.default
+            if not isinstance(ifield, IExec) or not ifield.is_default:
+                continue
+            if default_executor:
+                raise RuntimeError("Can't set a second default executor!")
+            default_executor = cast(type[Executor], tf_field.type)
 
-        # Bind interfaces to container
+        if default_executor is None:
+            default_executor = Foundation
+
+        executor = default_executor(ctx)
+
+        # Bind interfaces to executor
         interface_values: dict[str, Any] = {}
 
         # Cast to Any to satisfy type checkers as the base Transform class will
         # not be a dataclass, but subclasses will.
-        for tf_field in fields(cast(Any, self)):
-            if not isinstance(tf_field.default, IField | ITool):
-                raise ValueError(
-                    "All transform interfaces must be specified with a direction"
-                    ", e.g. `myinput: Path = Transform.IN()`"
-                )
+        for tf_field in tf_fields:
             ifield = tf_field.default
             serial = self._serial_interfaces[tf_field.name]
             interface_values[tf_field.name] = ifield.bind(
-                ctx, container, tf_field, serial.value, ifield.direction
+                ctx, executor, tf_field, serial.value, ifield.direction
             )
 
         # Construct transform instance
@@ -1312,10 +1371,13 @@ class Transform:
         try:
             # Get the first
             invocation = next(invocation_iter)
+            if not isinstance(executor, Invoker):
+                raise RuntimeError(f"Executor `{executor}` does not support invocations!")
+
             while True:
                 # Invoke and create result object
                 ivk_start = time.time()
-                exit_code = container.invoke(ctx, invocation)
+                exit_code = executor.invoke(ctx, invocation)
                 ivk_stop = time.time()
                 result = Result(
                     exit_code=exit_code, run_time=(ivk_stop - ivk_start), ident=str(invocation)

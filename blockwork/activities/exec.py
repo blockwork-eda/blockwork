@@ -18,7 +18,7 @@ from pathlib import Path
 import click
 
 from ..context import Context
-from ..foundation import Foundation
+from ..executors import Invoker
 from ..tools import ToolMode
 from .common import BwExecCommand
 
@@ -37,6 +37,12 @@ from .common import BwExecCommand
     default=None,
     help="Set the working directory within the container",
 )
+@click.option(
+    "--cwd",
+    type=str,
+    default=None,
+    help="Set the working directory within the container",
+)
 @click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
 def exec(  # noqa: A001
@@ -44,12 +50,13 @@ def exec(  # noqa: A001
     tool: list[str],
     no_tools: bool,
     tool_mode: str,
+    invoker: type[Invoker],
     interactive: bool,
     cwd: str,
     runargs: list[str],
 ) -> None:
     """Run a command within the container environment"""
-    container = Foundation(ctx, hostname=f"{ctx.config.project}_run")
+    container = invoker(ctx)
     container.bind(ctx.host_root, ctx.container_root, False)
     BwExecCommand.bind_tools(container, no_tools, tool, ToolMode(tool_mode))
     # Execute and forward the exit code
