@@ -6,6 +6,7 @@ from typing import ClassVar
 import pytest
 
 from blockwork.build.caching import Cache
+from blockwork.config import CacheConfig
 from blockwork.config.api import ConfigApi
 from blockwork.config.base import Config
 from blockwork.tools import Invocation, tools
@@ -19,6 +20,7 @@ class DummyCache(Cache):
     """
 
     def __init__(self):
+        self.cfg = CacheConfig(path="")
         self.content_store = {}
 
     @property
@@ -43,6 +45,9 @@ class DummyCache(Cache):
 
     def get_last_fetch_utc(self, key: str) -> float:
         return 0
+
+    def set_last_fetch_utc(self, key: str):
+        return None
 
     def iter_keys(self) -> Iterable[str]:
         yield from list(self.content_store.keys())

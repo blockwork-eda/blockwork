@@ -29,11 +29,8 @@ if TYPE_CHECKING:
     from .build.caching import Cache
 
 from .common import scopes
-from .common.yaml import DataclassConverter, SimpleParser
-from .config import Blockwork
+from .config import Blockwork, BlockworkParser, CachingConfig, CachingParser
 from .state import State
-
-BlockworkConfig = SimpleParser(Blockwork, DataclassConverter)
 
 
 @scopes.scope
@@ -82,18 +79,20 @@ class Context:
     def __init__(
         self,
         root: Path | None = None,
-        cfg_file: str = ".bw.yaml",
+        cfg_file: Path = Path(".bw.yaml"),
         scratch: Path | None = None,
-        use_caches: bool = True,
-        force_cache: bool = False,
+        cache_config: Path | None = None,
+        cache_enable: bool | None = None,
+        cache_target: bool | None = None,
     ) -> None:
         self.__file = cfg_file
         self.__host_root = self.locate_root(root or Path.cwd())
         self.__host_arch = HostArchitecture.identify()
         self.__scratch = scratch
         self.__timestamp = datetime.now().strftime("D%Y%m%dT%H%M%S")
-        self.__use_caches = use_caches
-        self.__force_cache = force_cache
+        self.__cache_config = cache_config
+        self.__cache_enable = cache_enable
+        self.__cache_target = cache_target
 
     @property
     def host_architecture(self) -> HostArchitecture:
@@ -216,27 +215,35 @@ class Context:
             current = nxtdir
         raise Exception(f"Could not identify work area in parents of {under}")
 
-    @property
-    @functools.lru_cache  # noqa: B019
+    @functools.cached_property
     def config(self) -> Blockwork:
-        return BlockworkConfig.parse(self.config_path)
+        return BlockworkParser.parse(self.config_path)
 
-    @property
-    @functools.lru_cache  # noqa: B019
+    @functools.cached_property
+    def cache_config(self) -> CachingConfig:
+        config_path = self.__cache_config or self.config.default_cache_config
+        if config_path is None:
+            return CachingConfig()
+        return CachingParser.parse(Path(config_path))
+
+    @functools.cached_property
     def caches(self) -> list["Cache"]:
         "Import and initialise the caches from config"
-        if not self.__use_caches:
+        cache_enabled = (
+            self.cache_config.enabled if self.__cache_enable is None else self.__cache_enable
+        )
+        if not cache_enabled:
             return []
 
         if self.host_root.absolute().as_posix() not in sys.path:
             sys.path.append(self.host_root.absolute().as_posix())
 
         caches = []
-        for cache in self.config.caches:
-            module_path, class_name = cache.rsplit(".", 1)
+        for cache_config in self.cache_config.caches:
+            module_path, class_name = cache_config.path.rsplit(".", 1)
             module = importlib.import_module(module_path)
             cache_cls = getattr(module, class_name)
-            cache = cache_cls(self)
+            cache = cache_cls(self, cache_config)
             caches.append(cache)
 
         return caches
@@ -247,7 +254,7 @@ class Context:
         True if caching is forced (even targetted objects are retrieved from
         cache)
         """
-        return self.__force_cache
+        return self.__cache_target
 
     @property
     def hub_url(self):

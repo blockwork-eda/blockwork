@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from ..common.checkeddataclasses import dataclass, field
+from ..common.yaml import DataclassConverter, SimpleParser
 
 
 @dataclass
@@ -30,8 +31,7 @@ class Blockwork:
     bootstrap: list[str] = field(default_factory=list)
     tooldefs: list[str] = field(default_factory=list)
     workflows: list[str] = field(default_factory=list)
-    caches: list[str] = field(default_factory=list)
-    "Caches in order of fetch preference (fastest should be first)"
+    default_cache_config: str | None = None
 
     @root.check
     @scratch.check
@@ -39,3 +39,6 @@ class Blockwork:
     def abs_path(_field, value):
         if not value.startswith("/"):
             raise TypeError(f"Expected absolute path, but got {value}")
+
+
+BlockworkParser = SimpleParser(Blockwork, DataclassConverter)

@@ -86,13 +86,19 @@ logging.basicConfig(
 )
 @click.option(
     "--cache/--no-cache",
-    default=True,
+    default=None,
     help="Enable or disable caching",
 )
 @click.option(
-    "--cache-force",
-    is_flag=True,
-    default=False,
+    "--cache-config",
+    "--cc",
+    type=click.Path(dir_okay=False, exists=True, path_type=Path),
+    default=None,
+    help="Path to a cache config file.",
+)
+@click.option(
+    "--cache-target/--no-cache-target",
+    default=None,
     help="Force caching even for 'targetted' objects",
 )
 def blockwork(
@@ -105,8 +111,9 @@ def blockwork(
     runtime: str | None,
     arch: str | None,
     scratch: str | None,
-    cache: bool,
-    cache_force: bool,
+    cache: bool | None,
+    cache_config: Path,
+    cache_target: bool | None,
 ) -> None:
     # Setup post-mortem debug
     DebugScope.current.POSTMORTEM = pdb
@@ -125,8 +132,9 @@ def blockwork(
     ctx.obj = Context(
         root=Path(cwd).absolute() if cwd else None,
         scratch=Path(scratch).absolute() if scratch else None,
-        use_caches=cache,
-        force_cache=cache_force,
+        cache_enable=cache,
+        cache_config=cache_config,
+        cache_target=cache_target,
     )
     # Set the host architecture
     if arch:
