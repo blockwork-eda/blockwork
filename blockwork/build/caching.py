@@ -550,10 +550,9 @@ class Cache(ABC):
             return path.read_text() if result else None
 
     def store_object(self, key: str, value: Any) -> bool:
-        # TODO!
         """
-        Try and store a string value by key. Should return True if the value
-        is successfully stored or is already present.
+        Try and store a JSON-able object by key. Should return True if the
+        object is successfully stored or is already present.
 
         :param key:  The unique item key.
         :param frm:  The string value to be written.
@@ -562,9 +561,8 @@ class Cache(ABC):
         return self.store_value(key, json.dumps(value))
 
     def drop_object(self, key: str) -> bool:
-        # TODO!
         """
-        Remove a string value from the store by key. Return True if item removed
+        Remove an object from the store by key. Return True if item removed
         successfully.
 
         :param key:  The unique item key.
@@ -573,13 +571,10 @@ class Cache(ABC):
         return self.drop_value(key)
 
     def fetch_object(self, key: str) -> Optional[Any]:
-        # TODO!
         """
-        Fetch a string value from the store by key. Return None if not present.
+        Fetch an object from the store by key. Return None if not present.
 
         :param key:  The unique item key.
-        :param peek: Whether to skip the fetch time update (used internally by
-                     meta-operations that shouldn't affect cache state).
         :return:     The fetched string or None if the fetch failed.
         """
         value = self.fetch_value(key)
