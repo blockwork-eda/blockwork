@@ -14,10 +14,6 @@ class BasicFileCache(Cache):
         self.cache_root.mkdir(exist_ok=True)
         self.content_store.mkdir(exist_ok=True)
 
-    @property
-    def target_size(self) -> int:
-        return 1024**3
-
     def store_item(self, key: str, frm: Path) -> bool:
         to = self.content_store / key
         if to.exists():

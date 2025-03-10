@@ -1,0 +1,9 @@
+!Caching
+targets: False
+enabled: True
+caches:
+- !Cache
+  path: infra.caches.BasicFileCache
+  fetch_condition: True
+  store_condition: True
+  max_size: 5GB

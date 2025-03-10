@@ -1,6 +1,7 @@
 !Blockwork
 project: example
 site: ./site.yaml
+default_cache_config: ./caches.yaml
 tooldefs:
   - infra.tools.misc
   - infra.tools.compilers
