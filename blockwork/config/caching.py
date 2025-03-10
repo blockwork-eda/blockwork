@@ -25,7 +25,7 @@ class CacheConfig:
     max_size: str | None = None
     fetch_condition: bool | str = False
     store_condition: bool | str = False
-    check_only: bool = False
+    check_determinism: bool = True
 
 
 @_registry.register(DataclassConverter, tag="!Caching")

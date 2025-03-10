@@ -37,13 +37,13 @@ in contrast to those which are only dependencies of targetted transforms.
 
 The fields of the `!Cache` tag are:
 
-| Field           | Required         | Default | Description                                                        |
-|-----------------|:----------------:|-------- |--------------------------------------------------------------------|
-| path            | :material-check: |         | The python import path to the cache implementation<sup>2</sup>     |
-| max_size        |                  | `None`  | The maximum cache size, which the cache will self-prune down to    |
-| store_condition |                  | `False` | The condition for storing to the cache<sup>3</sup>                 |
-| fetch_condition |                  | `False` | The condition for fetching from the cache<sup>3</sup>              |
-| check_only      |                  | `False` | A list of !Cache configurations (see below)                        |
+| Field             | Required         | Default | Description                                                     |
+|-------------------|:----------------:|-------- |-----------------------------------------------------------------|
+| path              | :material-check: |         | The python import path to the cache implementation<sup>2</sup>  |
+| max_size          |                  | `None`  | The maximum cache size, which the cache will self-prune down to |
+| store_condition   |                  | `False` | The condition for storing to the cache<sup>3</sup>              |
+| fetch_condition   |                  | `False` | The condition for fetching from the cache<sup>3</sup>           |
+| check_determinism |                  | `True`  | Whether to check object determinism<sup>4</sup>                 |
 
 <sup>2</sup> Specified as `<package>.<sub-package>.<class-name>`
 
@@ -61,3 +61,9 @@ The fields of the `!Cache` tag are:
 
     Note: The rate-specification may be removed in the future, in favour of a
     dynamic scheme.
+
+<sup>4</sup> When enabled, if a transform hash exists in the cache and the
+  transform is re-run, check that both produced the same output hashes. It is
+  recommended this is left on, but it may be desirable to turn this off if
+  cache lookups are expensive for a particular cache. Note, this will result
+  in fetches of the key-data even when fetch_condition is `False`.

@@ -51,6 +51,7 @@ import json
 import math
 import os
 from pathlib import Path
+import shutil
 import sys
 import tempfile
 from types import ModuleType
@@ -67,15 +68,21 @@ import site
 from ..config import CacheConfig as CacheConfig
 from humanfriendly import InvalidTimespan, parse_size, parse_timespan
 
+class TransformStableDetails(TypedDict):
+    mod_name: str
+    cls_name: str
+    byte_size: int
+    mname_to_key: dict[str, str]
+
+class TransformTransientDetails(TypedDict):
+    run_time: float
 
 class TransformKeyData(TypedDict):
     """
     Transfrom data used to fetch transforms from caches
     """
-
-    run_time: float
-    byte_size: int
-    mname_to_key: dict[str, str]
+    stable: TransformStableDetails
+    transient: TransformTransientDetails
 
 
 class TransformStoreData(TypedDict):
@@ -230,6 +237,7 @@ class Cache(ABC):
     def __init__(self, ctx: Context, cfg: CacheConfig):
         self.ctx = ctx
         self.cfg = cfg
+        self.error_root = self.ctx.host_scratch / "cache_errors"
 
     @staticmethod
     def parse_threshold(condition: str | bool) -> float:
@@ -359,7 +367,15 @@ class Cache(ABC):
 
         return TransformStoreData(
             key_data=TransformKeyData(
-                run_time=run_time, byte_size=byte_size, mname_to_key=mname_to_key
+                stable={
+                    "byte_size":byte_size,
+                    "mname_to_key":mname_to_key,
+                    "cls_name":transform._cls_name,
+                    "mod_name":transform._mod_name
+                },
+                transient={
+                    "run_time": run_time
+                }
             ),
             mkey_to_path=mkey_to_path,
         )
@@ -379,10 +395,10 @@ class Cache(ABC):
         fetch_data = Cache.get_transform_fetch_data(transform)
 
         mname_to_path = fetch_data["mname_to_path"]
-        mname_to_key = key_data["mname_to_key"]
+        mname_to_key = key_data["stable"]["mname_to_key"]
         mkey_to_path = {mname_to_key[mname]: mname_to_path[mname] for mname in mname_to_path}
 
-        byte_rate = get_byte_rate(second_time=key_data["run_time"], byte_size=key_data["byte_size"])
+        byte_rate = get_byte_rate(second_time=key_data["transient"]["run_time"], byte_size=key_data["stable"]["byte_size"])
 
         for cache in ctx.caches:
             if byte_rate > cache.fetch_threshold:
@@ -391,6 +407,8 @@ class Cache(ABC):
                 for other_cache in ctx.caches:
                     if other_cache is cache:
                         continue
+                    if other_cache.cfg.check_determinism:
+                        other_cache.check_determinism(key, key_data, mkey_to_path)
                     if byte_rate > other_cache.store_threshold:
                         continue
                     other_cache.store_object(key, key_data)
@@ -409,11 +427,13 @@ class Cache(ABC):
         key_data = store_data["key_data"]
         mkey_to_path = store_data["mkey_to_path"]
 
-        byte_rate = get_byte_rate(second_time=key_data["run_time"], byte_size=key_data["byte_size"])
+        byte_rate = get_byte_rate(second_time=key_data["transient"]["run_time"], byte_size=key_data["stable"]["byte_size"])
 
         # Store to any caches that will take it
         stored_somewhere = False
         for cache in ctx.caches:
+            if cache.cfg.check_determinism:
+                cache.check_determinism(key, key_data, mkey_to_path)
             if byte_rate > cache.store_threshold:
                 continue
             cache.store_object(key, key_data)
@@ -456,8 +476,8 @@ class Cache(ABC):
                 #  - Took a long time to run originally
                 #  - Produces small output files
                 #  - Was accessed very recently
-                run_time = store_data["run_time"]
-                byte_size = store_data["byte_size"] + KEY_FILE_SIZE
+                run_time = store_data["transient"]["run_time"]
+                byte_size = store_data["stable"]["byte_size"] + KEY_FILE_SIZE
                 fetch_delta = now - self.get_last_fetch_utc(key)
                 transform_scores[key] = run_time / byte_size / fetch_delta
                 transform_sizes[key] = byte_size
@@ -465,7 +485,7 @@ class Cache(ABC):
 
                 # Record the expected medials as some might be missing
                 transform_medials[key] = set()
-                for medial_key in store_data["mname_to_key"].values():
+                for medial_key in store_data["stable"]["mname_to_key"].values():
                     transform_medials[key].add(medial_key)
             else:
                 # Unexpected data - delete it.
@@ -495,6 +515,60 @@ class Cache(ABC):
         unreferenced_medials = present_medials - referenced_medials
         for medial in unreferenced_medials:
             self.drop_item(medial)
+
+    def check_determinism(self, key: str, key_data: TransformKeyData, mkey_to_path: dict[str, Path]):
+        "Check transform key data is deterministic"
+        stored_key_data: TransformKeyData | None
+        if (stored_key_data := self.fetch_object(key)) is None:
+            return
+
+        new = key_data["stable"]
+        old = stored_key_data["stable"]
+        if new == old:
+            return
+
+        if (new["cls_name"], new["mod_name"]) != (old["cls_name"], old["mod_name"]):
+            raise RuntimeError("Non-deterministic transform detected!\n"
+                               "Transform name mismatch.\n"
+                               f"Old Name: {new['mod_name']}.{new['cls_name']}\n"
+                               f"New Name: {old['mod_name']}.{old['cls_name']}")
+
+        if (new["mname_to_key"] != old["mname_to_key"]):
+            if (keys := sorted(new["mname_to_key"].keys())) != (old_keys := sorted(old["mname_to_key"].keys())):
+                raise RuntimeError("Non-deterministic transform detected!\n"
+                                   "Output key mismatch.\n"
+                                  f"Old keys: {old_keys}\n"
+                                  f"New keys: {keys}")
+
+            for key in keys:
+                new_hash = new["mname_to_key"][key]
+                old_hash = old["mname_to_key"][key]
+                if new_hash != old_hash:
+                    error_dir = self.error_root / (new["mod_name"] + "." + new["cls_name"]) / key
+                    shutil.rmtree(error_dir, ignore_errors=True)
+                    error_dir.mkdir(exist_ok=True, parents=True)
+                    old_error_path = error_dir / old_hash
+                    if not self.fetch_item(old_hash, old_error_path):
+                        # Nothing to debug, just drop it.
+                        self.drop_object(key)
+                        continue
+                    new_path = mkey_to_path[new_hash]
+                    new_error_path = error_dir / new_hash
+                    new_error_path.symlink_to(new_path,
+                                                      target_is_directory=new_path.is_dir())
+
+                    raise RuntimeError("Non-deterministic transform detected!\n"
+                                       f"New output for key `{key}` does not match existing"
+                                       " output for same hash.\n"
+                                       f"Old Output: `{old_error_path}`\n"
+                                       f"New Output: `{new_error_path}`")
+
+        # I can't see how we'd get to these cases... but just in case
+        if new["byte_size"] != old['byte_size']:
+            raise RuntimeError("Non-deterministic transform detected!\n"
+                               "Size on disk different, but all outputs the same!?")
+        raise RuntimeError("Non-deterministic transform detected!\n"
+                           "Unexpected condition.")
 
     def store_transform(self, mkey_to_path: dict[str, Path]) -> bool:
         "Store a transform to the cache"

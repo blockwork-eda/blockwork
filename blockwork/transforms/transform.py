@@ -20,7 +20,7 @@ import time
 from collections.abc import Callable, Generator, Sequence
 from dataclasses import Field, dataclass, field, fields
 from enum import Enum, auto
-from functools import reduce
+from functools import cached_property, reduce
 from pathlib import Path
 from types import EllipsisType, GenericAlias, NoneType
 from typing import (
@@ -1218,11 +1218,19 @@ class Transform:
                 ifield = tf_field.default
                 self._serial_interfaces[tf_field.name] = ifield.resolve(self, api, tf_field)
 
+    @cached_property
+    def _mod_name(self) -> str:
+        return type(self).__module__
+
+    @cached_property
+    def _cls_name(self) -> str:
+        return type(self).__qualname__
+
     def serialize(self) -> SerialTransform:
         return {
             "typ": "Transform",
-            "mod": type(self).__module__,
-            "name": type(self).__qualname__,
+            "mod": self._mod_name,
+            "name": self._cls_name,
             "ifaces": {k: v.value for k, v in self._serial_interfaces.items()},
         }
 
