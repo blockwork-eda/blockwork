@@ -48,7 +48,6 @@ from abc import ABC, abstractmethod
 import functools
 import hashlib
 import json
-import logging
 import math
 import os
 from pathlib import Path
@@ -594,7 +593,6 @@ class Cache(ABC):
         """
         ...
 
-    @abstractmethod
     def drop_item(self, key: str) -> bool:
         """
         Remove a file or directory from the store. Must be able to handle missing
@@ -603,7 +601,7 @@ class Cache(ABC):
         :param key:  The unique item key.
         :return:     True if the item is successfully removed
         """
-        ...
+        return False
 
     @abstractmethod
     def fetch_item(self, key: str, to: Path) -> bool:
@@ -618,16 +616,14 @@ class Cache(ABC):
         """
         ...
 
-    @abstractmethod
     def iter_keys(self) -> Iterable[str]:
         """
         Iterate over item keys stored in the cache
 
         :return: Iterable of item keys in the cache
         """
-        ...
+        yield from []
 
-    @abstractmethod
     def get_last_fetch_utc(self, key: str) -> int | float:
         """
         Get the last fetch time as a UTC timestamp.
@@ -635,14 +631,12 @@ class Cache(ABC):
         :param key:  The unique item key.
         :return:     The last time an item was fetched as a UTC timestamp.
         """
-        ...
+        return 0
 
-    @abstractmethod
-    def set_last_fetch_utc(self, key: str) -> int | float:
+    def set_last_fetch_utc(self, key: str):
         """
         Update the last fetch time as a UTC timestamp.
 
         :param key:  The unique item key.
-        :return:     The last time an item was fetched as a UTC timestamp.
         """
-        ...
+        return
