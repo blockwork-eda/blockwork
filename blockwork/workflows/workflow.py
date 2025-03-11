@@ -344,6 +344,10 @@ class Workflow:
                     args = [
                         "--scratch",
                         ctx.host_scratch.as_posix(),
+                    ]
+                    if ctx.cache_config_path is not None:
+                        args += ["--cache-config", ctx.cache_config_path.as_posix()]
+                    args += [
                         "_wf_step",
                         spec_file.as_posix(),
                     ]

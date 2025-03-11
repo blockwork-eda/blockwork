@@ -220,8 +220,15 @@ class Context:
         return BlockworkParser.parse(self.config_path)
 
     @functools.cached_property
-    def cache_config(self) -> CachingConfig:
+    def cache_config_path(self) -> Path | None:
         config_path = self.__cache_config or self.config.default_cache_config
+        if config_path is not None:
+            config_path = Path(config_path)
+        return config_path
+
+    @functools.cached_property
+    def cache_config(self) -> CachingConfig:
+        config_path = self.cache_config_path
         if config_path is None:
             return CachingConfig()
         return CachingParser.parse(Path(config_path))
