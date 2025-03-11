@@ -535,24 +535,24 @@ class Cache(ABC):
                                f"New Name: {old['mod_name']}.{old['cls_name']}")
 
         if (new["mname_to_key"] != old["mname_to_key"]):
-            if (keys := sorted(new["mname_to_key"].keys())) != (old_keys := sorted(old["mname_to_key"].keys())):
+            if (mkeys := sorted(new["mname_to_key"].keys())) != (old_mkeys := sorted(old["mname_to_key"].keys())):
                 # Vanishingly unlikely hash collision
                 raise RuntimeError("Transform hash collision detected!\n"
                                    "Output key mismatch.\n"
-                                  f"Old keys: {old_keys}\n"
-                                  f"New keys: {keys}")
+                                  f"Old keys: {old_mkeys}\n"
+                                  f"New keys: {mkeys}")
 
-            for key in keys:
-                new_hash = new["mname_to_key"][key]
-                old_hash = old["mname_to_key"][key]
+            for mkey in mkeys:
+                new_hash = new["mname_to_key"][mkey]
+                old_hash = old["mname_to_key"][mkey]
                 if new_hash != old_hash:
-                    error_dir = self.error_root / (new["mod_name"] + "." + new["cls_name"]) / key
+                    error_dir = self.error_root / (new["mod_name"] + "." + new["cls_name"]) / mkey / key
                     shutil.rmtree(error_dir, ignore_errors=True)
                     error_dir.mkdir(exist_ok=True, parents=True)
                     old_error_path = error_dir / old_hash
                     if not self.fetch_item(old_hash, old_error_path):
                         # Nothing to debug, just drop it.
-                        self.drop_object(key)
+                        self.drop_object(mkey)
                         continue
                     new_path = mkey_to_path[new_hash]
                     new_error_path = error_dir / new_hash
@@ -560,7 +560,7 @@ class Cache(ABC):
                                                       target_is_directory=new_path.is_dir())
                     # Hash collision as a result of non-deterministic transform
                     raise RuntimeError("Non-deterministic transform detected!\n"
-                                       f"New output for key `{key}` does not match existing"
+                                       f"New output for key `{mkey}` does not match existing"
                                        " output for same hash.\n"
                                        f"Old Output: `{old_error_path}`\n"
                                        f"New Output: `{new_error_path}`")
