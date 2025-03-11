@@ -528,14 +528,16 @@ class Cache(ABC):
             return
 
         if (new["cls_name"], new["mod_name"]) != (old["cls_name"], old["mod_name"]):
-            raise RuntimeError("Non-deterministic transform detected!\n"
+            # Vanishingly unlikely hash collision
+            raise RuntimeError("Transform hash collision detected!\n"
                                "Transform name mismatch.\n"
                                f"Old Name: {new['mod_name']}.{new['cls_name']}\n"
                                f"New Name: {old['mod_name']}.{old['cls_name']}")
 
         if (new["mname_to_key"] != old["mname_to_key"]):
             if (keys := sorted(new["mname_to_key"].keys())) != (old_keys := sorted(old["mname_to_key"].keys())):
-                raise RuntimeError("Non-deterministic transform detected!\n"
+                # Vanishingly unlikely hash collision
+                raise RuntimeError("Transform hash collision detected!\n"
                                    "Output key mismatch.\n"
                                   f"Old keys: {old_keys}\n"
                                   f"New keys: {keys}")
@@ -556,7 +558,7 @@ class Cache(ABC):
                     new_error_path = error_dir / new_hash
                     new_error_path.symlink_to(new_path,
                                                       target_is_directory=new_path.is_dir())
-
+                    # Hash collision as a result of non-deterministic transform
                     raise RuntimeError("Non-deterministic transform detected!\n"
                                        f"New output for key `{key}` does not match existing"
                                        " output for same hash.\n"
@@ -565,8 +567,11 @@ class Cache(ABC):
 
         # I can't see how we'd get to these cases... but just in case
         if new["byte_size"] != old['byte_size']:
+            # This could happen if the original was created on a different platform
             raise RuntimeError("Non-deterministic transform detected!\n"
-                               "Size on disk different, but all outputs the same!?")
+                               "Size on disk different, but all outputs the same."
+                               f"Transform: {new['mod_name']}.{new['cls_name']}"
+                               "Perhaps original object created on a different platform?")
         raise RuntimeError("Non-deterministic transform detected!\n"
                            "Unexpected condition.")
 
