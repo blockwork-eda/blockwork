@@ -127,11 +127,19 @@ class PyHasher:
         return hasattr(module, "__path__")
 
     def visit_Import(self, node):
+        if node.col_offset:
+            # Don't process conditional imports as we can't
+            # manage them in a reasonable way.
+            return
         for name in node.names:
             # import a,b,c
             self.map_package(name.name)
 
     def visit_ImportFrom(self, node):
+        if node.col_offset:
+            # Don't process conditional imports as we can't
+            # manage them in a reasonable way.
+            return
         if node.module is not None and node.level == 0:
             # Non-relative import from a module
             # `from a import b`
@@ -154,13 +162,11 @@ class PyHasher:
 
     def map_package(self, package: str):
         if package in self.dependency_map:
-            # Don't re-process
+            # Don't re-process but add dependency
+            if len(self.module_stack):
+                self.dependency_map[self.current_package].add(package)
             return
-        if (module := sys.modules.get(package, None)) is None:
-            # Package may not be in sys modules if it's imported conditionally
-            # or within a function etc...
-            return
-        self.map_module(module)
+        self.map_module(sys.modules[package])
 
     def map_module(self, module: ModuleType):
         # Skip built-ins
