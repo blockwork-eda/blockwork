@@ -279,7 +279,7 @@ class TestWorkFlowDeps:
             host_root = tmp_path
             host_scratch = tmp_path
             caches: ClassVar[list[Cache]] = [DummyCache()]
-            caching_forced = False
+            cache_targets = False
 
         TransformA, TransformB = self.TFAutoA, self.TFAutoB  # noqa N806
 

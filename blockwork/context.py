@@ -83,7 +83,7 @@ class Context:
         scratch: Path | None = None,
         cache_config: Path | None = None,
         cache_enable: bool | None = None,
-        cache_target: bool | None = None,
+        cache_targets: bool | None = None,
     ) -> None:
         self.__file = cfg_file
         self.__host_root = self.locate_root(root or Path.cwd())
@@ -92,7 +92,7 @@ class Context:
         self.__timestamp = datetime.now().strftime("D%Y%m%dT%H%M%S")
         self.__cache_config = cache_config
         self.__cache_enable = cache_enable
-        self.__cache_target = cache_target
+        self.__cache_targets = cache_targets
 
     @property
     def host_architecture(self) -> HostArchitecture:
@@ -256,12 +256,12 @@ class Context:
         return caches
 
     @property
-    def caching_forced(self):
+    def cache_targets(self):
         """
         True if caching is forced (even targetted objects are retrieved from
         cache)
         """
-        return self.cache_config.targets if self.__cache_target is None else self.__cache_target
+        return self.cache_config.targets if self.__cache_targets is None else self.__cache_targets
 
     @property
     def hub_url(self):

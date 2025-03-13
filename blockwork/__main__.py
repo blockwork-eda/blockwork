@@ -97,7 +97,7 @@ logging.basicConfig(
     help="Path to a cache config file.",
 )
 @click.option(
-    "--cache-target/--no-cache-target",
+    "--cache-targets/--no-cache-targets",
     default=None,
     help="Force caching even for 'targetted' objects",
 )
@@ -113,7 +113,7 @@ def blockwork(
     scratch: str | None,
     cache: bool | None,
     cache_config: Path,
-    cache_target: bool | None,
+    cache_targets: bool | None,
 ) -> None:
     # Setup post-mortem debug
     DebugScope.current.POSTMORTEM = pdb
@@ -134,7 +134,7 @@ def blockwork(
         scratch=Path(scratch).absolute() if scratch else None,
         cache_enable=cache,
         cache_config=cache_config,
-        cache_target=cache_target,
+        cache_targets=cache_targets,
     )
     # Set the host architecture
     if arch:
