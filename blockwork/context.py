@@ -261,7 +261,7 @@ class Context:
         True if caching is forced (even targetted objects are retrieved from
         cache)
         """
-        return self.__cache_target
+        return self.cache_config.targets if self.__cache_target is None else self.__cache_target
 
     @property
     def hub_url(self):
