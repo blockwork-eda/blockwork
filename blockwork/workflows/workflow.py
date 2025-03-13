@@ -268,10 +268,14 @@ class Workflow:
                     status.run.add(transform)
 
                     if is_caching:
-                        if result.interacted or transform in interacted:
+                        if result.interacted:
                             interacted.add(transform)
                             interacted |= scheduler._dependent_map[transform]
                             logging.warning("Not caching due to user interaction: %s", transform)
+                        elif transform in interacted:
+                            logging.warning(
+                                "Not caching due to (dependency) user interaction: %s", transform
+                            )
                         elif Cache.store_transform_to_any(ctx, transform, result.run_time):
                             status.stored.add(transform)
                             logging.info("Stored transform to cache: %s", transform)
