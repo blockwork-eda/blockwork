@@ -67,7 +67,7 @@ class Medial:
     _consumers: "OSet[Transform] | None"
     "The transfoms that consume this medial (implemented but unused)"
     _cached_input_hash: str | None
-    "The (cached) hash of this medials inputs"
+    "The (cached) hash of this medial's inputs"
 
     def __init__(self, val: str):
         self.val = val
@@ -123,9 +123,24 @@ class Medial:
         if self._producers:
             self._cached_input_hash = self._producers[0]._input_hash()
         else:
-            self._cached_input_hash = Cache.hash_content(Path(self.val))
+            self._cached_input_hash = self._content_hash()
 
         return self._cached_input_hash
+
+    def _byte_size(self) -> int:
+        """
+        Get the size of this medial in bytes
+        """
+        return Cache.hash_size_content(Path(self.val))[1]
+
+    def _content_hash(self) -> str:
+        """
+        Get the hash of this medial
+
+        MUST only be used after the transform producing this medial has been
+        run or if this medial is a static file.
+        """
+        return Cache.hash_size_content(Path(self.val))[0]
 
     def __repr__(self):
         return f"<Medial val='{self.val}' hash={self._cached_input_hash}>"
@@ -704,7 +719,7 @@ class SerialInterface:
     using JSON.
     """
 
-    _cached_input_hash: str | None = None
+    _cached_input_hash: str | None
     "The (cached) hash of this serial interface"
 
     def __init__(self, value: "TISerialAny", direction: Direction = Direction.INPUT):
@@ -713,6 +728,7 @@ class SerialInterface:
         self.medials = list[Medial]()
         self.tokens = list[Any]()
         self.value = value
+        self._cached_input_hash = None
         InterfaceSerializer.walk(self.value, self)
 
     @classmethod
@@ -751,7 +767,7 @@ class SerialInterface:
             md5.update(medial._input_hash().encode("utf8"))
 
         digest = md5.hexdigest()
-        object.__setattr__(self, "_cached_input_hash", digest)
+        self._cached_input_hash = digest
         return digest
 
     def __repr__(self) -> str:

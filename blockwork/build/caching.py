@@ -72,7 +72,7 @@ class TransformStableDetails(TypedDict):
     mod_name: str
     cls_name: str
     byte_size: int
-    mname_to_key: dict[str, str]
+    mname_to_keys: dict[str, list[str]]
 
 class TransformTransientDetails(TypedDict):
     run_time: float
@@ -91,7 +91,7 @@ class TransformStoreData(TypedDict):
 
 
 class TransformFetchData(TypedDict):
-    mname_to_path: dict[str, Path]
+    mname_to_paths: dict[str, list[Path]]
 
 
 KEY_FILE_SIZE = 250
@@ -231,8 +231,8 @@ def get_byte_rate(byte_size: int, second_time: float):
 
 class Cache(ABC):
     pyhasher = PyHasher()
-    medial_prefix = "md:"
-    transform_prefix = "tx:"
+    medial_prefix = "md-"
+    transform_prefix = "tx-"
 
     def __init__(self, ctx: Context, cfg: CacheConfig):
         self.ctx = ctx
@@ -322,6 +322,33 @@ class Cache(ABC):
                 content_hash = hashlib.file_digest(f, "md5")
         return content_hash.hexdigest()
 
+
+    @functools.cache
+    @staticmethod
+    def hash_size_content(path: Path) -> tuple[str, int]:
+        """
+        Hash the content of a file or directory and get the size in bytes.
+        This needs to be consistent across caching schemes so consistency
+        checks can be performed.
+        """
+        if not path.exists():
+            assert path.is_symlink(), f"Tried to hash a path that does not exist `{path}`"
+            # Symlinks might point to a path that doesn't exist and that's ok
+            content_hash = hashlib.md5(f"<symlink to {path.resolve()}>".encode("utf8"))
+            byte_size = 0
+        elif path.is_dir():
+            content_hash = hashlib.md5("<dir>".encode("utf8"))
+            byte_size = 0
+            for item in sorted(os.listdir(path)):
+                sub_hash, sub_size = Cache.hash_size_content(path / item)
+                content_hash.update((item + sub_hash).encode("utf8"))
+                byte_size += sub_size
+        else:
+            with path.open("rb") as f:
+                content_hash = hashlib.file_digest(f, "md5")
+            byte_size = os.path.getsize(path)
+        return content_hash.hexdigest(), byte_size
+
     @staticmethod
     def hash_imported_package(package: str) -> str:
         """
@@ -338,38 +365,41 @@ class Cache(ABC):
         """
         Get the information we need from a transform in order to fetch it.
         """
-        mname_to_path: dict[str, Path] = {}
+        mname_to_paths: dict[str, list[Path]] = {}
 
         for name, serial in transform._serial_interfaces.items():
             if serial.direction.is_input:
                 continue
+            mname_to_paths[name] = []
             for medial in serial.medials:
-                mname_to_path[name] = Path(medial.val)
-        return TransformFetchData(mname_to_path=mname_to_path)
+                mname_to_paths[name].append(Path(medial.val))
+        return TransformFetchData(mname_to_paths=mname_to_paths)
 
     @staticmethod
     def get_transform_store_data(transform: "Transform", run_time: float) -> TransformStoreData:
         """
         Get the information we need from a transform in order to store it.
         """
-        mname_to_key: dict[str, str] = {}
+        mname_to_keys: dict[str, list[str]] = {}
         mkey_to_path: dict[str, Path] = {}
 
         byte_size = 0
         for name, serial in transform._serial_interfaces.items():
             if serial.direction.is_input:
                 continue
+
+            mname_to_keys[name] = []
             for medial in serial.medials:
-                byte_size += get_byte_size(medial.val)
-                key = Cache.medial_prefix + Cache.hash_content(Path(medial.val))
-                mname_to_key[name] = key
+                byte_size += medial._byte_size()
+                key = Cache.medial_prefix + medial._content_hash()
+                mname_to_keys[name].append(key)
                 mkey_to_path[key] = Path(medial.val)
 
         return TransformStoreData(
             key_data=TransformKeyData(
                 stable={
                     "byte_size":byte_size,
-                    "mname_to_key":mname_to_key,
+                    "mname_to_keys": mname_to_keys,
                     "cls_name":transform._cls_name,
                     "mod_name":transform._mod_name
                 },
@@ -387,16 +417,20 @@ class Cache(ABC):
 
         key_data: TransformKeyData | None = None
         for cache in ctx.caches:
-            if (key_data := cache.fetch_object(key)) is not None:
+            if cache.fetch_threshold > 0 and (key_data := cache.fetch_object(key)) is not None:
                 break
         else:
             return False
 
         fetch_data = Cache.get_transform_fetch_data(transform)
 
-        mname_to_path = fetch_data["mname_to_path"]
-        mname_to_key = key_data["stable"]["mname_to_key"]
-        mkey_to_path = {mname_to_key[mname]: mname_to_path[mname] for mname in mname_to_path}
+        mname_to_paths = fetch_data["mname_to_paths"]
+        mname_to_keys = key_data["stable"]["mname_to_keys"]
+        mkey_to_path: dict[str, Path] = {}
+        for mname, mpaths in mname_to_paths.items():
+            mkeys = mname_to_keys[mname]
+            for mkey, mpath in zip(mkeys, mpaths):
+                mkey_to_path[mkey] = mpath
 
         byte_rate = get_byte_rate(second_time=key_data["transient"]["run_time"], byte_size=key_data["stable"]["byte_size"])
 
@@ -485,8 +519,9 @@ class Cache(ABC):
 
                 # Record the expected medials as some might be missing
                 transform_medials[key] = set()
-                for medial_key in store_data["stable"]["mname_to_key"].values():
-                    transform_medials[key].add(medial_key)
+                for medial_keys in store_data["stable"]["mname_to_keys"].values():
+                    for medial_key in medial_keys:
+                        transform_medials[key].add(medial_key)
             else:
                 # Unexpected data - delete it.
                 self.drop_item(key)
@@ -534,36 +569,48 @@ class Cache(ABC):
                                f"Old Name: {new['mod_name']}.{new['cls_name']}\n"
                                f"New Name: {old['mod_name']}.{old['cls_name']}")
 
-        if (new["mname_to_key"] != old["mname_to_key"]):
-            if (mkeys := sorted(new["mname_to_key"].keys())) != (old_mkeys := sorted(old["mname_to_key"].keys())):
+        if (new["mname_to_keys"] != old["mname_to_keys"]):
+            if (mnames := sorted(new["mname_to_keys"].keys())) != (old_mnames := sorted(old["mname_to_keys"].keys())):
                 # Vanishingly unlikely hash collision
                 raise RuntimeError("Transform hash collision detected!\n"
                                    "Output key mismatch.\n"
-                                  f"Old keys: {old_mkeys}\n"
-                                  f"New keys: {mkeys}")
+                                  f"Old keys: {old_mnames}\n"
+                                  f"New keys: {mnames}")
 
-            for mkey in mkeys:
-                new_hash = new["mname_to_key"][mkey]
-                old_hash = old["mname_to_key"][mkey]
-                if new_hash != old_hash:
-                    error_dir = self.error_root / (new["mod_name"] + "." + new["cls_name"]) / mkey / key
+            for mname in mnames:
+                if (new_mkeys := new["mname_to_keys"][mname]) == (old_mkeys := old["mname_to_keys"][mname]):
+                    continue
+
+                if len(new_mkeys) != len(old_mkeys):
+                    # I can't see how this would happen...
+                    raise RuntimeError("Non-deterministic transform detected!\n"
+                                      f"Interface `{mname}` has a differing"
+                                      " number of files associated with it."
+                                      f"Old Count: `{len(old_mkeys)}`\n"
+                                      f"New Count: `{len(new_mkeys)}`")
+
+                for new_mkey, old_mkey in zip(new_mkeys, old_mkeys):
+                    if new_mkey == old_mkey:
+                        continue
+
+                    error_dir = self.error_root / (new["mod_name"] + "." + new["cls_name"]) / mname / key
                     shutil.rmtree(error_dir, ignore_errors=True)
                     error_dir.mkdir(exist_ok=True, parents=True)
-                    old_error_path = error_dir / old_hash
-                    if not self.fetch_item(old_hash, old_error_path):
+                    old_error_path = error_dir / old_mkey
+                    if not self.fetch_item(old_mkey, old_error_path):
                         # Nothing to debug, just drop it.
-                        self.drop_object(mkey)
+                        self.drop_object(mname)
                         continue
-                    new_path = mkey_to_path[new_hash]
-                    new_error_path = error_dir / new_hash
+                    new_path = mkey_to_path[new_mkey]
+                    new_error_path = error_dir / new_mkey
                     new_error_path.symlink_to(new_path,
-                                                      target_is_directory=new_path.is_dir())
+                                                    target_is_directory=new_path.is_dir())
                     # Hash collision as a result of non-deterministic transform
                     raise RuntimeError("Non-deterministic transform detected!\n"
-                                       f"New output for key `{mkey}` does not match existing"
-                                       " output for same hash.\n"
-                                       f"Old Output: `{old_error_path}`\n"
-                                       f"New Output: `{new_error_path}`")
+                                    f"New output for key `{mname}` does not match existing"
+                                    " output for same hash.\n"
+                                    f"Old Output: `{old_error_path}`\n"
+                                    f"New Output: `{new_error_path}`")
 
         # I can't see how we'd get to these cases... but just in case
         if new["byte_size"] != old['byte_size']:
