@@ -83,7 +83,7 @@ def install_tools(context: Context, last_run: datetime) -> bool:
                 container = Foundation(
                     context, hostname=f"{context.config.project}_install_{tool.id}"
                 )
-                exit_code = container.invoke(context, act_def(context), readonly=False)
+                exit_code = container.invoke(context, act_def(context), readonly=False).exit_code
                 if exit_code != 0:
                     raise ToolError(f"Installation of {tool_id} failed")
             else:

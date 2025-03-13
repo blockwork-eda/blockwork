@@ -1155,10 +1155,11 @@ TIAny = TIConstLeaf | TIPrimitives | IFace | Sequence["TIAny"] | dict[str, "TIAn
 
 
 @dataclass(frozen=True, kw_only=True)
-class Result:
+class TransformResult:
     exit_code: int | None
     run_time: float
     ident: str
+    interacted: bool
     _accepted: bool = field(init=False, default=False, compare=False, repr=False, hash=False)
 
     def resolve(self):
@@ -1304,7 +1305,7 @@ class Transform:
 
         return tf
 
-    def run(self, ctx: "Context") -> Result:
+    def run(self, ctx: "Context") -> TransformResult:
         """Run the transform in a container."""
         tf_start = time.time()
 
@@ -1340,17 +1341,23 @@ class Transform:
         invocation_iter = tf.execute(ctx)
         exit_code = None
         result = None
+        any_interacted = False
         try:
             # Get the first
             invocation = next(invocation_iter)
             while True:
                 # Invoke and create result object
                 ivk_start = time.time()
-                exit_code = container.invoke(ctx, invocation)
+                ivk_result = container.invoke(ctx, invocation)
                 ivk_stop = time.time()
-                result = Result(
-                    exit_code=exit_code, run_time=(ivk_stop - ivk_start), ident=str(invocation)
+                result = TransformResult(
+                    exit_code=ivk_result.exit_code,
+                    run_time=(ivk_stop - ivk_start),
+                    ident=str(invocation),
+                    interacted=ivk_result.interacted,
                 )
+                any_interacted |= result.interacted
+                exit_code = ivk_result.exit_code
                 # Pass the result object back
                 invocation = invocation_iter.send(result)
                 # Resolve the result before handling next invocation
@@ -1361,9 +1368,14 @@ class Transform:
                 result.resolve()
         tf_stop = time.time()
         # Return a result object with the final exit_code and total run_time
-        return Result(exit_code=exit_code, run_time=(tf_stop - tf_start), ident=str(tf))
+        return TransformResult(
+            exit_code=exit_code,
+            run_time=(tf_stop - tf_start),
+            ident=str(tf),
+            interacted=any_interacted,
+        )
 
-    def execute(self, ctx: "Context", /) -> Generator["Invocation", Result, None]:
+    def execute(self, ctx: "Context", /) -> Generator["Invocation", TransformResult, None]:
         """
         Execute method to be implemented in subclasses.
         """

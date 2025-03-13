@@ -103,4 +103,8 @@ def tool(
     if invocation is None:
         return
     # Launch the invocation
-    sys.exit(container.invoke(ctx, invocation, readonly=(ToolMode(tool_mode) == ToolMode.READONLY)))
+    sys.exit(
+        container.invoke(
+            ctx, invocation, readonly=(ToolMode(tool_mode) == ToolMode.READONLY)
+        ).exit_code
+    )

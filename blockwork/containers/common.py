@@ -124,7 +124,9 @@ def read_stream(socket: SocketIO, stdout: TextIO, e_done: Event) -> Thread:
     return thread
 
 
-def write_stream(socket: SocketIO, e_done: Event, command: list[str] | None = None) -> Thread:
+def write_stream(
+    socket: SocketIO, e_done: Event, e_sent: Event, command: list[str] | None = None
+) -> Thread:
     """Wrapped thread method to capture STDIN and write into container"""
 
     def _inner(socket, e_done, command):
@@ -137,6 +139,7 @@ def write_stream(socket: SocketIO, e_done: Event, command: list[str] | None = No
                 while not e_done.is_set():
                     if (char := get_char()) is not None:
                         socket._sock.send(char)
+                        e_sent.set()
             except BrokenPipeError:
                 pass
         # Set event to signal completion of stream

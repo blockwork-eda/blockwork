@@ -252,6 +252,8 @@ class Workflow:
         # Whether a cache is in place
         is_caching = Cache.enabled(ctx)
 
+        interacted: OSet[Transform] = OSet()
+
         while scheduler.incomplete:
             # Place all currently schedulable jobs into this group
             for transform in scheduler.schedulable:
@@ -264,9 +266,15 @@ class Workflow:
                     logging.info("Running transform: %s", transform)
                     result = transform.run(ctx)
                     status.run.add(transform)
-                    if is_caching and Cache.store_transform_to_any(ctx, transform, result.run_time):
-                        status.stored.add(transform)
-                        logging.info("Stored transform to cache: %s", transform)
+
+                    if is_caching:
+                        if result.interacted or transform in interacted:
+                            interacted.add(transform)
+                            interacted |= scheduler._dependent_map[transform]
+                            logging.warning("Not caching due to user interaction: %s", transform)
+                        elif Cache.store_transform_to_any(ctx, transform, result.run_time):
+                            status.stored.add(transform)
+                            logging.info("Stored transform to cache: %s", transform)
 
                 scheduler.finish(transform)
 
