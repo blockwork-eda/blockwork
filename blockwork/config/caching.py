@@ -33,6 +33,7 @@ class CacheConfig:
 class CachingConfig:
     enabled: bool = True
     targets: bool = False
+    expect: bool = False
     caches: list[CacheConfig] = field(default_factory=list)
 
 

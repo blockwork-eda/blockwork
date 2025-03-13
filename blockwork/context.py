@@ -84,6 +84,7 @@ class Context:
         cache_config: Path | None = None,
         cache_enable: bool | None = None,
         cache_targets: bool | None = None,
+        cache_expect: bool | None = None,
     ) -> None:
         self.__file = cfg_file
         self.__host_root = self.locate_root(root or Path.cwd())
@@ -93,6 +94,7 @@ class Context:
         self.__cache_config = cache_config
         self.__cache_enable = cache_enable
         self.__cache_targets = cache_targets
+        self.__cache_expect = cache_expect
 
     @property
     def host_architecture(self) -> HostArchitecture:
@@ -262,6 +264,14 @@ class Context:
         cache)
         """
         return self.cache_config.targets if self.__cache_targets is None else self.__cache_targets
+
+    @property
+    def cache_expect(self):
+        """
+        True if all objects are expected to be in a cache. Will throw if this
+        is not the case.
+        """
+        return self.cache_config.expect if self.__cache_expect is None else self.__cache_expect
 
     @property
     def hub_url(self):

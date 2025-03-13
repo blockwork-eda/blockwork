@@ -463,6 +463,8 @@ class Workflow:
         :param concurrency:    Set the desired concurrency
         """
         status = SimpleNamespace(
+            # Record the transforms that were scheduled to run
+            scheduled=OSet(),
             # Record the transforms we actually ran
             run=OSet(),
             # Record the transforms we pulled from the cache
@@ -494,6 +496,17 @@ class Workflow:
                             logging.info("Fetched transform from cache: %s", transform)
                             status.fetched.add(transform)
                     cache_scheduler.finish(transform)
+
+        cachable = OSet(dependency_map.keys())
+        if ctx.cache_targets:
+            cachable -= targets
+        status.scheduled = cachable - (status.skipped | status.fetched)
+
+        if ctx.cache_expect and status.scheduled:
+            logging.warning("Items scheduled when we expect them to be cached:")
+            for tf in status.scheduled:
+                logging.warning(f"    {tf}")
+            raise RuntimeError("Items ^ scheduled when they should be cached!")
 
         # Push everything into Gator based on scheduling order
         run_scheduler = Scheduler(dependency_map, targets=targets)
