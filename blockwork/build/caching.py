@@ -416,15 +416,25 @@ class Cache(ABC):
         )
 
     @staticmethod
+    def fetch_transform_key_data_from_any(ctx: Context, key: str) -> TransformKeyData | None:
+        "Fetch transform key data from any available cache"
+
+        if not key.startswith(Cache.transform_prefix):
+            key = Cache.transform_prefix + key
+
+        for cache in ctx.caches:
+            if cache.fetch_threshold > 0 and (key_data := cache.fetch_object(key)) is not None:
+                return key_data
+
+        return None
+
+    @staticmethod
     def fetch_transform_from_any(ctx: Context, transform: "Transform") -> bool:
         "Fetch all the output interfaces for a transform from any available cache"
         key = Cache.transform_prefix + transform._input_hash()
 
-        key_data: TransformKeyData | None = None
-        for cache in ctx.caches:
-            if cache.fetch_threshold > 0 and (key_data := cache.fetch_object(key)) is not None:
-                break
-        else:
+        key_data = Cache.fetch_transform_key_data_from_any(ctx, key)
+        if key_data is None:
             return False
 
         fetch_data = Cache.get_transform_fetch_data(transform)
