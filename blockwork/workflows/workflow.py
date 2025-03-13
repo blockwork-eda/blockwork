@@ -414,26 +414,27 @@ class Workflow:
                 )
             )
 
-            # For any failed IDs, resolve them to their log files
-            for job_id in summary.failed_ids:
-                ptr = root_group
-                # Resolve the job
-                for idx, part in enumerate(job_id[1:]):
-                    for sub in ptr.jobs:
-                        if sub.ident == part:
-                            ptr = sub
-                            break
-                    else:
-                        raise Exception(
-                            f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}"
-                        )
-                # Grab the spec JSON
-                *_, spec_json = ptr.args
-                with Path(spec_json).open("r", encoding="utf-8") as fh:
-                    spec_data = json.load(fh)
-                # Grab the tracking directory
-                job_trk_dirx = track_dirx / "/".join(job_id[1:])
-                logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
+            if DebugScope.current.VERBOSE:
+                # For any failed IDs, resolve them to their log files
+                for job_id in summary.failed_ids:
+                    ptr = root_group
+                    # Resolve the job
+                    for idx, part in enumerate(job_id[1:]):
+                        for sub in ptr.jobs:
+                            if sub.ident == part:
+                                ptr = sub
+                                break
+                        else:
+                            raise Exception(
+                                f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}"
+                            )
+                    # Grab the spec JSON
+                    *_, spec_json = ptr.args
+                    with Path(spec_json).open("r", encoding="utf-8") as fh:
+                        spec_data = json.load(fh)
+                    # Grab the tracking directory
+                    job_trk_dirx = track_dirx / "/".join(job_id[1:])
+                    logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
 
             # Check for failure
             if summary.failed:
