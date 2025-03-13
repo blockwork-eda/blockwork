@@ -1204,6 +1204,9 @@ class Transform:
     _cached_input_hash: str | None = None
     "The (cached) hash of this transforms inputs"
 
+    _cached_import_hash: str | None = None
+    "The (cached) hash of this transforms imports"
+
     api: ConfigApi
 
     def __init_subclass__(cls, *args, **kwargs):
@@ -1251,7 +1254,11 @@ class Transform:
         }
 
     def _import_hash(self) -> str:
-        return Cache.hash_imported_package(self.__class__.__module__)
+        if self._cached_import_hash is not None:
+            return self._cached_import_hash
+        digest = Cache.hash_imported_package(self.__class__.__module__)
+        object.__setattr__(self, "_cached_import_hash", digest)
+        return digest
 
     def _input_hash(self) -> str:
         """

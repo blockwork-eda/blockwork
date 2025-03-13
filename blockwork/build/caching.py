@@ -72,7 +72,9 @@ class TransformStableDetails(TypedDict):
     mod_name: str
     cls_name: str
     byte_size: int
-    mname_to_keys: dict[str, list[str]]
+    mname_to_okeys: dict[str, list[str]]
+    mname_to_ihash: dict[str, str]
+    import_hash: str
 
 class TransformTransientDetails(TypedDict):
     run_time: float
@@ -380,26 +382,29 @@ class Cache(ABC):
         """
         Get the information we need from a transform in order to store it.
         """
-        mname_to_keys: dict[str, list[str]] = {}
+        mname_to_okeys: dict[str, list[str]] = {}
+        mname_to_ihash: dict[str, str] = {}
         mkey_to_path: dict[str, Path] = {}
 
         byte_size = 0
         for name, serial in transform._serial_interfaces.items():
             if serial.direction.is_input:
-                continue
-
-            mname_to_keys[name] = []
-            for medial in serial.medials:
-                byte_size += medial._byte_size()
-                key = Cache.medial_prefix + medial._content_hash()
-                mname_to_keys[name].append(key)
-                mkey_to_path[key] = Path(medial.val)
+                mname_to_ihash[name] = serial._input_hash()
+            else:
+                mname_to_okeys[name] = []
+                for medial in serial.medials:
+                    byte_size += medial._byte_size()
+                    key = Cache.medial_prefix + medial._content_hash()
+                    mname_to_okeys[name].append(key)
+                    mkey_to_path[key] = Path(medial.val)
 
         return TransformStoreData(
             key_data=TransformKeyData(
                 stable={
                     "byte_size":byte_size,
-                    "mname_to_keys": mname_to_keys,
+                    "import_hash": transform._import_hash(),
+                    "mname_to_okeys": mname_to_okeys,
+                    "mname_to_ihash": mname_to_ihash,
                     "cls_name":transform._cls_name,
                     "mod_name":transform._mod_name
                 },
@@ -425,10 +430,10 @@ class Cache(ABC):
         fetch_data = Cache.get_transform_fetch_data(transform)
 
         mname_to_paths = fetch_data["mname_to_paths"]
-        mname_to_keys = key_data["stable"]["mname_to_keys"]
+        mname_to_okeys = key_data["stable"]["mname_to_okeys"]
         mkey_to_path: dict[str, Path] = {}
         for mname, mpaths in mname_to_paths.items():
-            mkeys = mname_to_keys[mname]
+            mkeys = mname_to_okeys[mname]
             for mkey, mpath in zip(mkeys, mpaths):
                 mkey_to_path[mkey] = mpath
 
@@ -519,7 +524,7 @@ class Cache(ABC):
 
                 # Record the expected medials as some might be missing
                 transform_medials[key] = set()
-                for medial_keys in store_data["stable"]["mname_to_keys"].values():
+                for medial_keys in store_data["stable"]["mname_to_okeys"].values():
                     for medial_key in medial_keys:
                         transform_medials[key].add(medial_key)
             else:
@@ -569,8 +574,8 @@ class Cache(ABC):
                                f"Old Name: {new['mod_name']}.{new['cls_name']}\n"
                                f"New Name: {old['mod_name']}.{old['cls_name']}")
 
-        if (new["mname_to_keys"] != old["mname_to_keys"]):
-            if (mnames := sorted(new["mname_to_keys"].keys())) != (old_mnames := sorted(old["mname_to_keys"].keys())):
+        if (new["mname_to_okeys"] != old["mname_to_okeys"]):
+            if (mnames := sorted(new["mname_to_okeys"].keys())) != (old_mnames := sorted(old["mname_to_okeys"].keys())):
                 # Vanishingly unlikely hash collision
                 raise RuntimeError("Transform hash collision detected!\n"
                                    "Output key mismatch.\n"
@@ -578,7 +583,7 @@ class Cache(ABC):
                                   f"New keys: {mnames}")
 
             for mname in mnames:
-                if (new_mkeys := new["mname_to_keys"][mname]) == (old_mkeys := old["mname_to_keys"][mname]):
+                if (new_mkeys := new["mname_to_okeys"][mname]) == (old_mkeys := old["mname_to_okeys"][mname]):
                     continue
 
                 if len(new_mkeys) != len(old_mkeys):
