@@ -37,10 +37,14 @@ def read_key(ctx: Context, key: str):
     """
     Read transform key data
     """
-    data = Cache.fetch_transform_key_data_from_any(ctx, key)
-    if data:
-        pprint(data)
-        exit(0)
+    if not key.startswith(Cache.transform_prefix):
+        key = Cache.transform_prefix + key
+    for cache in ctx.caches:
+        data = cache.fetch_object(key)
+        if data is not None:
+            print(f"Item found in cache: '{cache.cfg.name}'")
+            pprint(data)
+            exit(0)
     exit(1)
 
 
@@ -56,5 +60,48 @@ def fetch_medial(ctx: Context, key: str, output: Path):
         key = Cache.medial_prefix + key
     for cache in ctx.caches:
         if cache.fetch_item(key, output):
+            print(f"Item found in cache: '{cache.cfg.name}'")
             exit(0)
     exit(1)
+
+
+@cache.command(name="drop-key")
+@click.argument("key", type=click.STRING)
+@click.option("--yes", "-y", default=False, is_flag=True)
+@click.pass_obj
+def drop_key(ctx: Context, key: str, yes: bool):
+    """
+    Drop transform key data
+    """
+    if not key.startswith(Cache.transform_prefix):
+        key = Cache.transform_prefix + key
+    exit_code = 0
+    for cache in ctx.caches:
+        if yes or click.confirm(f"Drop key from cache '{cache.cfg.name}'?", default=False):
+            if cache.drop_item(key):
+                print(f"Item dropped from cache: '{cache.cfg.name}'")
+            else:
+                print(f"Item could not be dropped from cache: '{cache.cfg.name}'")
+                exit_code = 1
+    exit(exit_code)
+
+
+@cache.command(name="drop-medial")
+@click.argument("key", type=click.STRING)
+@click.option("--yes", "-y", default=False, is_flag=True)
+@click.pass_obj
+def drop_medial(ctx: Context, key: str, yes: bool):
+    """
+    Fetch a single medial
+    """
+    if not key.startswith(Cache.medial_prefix):
+        key = Cache.medial_prefix + key
+    exit_code = 0
+    for cache in ctx.caches:
+        if yes or click.confirm(f"Drop key from cache '{cache.cfg.name}'?", default=False):
+            if cache.drop_item(key):
+                print(f"Item dropped from cache: '{cache.cfg.name}'")
+            else:
+                print(f"Item could not be dropped from cache: '{cache.cfg.name}'")
+                exit_code = 1
+    exit(exit_code)

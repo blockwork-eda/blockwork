@@ -21,6 +21,7 @@ _registry = ConverterRegistry()
 @_registry.register(DataclassConverter, tag="!Cache")
 @dataclass
 class CacheConfig:
+    name: str
     path: str
     max_size: str | None = None
     fetch_condition: bool | str = False

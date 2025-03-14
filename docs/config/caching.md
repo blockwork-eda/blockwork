@@ -11,11 +11,13 @@ enabled: True
 targets: False
 caches:
 - !Cache
+  name: local-cache
   path: infra.caches.Local
   fetch_condition: True
   store_condition: True
   max_size: 5GB
 - !Cache
+  name: remote-cache
   path: infra.caches.FileStore
   fetch_condition: 10 MB/s
   store_condition: False
@@ -39,6 +41,7 @@ The fields of the `!Cache` tag are:
 
 | Field             | Required         | Default | Description                                                     |
 |-------------------|:----------------:|-------- |-----------------------------------------------------------------|
+| name              | :material-check: |         | The name of the cache (used in logging etc)                     |
 | path              | :material-check: |         | The python import path to the cache implementation<sup>2</sup>  |
 | max_size          |                  | `None`  | The maximum cache size, which the cache will self-prune down to |
 | store_condition   |                  | `False` | The condition for storing to the cache<sup>3</sup>              |

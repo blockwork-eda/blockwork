@@ -3,6 +3,7 @@ targets: False
 enabled: True
 caches:
 - !Cache
+  name: local-cache
   path: infra.caches.BasicFileCache
   fetch_condition: True
   store_condition: True

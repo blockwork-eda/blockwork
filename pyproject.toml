@@ -22,7 +22,7 @@ ordered-set = "4.1.0"
 filelock = "3.14.0"
 pytz = "2024.1"
 requests = "2.31.0"
-gator-eda = { git = "https://github.com/Intuity/gator.git", rev = "247179a700dbfe1b7854b57be8cebfcad282e5d9" }
+gator-eda = { git = "https://github.com/Intuity/gator.git", rev = "e562e77180b31ac620451b0b492ccb366e125496" }
 boto3 = "1.34.103"
 humanfriendly = "^10.0"
 
