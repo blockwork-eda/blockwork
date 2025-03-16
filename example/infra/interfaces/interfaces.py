@@ -15,7 +15,7 @@
 from collections.abc import Iterable
 from pathlib import Path
 
-from blockwork.transforms import IFace
+from blockwork.transforms import EnvPolicy, IEnv, IFace
 
 
 class DesignInterface(IFace):
@@ -27,3 +27,10 @@ class DesignInterface(IFace):
             "sources": list(self.sources),
             "headers": list(self.headers),
         }
+
+
+class PythonInterface(IFace):
+    modules: Iterable[Path] = IFace.FIELD(default_factory=list)
+
+    def resolve(self):
+        return [[IEnv("PYTHONPATH", list(self.modules), policy=EnvPolicy.APPEND)]]

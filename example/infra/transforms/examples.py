@@ -14,7 +14,7 @@
 
 from pathlib import Path
 
-from infra.tools.misc import PythonSite
+from infra.tools.pythonsite import PythonSite
 
 from blockwork.context import Context
 from blockwork.transforms import Transform

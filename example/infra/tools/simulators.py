@@ -1,10 +1,24 @@
+# Copyright 2023, Blockwork, github.com/intuity/blockwork
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from pathlib import Path
 from typing import ClassVar
 
 from blockwork.context import Context
 from blockwork.tools import Invocation, Require, Tool, Version
 
-from .compilers import GCC, Autoconf, Bison, CCache, Flex, GPerf, Help2Man
+from .compilers import Autoconf, Bison, CCache, Flex, GPerf, Help2Man
 
 
 @Tool.register()
@@ -16,7 +30,6 @@ class IVerilog(Tool):
             requires=[
                 Require(Autoconf, "2.71"),
                 Require(Bison, "3.8"),
-                Require(GCC, "13.1.0"),
                 Require(Flex, "2.6.4"),
                 Require(GPerf, "3.1"),
             ],
@@ -63,7 +76,6 @@ class Verilator(Tool):
                 Require(Autoconf, "2.71"),
                 Require(Bison, "3.8"),
                 Require(CCache, "4.8.2"),
-                Require(GCC, "13.1.0"),
                 Require(Flex, "2.6.4"),
                 Require(Help2Man, "1.49.3"),
             ],
@@ -72,8 +84,8 @@ class Verilator(Tool):
     ]
 
     @Tool.action()
-    def run(self, ctx: Context, *args: list[str]) -> Invocation:
-        return Invocation(version=self, execute="verilator", args=args)
+    def run(self, ctx: Context, *args: str) -> Invocation:
+        return Invocation(tool=self, execute="verilator", args=args)
 
     @Tool.installer()
     def install(self, ctx: Context, *args: list[str]) -> Invocation:

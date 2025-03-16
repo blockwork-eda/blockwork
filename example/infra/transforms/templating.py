@@ -14,10 +14,10 @@
 
 from pathlib import Path
 
+from infra.tools.pythonsite import PythonSite
+
 from blockwork.context import Context
 from blockwork.transforms import Transform
-
-from ..tools.misc import PythonSite
 
 
 class MakoTransform(Transform):
