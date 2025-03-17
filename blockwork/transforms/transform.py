@@ -1308,7 +1308,7 @@ class Transform:
         return digest
 
     @staticmethod
-    def deserialize(spec: SerialTransform) -> "Transform":
+    def deserialize(spec: SerialTransform, input_hash: str | None = None) -> "Transform":
         # Get transform module
         mod = importlib.import_module(spec["mod"])
         # Get class from module (using reduce to navigate module namespacing)
@@ -1328,7 +1328,7 @@ class Transform:
                 direction=ifield.direction,
                 deterministic=ifield.deterministic,
             )
-
+        object.__setattr__(tf, "_cached_input_hash", input_hash)
         return tf
 
     def run(self, ctx: "Context") -> TransformResult:

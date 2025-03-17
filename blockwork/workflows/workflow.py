@@ -334,6 +334,7 @@ class Workflow:
                 elif transform in status.skipped:
                     logging.info(f"Skipped transform (due to cached dependents): {transform}")
                 else:
+                    logging.info(f"Scheduled transform: {transform}")
                     dependencies = transform_dependencies[transform]
                     dependents = transform_dependents[transform]
                     group = groups[dependencies, dependents]
@@ -363,10 +364,7 @@ class Workflow:
                         args += ["--cache-expect" if ctx.cache_expect else "--no-cache-expect"]
                     if ctx.cache_targets is not None:
                         args += ["--cache-targets" if ctx.cache_targets else "--no-cache-targets"]
-                    args += [
-                        "_wf_step",
-                        spec_file.as_posix(),
-                    ]
+                    args += ["_wf_step", spec_file.as_posix(), transform._input_hash()]
                     if DebugScope.current.VERBOSE:
                         args.insert(0, "--verbose")
                     # Give jobs a descriptive name where possible

@@ -35,8 +35,9 @@ def wf() -> None:
 
 @click.command(name="_wf_step", hidden=True)
 @click.argument("spec_path", type=click.Path(dir_okay=False, exists=True, path_type=Path))
+@click.argument("input_hash", type=click.STRING)
 @click.pass_obj
-def wf_step(ctx: Context, spec_path: Path):
+def wf_step(ctx: Context, spec_path: Path, input_hash: str):
     """
     Loads a serialised transform specification from a provided file path, then
     resolves the transform class and executes it. This should NOT be called
@@ -47,7 +48,7 @@ def wf_step(ctx: Context, spec_path: Path):
     # Reload the serialised workflow step specification
     spec: SerialTransform = json.loads(spec_path.read_text(encoding="utf-8"))
     # Run the relevant transform
-    tf = Transform.deserialize(spec)
+    tf = Transform.deserialize(spec, input_hash)
     result = tf.run(ctx)
 
     # duration = stop - start
