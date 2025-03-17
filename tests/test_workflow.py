@@ -20,12 +20,8 @@ class DummyCache(Cache):
     """
 
     def __init__(self):
-        self.cfg = CacheConfig(path="", name="dummy")
+        self.cfg = CacheConfig(path="", name="dummy", fetch_condition=True, store_condition=True)
         self.content_store = {}
-
-    @property
-    def target_size(self) -> int:
-        return 1024**2
 
     def store_item(self, key: str, frm: Path) -> bool:
         self.content_store[key] = frm.read_text() if frm.exists() else None
@@ -36,9 +32,10 @@ class DummyCache(Cache):
             del self.content_store[key]
         return True
 
-    def fetch_item(self, key: str, to: Path, peek: bool = False) -> bool:
+    def fetch_item(self, key: str, to: Path) -> bool:
         if key in self.content_store:
             if self.content_store[key] is not None:
+                to.parent.mkdir(parents=True, exist_ok=True)
                 to.write_text(self.content_store[key])
             return True
         return False
@@ -111,20 +108,37 @@ def match_results(results, run, stored, fetched, skipped):
 @pytest.mark.usefixtures("api")
 class TestWorkFlowDeps:
     class DummyTransform(Transform):
-        def run(self, *args, **kwargs):
+        def run(self, ctx, *args, **kwargs):
+            for _ivk in self.execute(ctx):
+                pass
             return SimpleNamespace(run_time=1, exit_code=0, interacted=False)
 
     class TFAutoA(DummyTransform):
         test_ip: Path = Transform.IN()
         test_op: Path = Transform.OUT()
 
+        def execute(self, ctx):
+            self.test_op.parent.mkdir(parents=True, exist_ok=True)
+            self.test_op.touch()
+            yield from []
+
     class TFAutoB(DummyTransform):
         test_ip: Path = Transform.IN()
         test_op: Path = Transform.OUT()
 
+        def execute(self, ctx):
+            self.test_op.parent.mkdir(parents=True, exist_ok=True)
+            self.test_op.touch()
+            yield from []
+
     class TFControlled(DummyTransform):
         test_ip: Path = Transform.IN()
         test_op: Path = Transform.OUT(init=True)
+
+        def execute(self, ctx):
+            self.test_op.parent.mkdir(parents=True, exist_ok=True)
+            self.test_op.touch()
+            yield from []
 
     def test_gather(self, api: ConfigApi):
         workflow = Workflow("test")
@@ -311,15 +325,12 @@ class TestWorkFlowDeps:
             ),
         )
 
-        orig_hash_content = Cache.hash_content
-        Cache.hash_content = lambda path: ""
         results_1 = workflow._run(
             Ctx, *workflow.get_transform_tree(ConfigA()), parallel=False, concurrency=1
         )
         results_2 = workflow._run(
             Ctx, *workflow.get_transform_tree(ConfigA()), parallel=False, concurrency=1
         )
-        Cache.hash_content = orig_hash_content
 
         match_results(
             results_1,
