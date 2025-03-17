@@ -910,6 +910,7 @@ class ITool(FieldProtocol[Tool]):
         self.init = init
         self.version = version
         self.direction = Direction.INPUT
+        self.deterministic = True
 
     def resolve(
         self, target: "Transform | IFace", api: ConfigApi, field: Field[Tool]
@@ -1321,7 +1322,9 @@ class Transform:
                 )
             ifield = tf_field.default
             tf._serial_interfaces[tf_field.name] = SerialInterface(
-                spec["ifaces"][tf_field.name], direction=ifield.direction
+                spec["ifaces"][tf_field.name],
+                direction=ifield.direction,
+                deterministic=ifield.deterministic,
             )
 
         return tf
