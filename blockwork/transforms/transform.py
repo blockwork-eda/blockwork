@@ -924,7 +924,9 @@ class ITool(FieldProtocol[Tool]):
             # Set the resolved value on the transform
             object.__setattr__(target, field.name, field_value)
         # Serialise the tool version
-        return SerialInterface.from_interface(field_value.vernum, self.direction)
+        return SerialInterface.from_interface(
+            field_value.vernum, direction=self.direction, deterministic=self.deterministic
+        )
 
     def bind(
         self,
