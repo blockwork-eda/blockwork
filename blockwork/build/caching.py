@@ -404,7 +404,7 @@ class Cache(ABC):
                         mhash = medial._content_hash()
                     else:
                         # Compute hash based on definition
-                        mhash = hashlib.md5((serial._input_hash() + name + str(midx)).encode()).hexdigest()
+                        mhash = hashlib.md5((transform._input_hash() + name + str(midx)).encode()).hexdigest()
                     byte_size += medial._byte_size()
                     key = Cache.medial_prefix + mhash
                     mname_to_okeys[name].append(key)
