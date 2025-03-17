@@ -20,7 +20,7 @@ class DummyCache(Cache):
     """
 
     def __init__(self):
-        self.cfg = CacheConfig(path="")
+        self.cfg = CacheConfig(path="", name="dummy")
         self.content_store = {}
 
     @property
