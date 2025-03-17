@@ -112,7 +112,7 @@ def match_results(results, run, stored, fetched, skipped):
 class TestWorkFlowDeps:
     class DummyTransform(Transform):
         def run(self, *args, **kwargs):
-            return SimpleNamespace(run_time=1, exit_code=0)
+            return SimpleNamespace(run_time=1, exit_code=0, interacted=False)
 
     class TFAutoA(DummyTransform):
         test_ip: Path = Transform.IN()
