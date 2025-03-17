@@ -360,9 +360,9 @@ class Workflow:
                     if ctx.cache_config_path is not None:
                         args += ["--cache-config", ctx.cache_config_path.as_posix()]
                     if ctx.cache_expect is not None:
-                        args += ["--cache-expect"] if ctx.cache_expect else "--no-cache-expect"
+                        args += ["--cache-expect" if ctx.cache_expect else "--no-cache-expect"]
                     if ctx.cache_targets is not None:
-                        args += ["--cache-targets"] if ctx.cache_targets else "--no-cache-targets"
+                        args += ["--cache-targets" if ctx.cache_targets else "--no-cache-targets"]
                     args += [
                         "_wf_step",
                         spec_file.as_posix(),
