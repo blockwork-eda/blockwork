@@ -722,9 +722,15 @@ class SerialInterface:
     _cached_input_hash: str | None
     "The (cached) hash of this serial interface"
 
-    def __init__(self, value: "TISerialAny", direction: Direction = Direction.INPUT):
+    def __init__(
+        self,
+        value: "TISerialAny",
+        direction: Direction = Direction.INPUT,
+        deterministic: bool = True,
+    ):
         "The interface in interface specification format"
         self.direction = direction
+        self.deterministic = deterministic
         self.medials = list[Medial]()
         self.tokens = list[Any]()
         self.value = value
@@ -733,10 +739,15 @@ class SerialInterface:
 
     @classmethod
     def from_interface(
-        cls, token: "TIAny", direction: Direction = Direction.INPUT
+        cls,
+        token: "TIAny",
+        direction: Direction = Direction.INPUT,
+        deterministic: bool = True,
     ) -> "SerialInterface":
         "Factory to create from an interface"
-        return cls(InterfaceSerializer.serialize(token), direction)
+        return cls(
+            InterfaceSerializer.serialize(token), direction=direction, deterministic=deterministic
+        )
 
     def update_hash(self, *tokens: Any):
         self.tokens += tokens
@@ -818,6 +829,7 @@ class IField(FieldProtocol[TIField]):
         direction: Direction,
         env: str | EllipsisType = ...,
         env_policy: EnvPolicy = EnvPolicy.CONFLICT,
+        deterministic: bool = False,
     ):
         self.init = init
         self.default = default
@@ -829,6 +841,7 @@ class IField(FieldProtocol[TIField]):
         self.env = env
         self.env_policy = env_policy
         self.value: Any = None
+        self.deterministic = deterministic
 
     def resolve(
         self, target: "Transform | IFace", api: ConfigApi, field: Field[TIField]
@@ -869,7 +882,9 @@ class IField(FieldProtocol[TIField]):
         # Update the value on the field itself
         self.value = field_value
 
-        return SerialInterface.from_interface(interface_value, self.direction)
+        return SerialInterface.from_interface(
+            interface_value, direction=self.direction, deterministic=self.deterministic
+        )
 
     def bind(
         self,
@@ -972,6 +987,7 @@ def OUT(  # noqa: N802
     | None = None,
     env: str | EllipsisType = ...,
     env_policy: EnvPolicy = EnvPolicy.CONFLICT,
+    deterministic: bool = True,
 ) -> "TIField":
     """
     Marks a transform field as an output interface.
@@ -982,6 +998,11 @@ def OUT(  # noqa: N802
                     with init=True, allowing the interface to be set \
                     in the costructor, but with an automatic default.
     :param default_factory: A factory for default values - use for mutable types
+    :param derive: A tuple containing the derive dependencies (other fields),
+                   and a factory which takes those fields as arguments.
+    :param env: Additionally expose the interface in the specified environment variable
+    :param env_policy: The replacement policy for env if the variable is already defined
+    :param deterministic: Whether file outputs are deterministic.
 
     """
     return cast(
@@ -994,6 +1015,7 @@ def OUT(  # noqa: N802
             direction=Direction.OUTPUT,
             env=env,
             env_policy=env_policy,
+            deterministic=deterministic,
         ),
     )
 
@@ -1119,7 +1141,6 @@ class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
     ) -> "IFace":
         if isinstance(token, str):
             cls.default_error(token, name, api, field)
-        # TODO DEAL WITH THIS
         token._direction = field.direction
         result = token()
         token._direction = Direction.INPUT

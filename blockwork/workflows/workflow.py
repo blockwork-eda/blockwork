@@ -499,20 +499,19 @@ class Workflow:
                 for transform in cache_scheduler.schedulable:
                     cache_scheduler.schedule(transform)
                     if ctx.cache_targets or transform not in targets:
-                        if not (
-                            dependent_map[transform] - status.skipped
-                            or dependent_map[transform] - status.fetched
+                        if dependent_map[transform] and not (
+                            (dependent_map[transform] - status.skipped)
+                            or (dependent_map[transform] - status.fetched)
                         ):
                             status.skipped.add(transform)
                         elif Cache.fetch_transform_from_any(ctx, transform):
                             logging.info("Fetched transform from cache: %s", transform)
                             status.fetched.add(transform)
+                        else:
+                            status.scheduled.add(transform)
+                    else:
+                        status.scheduled.add(transform)
                     cache_scheduler.finish(transform)
-
-        cachable = OSet(dependency_map.keys())
-        if ctx.cache_targets:
-            cachable -= targets
-        status.scheduled = cachable - (status.skipped | status.fetched)
 
         if ctx.cache_expect and status.scheduled:
             logging.warning("Items scheduled when we expect them to be cached:")

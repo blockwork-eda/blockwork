@@ -71,13 +71,13 @@ from humanfriendly import InvalidTimespan, parse_size, parse_timespan
 class TransformStableDetails(TypedDict):
     mod_name: str
     cls_name: str
-    byte_size: int
     mname_to_okeys: dict[str, list[str]]
     mname_to_ihash: dict[str, str]
     import_hash: str
 
 class TransformTransientDetails(TypedDict):
     run_time: float
+    byte_size: int
 
 class TransformKeyData(TypedDict):
     """
@@ -398,16 +398,21 @@ class Cache(ABC):
                 mname_to_ihash[name] = serial._input_hash()
             else:
                 mname_to_okeys[name] = []
-                for medial in serial.medials:
+                for midx, medial in enumerate(serial.medials):
+                    if serial.deterministic:
+                        # Compute hash based on file content
+                        mhash = medial._content_hash()
+                    else:
+                        # Compute hash based on definition
+                        mhash = hashlib.md5((serial._input_hash() + name + str(midx)).encode()).hexdigest()
                     byte_size += medial._byte_size()
-                    key = Cache.medial_prefix + medial._content_hash()
+                    key = Cache.medial_prefix + mhash
                     mname_to_okeys[name].append(key)
                     mkey_to_path[key] = Path(medial.val)
 
         return TransformStoreData(
             key_data=TransformKeyData(
                 stable={
-                    "byte_size":byte_size,
                     "import_hash": transform._import_hash(),
                     "mname_to_okeys": mname_to_okeys,
                     "mname_to_ihash": mname_to_ihash,
@@ -415,6 +420,7 @@ class Cache(ABC):
                     "mod_name":transform._mod_name
                 },
                 transient={
+                    "byte_size":byte_size,
                     "run_time": run_time
                 }
             ),
@@ -453,7 +459,7 @@ class Cache(ABC):
             for mkey, mpath in zip(mkeys, mpaths):
                 mkey_to_path[mkey] = mpath
 
-        byte_rate = get_byte_rate(second_time=key_data["transient"]["run_time"], byte_size=key_data["stable"]["byte_size"])
+        byte_rate = get_byte_rate(second_time=key_data["transient"]["run_time"], byte_size=key_data["transient"]["byte_size"])
 
         for cache in ctx.caches:
             if byte_rate > cache.fetch_threshold:
@@ -482,7 +488,7 @@ class Cache(ABC):
         key_data = store_data["key_data"]
         mkey_to_path = store_data["mkey_to_path"]
 
-        byte_rate = get_byte_rate(second_time=key_data["transient"]["run_time"], byte_size=key_data["stable"]["byte_size"])
+        byte_rate = get_byte_rate(second_time=key_data["transient"]["run_time"], byte_size=key_data["transient"]["byte_size"])
 
         # Store to any caches that will take it
         stored_somewhere = False
@@ -532,7 +538,7 @@ class Cache(ABC):
                 #  - Produces small output files
                 #  - Was accessed very recently
                 run_time = store_data["transient"]["run_time"]
-                byte_size = store_data["stable"]["byte_size"] + KEY_FILE_SIZE
+                byte_size = store_data["transient"]["byte_size"] + KEY_FILE_SIZE
                 fetch_delta = now - self.get_last_fetch_utc(key)
                 transform_scores[key] = run_time / byte_size / fetch_delta
                 transform_sizes[key] = byte_size
@@ -630,16 +636,9 @@ class Cache(ABC):
                     raise RuntimeError("Non-deterministic transform detected!\n"
                                     f"New output for key `{mname}` does not match existing"
                                     " output for same hash.\n"
-                                    f"Old Output: `{old_error_path}`\n"
-                                    f"New Output: `{new_error_path}`")
+                                    f"Old Output: '{old_error_path}'\n"
+                                    f"New Output: '{new_error_path}'")
 
-        # I can't see how we'd get to these cases... but just in case
-        if new["byte_size"] != old['byte_size']:
-            # This could happen if the original was created on a different platform
-            raise RuntimeError("Non-deterministic transform detected!\n"
-                               "Size on disk different, but all outputs the same."
-                               f"Transform: {new['mod_name']}.{new['cls_name']}"
-                               "Perhaps original object created on a different platform?")
         raise RuntimeError("Non-deterministic transform detected!\n"
                            "Unexpected condition.")
 
