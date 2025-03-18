@@ -28,6 +28,7 @@ from types import SimpleNamespace
 import click
 from gator.launch import MessageLimits, launch
 from gator.launch_progress import launch as launch_progress
+from gator.scheduler import LocalScheduler, SlurmScheduler
 from gator.specs import Cores, Job, JobGroup, Memory
 from ordered_set import OrderedSet as OSet
 
@@ -106,11 +107,25 @@ class Workflow:
             "--hub",
             type=str,
             default=None,
-            help="The gator hub url",
+            help="Gator hub url",
+        )
+        @click.option(
+            "--scheduler",
+            type=click.Choice(("local", "slurm"), case_sensitive=False),
+            default="local",
+            help="Specify the scheduler to use",
         )
         @click.pass_obj
         def command(
-            ctx, project=None, target=None, parallel=False, concurrency=1, hub=None, *args, **kwargs
+            ctx,
+            project=None,
+            target=None,
+            parallel=False,
+            concurrency=1,
+            hub=None,
+            scheduler="local",
+            *args,
+            **kwargs,
         ):
             site_api = ConfigApi(ctx).with_site(ctx.site, self.SITE_TYPE)
 
@@ -126,9 +141,10 @@ class Workflow:
             self._run(
                 ctx,
                 *self.get_transform_tree(inst),
-                concurrency=concurrency,
                 parallel=parallel,
-                hub=hub,
+                gator_concurrency=concurrency,
+                gator_hub=hub,
+                gator_scheduler=scheduler,
             )
 
         option_fns = []
@@ -307,6 +323,7 @@ class Workflow:
         status: SimpleNamespace,
         concurrency: int,
         hub: str | None = None,
+        gator_scheduler: str = "local",
     ):
         """
         Run a scheduled workflow in parallel
@@ -436,15 +453,36 @@ class Workflow:
             # Suppress messages coming from websockets within Gator
             logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
 
+            # Specialise based on the scheduler
+            match gator_scheduler.lower():
+                case "local":
+                    sched_cls = LocalScheduler
+                    sched_opts = {"concurrency": concurrency}
+                    logging.info(
+                        f"Executing {root_group.expected_jobs} jobs using local "
+                        f"scheduling with a concurrency of {concurrency}"
+                    )
+                case "slurm":
+                    sched_cls = SlurmScheduler
+                    sched_opts = {
+                        "api_root": ctx.config.slurm_api_root,
+                        "jwt_interval": ctx.config.slurm_jwt_interval,
+                        "queue": ctx.config.slurm_queue,
+                    }
+                    logging.info(
+                        f"Executing {root_group.expected_jobs} jobs using Slurm "
+                        f"scheduling via REST API {ctx.config.slurm_api_root}"
+                    )
+                case _:
+                    raise WorkflowError(f"Unrecognised gator scheduler '{gator_scheduler}'")
+
             # Launch the Gator run
-            logging.info(
-                f"Executing {root_group.expected_jobs} jobs with concurrency of {concurrency}"
-            )
             summary = asyncio.run(
                 (launch if DebugScope.current.VERBOSE else launch_progress)(
                     spec=root_group,
                     tracking=track_dirx,
-                    sched_opts={"concurrency": concurrency},
+                    scheduler=sched_cls,
+                    sched_opts=sched_opts,
                     glyph="🧱 Blockwork",
                     hub=hub or ctx.hub_url,
                     # TODO @intuity: In the long term a waiver system should be
@@ -487,20 +525,23 @@ class Workflow:
         dependency_map: dict[Transform, OSet[Transform]],
         dependent_map: dict[Transform, OSet[Transform]],
         parallel: bool,
-        concurrency: int,
-        hub: str | None = None,
+        gator_concurrency: int,
+        gator_hub: str | None = None,
+        gator_scheduler: str = "local",
     ):
         """
         Run the workflow from transform dependency data.
 
-        :param ctx:            Context object
-        :param targets:        Complete list of targets to build
-        :param dependency_map: Dependencies between targets, used to form the
-                               graph structure and schedule work
-        :param dependent_map:  Reversed listing of dependencies, used to check
-                               for cached results
-        :param parallel:       Enable/disable the parallel executor (using Gator)
-        :param concurrency:    Set the desired concurrency
+        :param ctx:               Context object
+        :param targets:           Complete list of targets to build
+        :param dependency_map:    Dependencies between targets, used to form the
+                                  graph structure and schedule work
+        :param dependent_map:     Reversed listing of dependencies, used to check
+                                  for cached results
+        :param parallel:          Enable/disable the parallel executor (using Gator)
+        :param gator_concurrency: Set the desired concurrency
+        :param gator_hub:         Define the hub URL to use
+        :param gator_scheduler:   The scheduler to use (e.g. 'local' or 'slurm')
         """
         status = SimpleNamespace(
             # Record the transforms that were scheduled to run
@@ -547,13 +588,19 @@ class Workflow:
                 logging.warning(f"    {tf}")
             raise RuntimeError("Items ^ scheduled when they should be cached!")
 
-        # Push everything into Gator based on scheduling order
+        # Create a base scheduling instance
         run_scheduler = Scheduler(dependency_map, targets=targets)
 
         try:
             if parallel:
                 self._run_parallel(
-                    ctx, run_scheduler, targets, status, concurrency=concurrency, hub=hub
+                    ctx,
+                    run_scheduler,
+                    targets,
+                    status,
+                    concurrency=gator_concurrency,
+                    hub=gator_hub,
+                    gator_scheduler=gator_scheduler,
                 )
             else:
                 self._run_serial(ctx, run_scheduler, targets, status)

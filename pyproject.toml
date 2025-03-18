@@ -11,7 +11,7 @@ license = "Apache-2.0"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.11"
 docker = "6.1.2"
 click = "8.1.7"
 pyyaml = "6.0.1"
@@ -22,7 +22,7 @@ ordered-set = "4.1.0"
 filelock = "3.14.0"
 pytz = "2024.1"
 requests = "2.31.0"
-gator-eda = { git = "https://github.com/Intuity/gator.git", rev = "81670cb0c6d91473a773db54c2b1da782a4fdeb5" }
+gator-eda = { git = "https://github.com/Intuity/gator.git", rev = "198704f8d6b56b41465fc614df77df9cd437d5fe" }
 boto3 = "1.34.103"
 humanfriendly = "^10.0"
 

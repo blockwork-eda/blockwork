@@ -32,6 +32,12 @@ class Blockwork:
     tooldefs: list[str] = field(default_factory=list)
     workflows: list[str] = field(default_factory=list)
     default_cache_config: str | None = None
+    slurm_api_root: str | None = None
+    """REST API root URL for the Slurm scheduler"""
+    slurm_jwt_interval: int = 60
+    """JWT refresh interval for the Slurm scheduler"""
+    slurm_queue: str | None = None
+    """Queue (partition) to use for the Slurm scheduler"""
 
     @root.check
     @scratch.check
