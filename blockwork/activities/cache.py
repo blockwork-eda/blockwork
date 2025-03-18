@@ -56,7 +56,7 @@ def format_trace(trace: list[TraceData], depth=0, max_depth=0) -> list[str]:
 
     for typ, ident, own_hash, rolling_hash, sub_trace in trace:
         lines.append(f"{depth} {rolling_hash}  {own_hash} {depth*'  '} {typ}[{ident}]")
-        if max_depth == 0 or depth < max_depth:
+        if max_depth < 0 or depth < max_depth:
             lines.extend(format_trace(sub_trace, depth=depth + 1, max_depth=max_depth))
     return lines
 
@@ -93,7 +93,7 @@ def read_key(ctx: Context, key: str, output: Path | None, trace: bool, trace_out
 
 @cache.command(name="trace-key")
 @click.argument("key", type=click.STRING)
-@click.option("--depth", "-d", type=click.INT, required=False, default=0)
+@click.option("--depth", "-d", type=click.INT, required=False, default=-1)
 @click.option(
     "--output", "-o", type=click.Path(writable=True, path_type=Path), required=False, default=None
 )
@@ -118,7 +118,8 @@ def trace_key(ctx: Context, key: str, depth: int, output: Path | None):
             print(line)
     else:
         with output.open("w") as f:
-            f.writelines(trace_lines)
+            for line in trace_lines:
+                f.write(line + "\n")
     exit(0)
 
 
