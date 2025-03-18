@@ -364,7 +364,7 @@ class Workflow:
                         args += ["--cache-expect" if ctx.cache_expect else "--no-cache-expect"]
                     if ctx.cache_targets is not None:
                         args += ["--cache-targets" if ctx.cache_targets else "--no-cache-targets"]
-                    args += ["_wf_step", spec_file.as_posix(), transform._input_hash()]
+                    args += ["_wf_step", spec_file.as_posix(), transform._input_hash().hex_digest()]
                     if DebugScope.current.VERBOSE:
                         args.insert(0, "--verbose")
                     # Give jobs a descriptive name where possible
