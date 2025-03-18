@@ -13,12 +13,13 @@
 # limitations under the License.
 
 
+import json
 from pathlib import Path
 from pprint import pprint
 
 import click
 
-from ..build.caching import Cache
+from ..build.caching import Cache, TraceData, TransformKeyData
 from ..context import Context
 
 
@@ -30,22 +31,95 @@ def cache() -> None:
     pass
 
 
-@cache.command(name="read-key")
-@click.argument("key", type=click.STRING)
-@click.pass_obj
-def read_key(ctx: Context, key: str):
-    """
-    Read transform key data
-    """
+def get_key_data(ctx: Context, key: str) -> TransformKeyData | None:
+    if any(key.startswith(p) for p in ("./", "../", "/")):
+        print(f"Assuming key '{key}' is a key_file")
+
+        with Path(key).open("r") as f:
+            return json.load(f)
+
+    print(f"Assuming key '{key}' is a cache key (use ./ prefix if this is a file)")
     if not key.startswith(Cache.transform_prefix):
         key = Cache.transform_prefix + key
+
     for cache in ctx.caches:
         data = cache.fetch_object(key)
         if data is not None:
-            print(f"Item found in cache: '{cache.cfg.name}'")
-            pprint(data)
-            exit(0)
-    exit(1)
+            print(f"Key '{key}' found in cache: '{cache.cfg.name}'")
+            return data
+    print(f"Key '{key}' not found")
+    return None
+
+
+def format_trace(trace: list[TraceData], depth=0, max_depth=0) -> list[str]:
+    lines = []
+
+    for typ, ident, own_hash, rolling_hash, sub_trace in trace:
+        lines.append(f"{depth} {rolling_hash}  {own_hash} {depth*'  '} {typ}[{ident}]")
+        if max_depth == 0 or depth < max_depth:
+            lines.extend(format_trace(sub_trace, depth=depth + 1, max_depth=max_depth))
+    return lines
+
+
+@cache.command(name="read-key")
+@click.argument("key", type=click.STRING)
+@click.option(
+    "--output", "-o", type=click.Path(writable=True, path_type=Path), required=False, default=None
+)
+@click.option("--trace", default=False, is_flag=True)
+@click.option(
+    "--trace-output",
+    "-t",
+    type=click.Path(writable=True, path_type=Path),
+    required=False,
+    default=None,
+)
+@click.pass_obj
+def read_key(ctx: Context, key: str, output: Path | None, trace: bool, trace_output: Path | None):
+    """
+    Read transform key data
+    """
+    data = get_key_data(ctx, key)
+    if data is None:
+        exit(1)
+
+    if output is None:
+        pprint(data)
+    else:
+        with output.open("w") as f:
+            json.dump(data, f)
+        exit(0)
+
+
+@cache.command(name="trace-key")
+@click.argument("key", type=click.STRING)
+@click.option("--depth", "-d", type=click.INT, required=False, default=0)
+@click.option(
+    "--output", "-o", type=click.Path(writable=True, path_type=Path), required=False, default=None
+)
+@click.pass_obj
+def trace_key(ctx: Context, key: str, depth: int, output: Path | None):
+    """
+    Read transform key data
+    """
+    data = get_key_data(ctx, key)
+    if data is None:
+        exit(1)
+
+    if (trace := data.get("trace", None)) is None:
+        print("No trace data! Did you run with '--cache-trace'?")
+        exit(1)
+
+    format_trace(trace, max_depth=depth)
+
+    trace_lines = format_trace(trace, max_depth=depth)
+    if output is None:
+        for line in trace_lines:
+            print(line)
+    else:
+        with output.open("w") as f:
+            f.writelines(trace_lines)
+    exit(0)
 
 
 @cache.command(name="fetch-medial")

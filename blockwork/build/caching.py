@@ -55,7 +55,7 @@ import shutil
 import sys
 import tempfile
 from types import ModuleType
-from typing import Any, ClassVar, DefaultDict, Iterable, Optional, TYPE_CHECKING, TypedDict
+from typing import Any, ClassVar, DefaultDict, Iterable, NotRequired, Optional, TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
     from ..transforms import Transform
@@ -68,6 +68,9 @@ import site
 from ..config import CacheConfig as CacheConfig
 from humanfriendly import InvalidTimespan, parse_size, parse_timespan
 
+
+TraceData = tuple[str, str, str, str, list["TraceData"]]
+
 class TransformStableDetails(TypedDict):
     mod_name: str
     cls_name: str
@@ -78,7 +81,6 @@ class TransformStableDetails(TypedDict):
 class TransformTransientDetails(TypedDict):
     run_time: float
     byte_size: int
-    trace: list[tuple[str, str, str]] | None
 
 class TransformKeyData(TypedDict):
     """
@@ -86,6 +88,7 @@ class TransformKeyData(TypedDict):
     """
     stable: TransformStableDetails
     transient: TransformTransientDetails
+    trace: NotRequired[list[TraceData] | None]
 
 
 class TransformStoreData(TypedDict):
@@ -103,7 +106,7 @@ KEY_FILE_SIZE = 250
 # HashTokenType = tuple[Literal["str"], str] | tuple[Literal["path"], Path] | tuple[Literal["hash"], "BWFrozenHash"]
 
 class BWFrozenHash:
-    def __init__(self, ident: str, byte_digest: bytes, trace: list[tuple[str, str, str]] | None = None):
+    def __init__(self, ident: str, byte_digest: bytes, trace: list[TraceData] | None = None):
         self.ident = ident
         self._byte_digest = byte_digest
         self.trace = trace
@@ -122,8 +125,8 @@ class BWHash:
 
     def __init__(self, ident: str = "<missing_ident>"):
         self._ident = ident
-        self._md5 = hashlib.md5(ident.encode("utf-8"))
-        self._trace: (list[tuple[str, str, str]]) = []
+        self._md5 = hashlib.md5()
+        self._trace: list[TraceData] = []
 
     def with_str(self, value: str) -> "BWHash":
         self.update_str(value)
@@ -140,19 +143,19 @@ class BWHash:
     def update_str(self, value: str):
         self._md5.update(value.encode("utf-8"))
         if self.keep_trace:
-            self._trace.append(("str", value[:80], self._md5.hexdigest()))
+            md5 = hashlib.md5(value.encode("utf-8"))
+            self._trace.append(("str", repr(value[:80]), md5.hexdigest(), self._md5.hexdigest(), []))
 
     def update_path(self, value: Path):
         with value.open("rb") as f:
-            self._md5.update(hashlib.file_digest(f, "md5").digest())
+            self._md5.update((md5 := hashlib.file_digest(f, "md5")).digest())
         if self.keep_trace:
-            self._trace.append(("path", value.as_posix(), self._md5.hexdigest()))
+            self._trace.append(("path", value.as_posix(), md5.hexdigest(), self._md5.hexdigest(), []))
 
     def update_hash(self, value: "BWFrozenHash"):
         self._md5.update(value.digest())
         if self.keep_trace:
-            self._trace.extend(value.trace or [])
-            self._trace.append(("hash", value.ident, self._md5.hexdigest()))
+            self._trace.append(("hash", value.ident, value.hex_digest(), self._md5.hexdigest(), value.trace or []))
 
     def frozen(self) -> BWFrozenHash:
         return BWFrozenHash(self._ident, self._md5.digest(), self._trace)
@@ -246,21 +249,24 @@ class PyHasher:
         # Push the import context
         self.module_stack.append(module)
 
-        # Read the file, parse it, examine imports, and record the hash
-        with open(module.__file__, "r") as f:
-            module_ast = ast.parse(f.read())
-            self.visitor.visit(module_ast)
-            content_hash = BWHash(module.__file__).with_str(ast.dump(module_ast))
-
-        # Pop the import context
-        self.module_stack.pop()
+        content_hash = BWHash(module.__file__)
 
         # Roll in the site hash
         content_hash.update_hash(self.site_hash)
 
+        # Read the file, parse it, examine imports, and record the hash
+        with open(module.__file__, "r") as f:
+            module_ast = ast.parse(f.read())
+            self.visitor.visit(module_ast)
         # Roll in the dependency hashes
         for dependency in self.dependency_map[module.__name__]:
             content_hash.update_hash(self.hash_map[dependency])
+
+        # Roll in the content hash
+        content_hash.update_str(ast.dump(module_ast))
+
+        # Pop the import context
+        self.module_stack.pop()
 
         # Record hash
         self.hash_map[module.__name__] = content_hash.frozen()
@@ -479,8 +485,8 @@ class Cache(ABC):
                 transient={
                     "byte_size":byte_size,
                     "run_time": run_time,
-                    "trace": transform._input_hash().trace
-                }
+                },
+                trace=transform._input_hash().trace
             ),
             mkey_to_path=mkey_to_path,
         )
