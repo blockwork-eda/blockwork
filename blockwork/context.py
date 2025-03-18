@@ -85,6 +85,7 @@ class Context:
         cache_enable: bool | None = None,
         cache_targets: bool | None = None,
         cache_expect: bool | None = None,
+        cache_trace: bool | None = None,
     ) -> None:
         self.__file = cfg_file
         self.__host_root = self.locate_root(root or Path.cwd())
@@ -95,6 +96,7 @@ class Context:
         self.__cache_enable = cache_enable
         self.__cache_targets = cache_targets
         self.__cache_expect = cache_expect
+        self.cache_trace = cache_trace
 
     @property
     def host_architecture(self) -> HostArchitecture:
@@ -272,6 +274,26 @@ class Context:
         is not the case.
         """
         return self.cache_config.expect if self.__cache_expect is None else self.__cache_expect
+
+    @property
+    def cache_trace(self):
+        """
+        True if cache tracing is turned on which adds extra tracing information into the
+        key files.
+
+        This is expensive.
+        """
+        from .build.caching import BWHash
+
+        return BWHash.keep_trace
+
+    @cache_trace.setter
+    def cache_trace(self, value):
+        from .build.caching import BWHash
+
+        BWHash.keep_trace = BWHash.keep_trace or (
+            self.cache_config.trace if value is None else value
+        )
 
     @property
     def hub_url(self):

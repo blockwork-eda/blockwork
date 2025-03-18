@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-import hashlib
 import importlib
 import json
 import time
@@ -46,7 +45,7 @@ from blockwork.common.singleton import Singleton
 from blockwork.foundation import Foundation
 from blockwork.tools import Tool
 
-from ..build.caching import Cache
+from ..build.caching import BWFrozenHash, BWHash, Cache
 from ..config.api import ConfigApi
 from ..context import Context
 
@@ -66,7 +65,7 @@ class Medial:
     "The transforms that produce this medial"
     _consumers: "OSet[Transform] | None"
     "The transfoms that consume this medial (implemented but unused)"
-    _cached_input_hash: str | None
+    _cached_input_hash: BWFrozenHash | None
     "The (cached) hash of this medial's inputs"
 
     def __init__(self, val: str):
@@ -111,7 +110,7 @@ class Medial:
         if len(producers) > 1:
             raise RuntimeError(f"Medial `{self}` produced by more than one transform `{producers}`")
 
-    def _input_hash(self) -> str:
+    def _input_hash(self) -> BWFrozenHash:
         """
         Get a hash of the inputs to this medial.
 
@@ -133,7 +132,7 @@ class Medial:
         """
         return Cache.hash_size_content(Path(self.val))[1]
 
-    def _content_hash(self) -> str:
+    def _content_hash(self) -> BWFrozenHash:
         """
         Get the hash of this medial
 
@@ -719,7 +718,7 @@ class SerialInterface:
     using JSON.
     """
 
-    _cached_input_hash: str | None
+    _cached_input_hash: BWFrozenHash | None
     "The (cached) hash of this serial interface"
 
     def __init__(
@@ -759,7 +758,7 @@ class SerialInterface:
         "Resolve against a container, binding values in as required"
         return InterfaceSerializer.resolve(self.value, ctx, container, direction)
 
-    def _input_hash(self) -> str:
+    def _input_hash(self) -> BWFrozenHash:
         """
         Get a hash of this serial interface.
 
@@ -768,18 +767,17 @@ class SerialInterface:
         if self._cached_input_hash is not None:
             return self._cached_input_hash
 
-        md5 = hashlib.md5()
+        bw_hash = BWHash()
         # Interface configuration
         for token in self.tokens:
-            md5.update(json.dumps(token).encode("utf8"))
+            bw_hash.update_str(json.dumps(token))
 
         # Interface values from other transforms
         for medial in self.medials:
-            md5.update(medial._input_hash().encode("utf8"))
+            bw_hash.update_hash(medial._input_hash())
 
-        digest = md5.hexdigest()
-        self._cached_input_hash = digest
-        return digest
+        self._cached_input_hash = bw_hash.frozen()
+        return self._cached_input_hash
 
     def __repr__(self) -> str:
         return f"<SerialInterface hash='{self._cached_input_hash}'>"
@@ -1226,10 +1224,10 @@ class Transform:
     _serial_interfaces: dict[str, SerialInterface]
     "The internal representation of interfaces"
 
-    _cached_input_hash: str | None = None
+    _cached_input_hash: BWFrozenHash | None = None
     "The (cached) hash of this transforms inputs"
 
-    _cached_import_hash: str | None = None
+    _cached_import_hash: BWFrozenHash | None = None
     "The (cached) hash of this transforms imports"
 
     api: ConfigApi
@@ -1278,14 +1276,14 @@ class Transform:
             "ifaces": {k: v.value for k, v in self._serial_interfaces.items()},
         }
 
-    def _import_hash(self) -> str:
+    def _import_hash(self) -> BWFrozenHash:
         if self._cached_import_hash is not None:
             return self._cached_import_hash
-        digest = Cache.hash_imported_package(self.__class__.__module__)
-        object.__setattr__(self, "_cached_import_hash", digest)
-        return digest
+        bw_hash = Cache.hash_imported_package(self.__class__.__module__)
+        object.__setattr__(self, "_cached_import_hash", bw_hash)
+        return bw_hash
 
-    def _input_hash(self) -> str:
+    def _input_hash(self) -> BWFrozenHash:
         """
         Get a hash of the inputs to this transform.
 
@@ -1294,18 +1292,18 @@ class Transform:
         if self._cached_input_hash is not None:
             return self._cached_input_hash
 
-        md5 = hashlib.md5()
-        md5.update(self._import_hash().encode("utf8"))
+        bw_hash = BWHash(self._cls_name)
+        bw_hash.update_hash(self._import_hash())
         for name, serial in self._serial_interfaces.items():
             if serial.direction.is_output:
                 continue
             # Interface name
-            md5.update(name.encode("utf8"))
+            bw_hash.update_str(name)
             # Interface value
-            md5.update(serial._input_hash().encode("utf8"))
-        digest = md5.hexdigest()
-        object.__setattr__(self, "_cached_input_hash", digest)
-        return digest
+            bw_hash.update_hash(serial._input_hash())
+        frozen = bw_hash.frozen()
+        object.__setattr__(self, "_cached_input_hash", frozen)
+        return frozen
 
     @staticmethod
     def deserialize(spec: SerialTransform, input_hash: str | None = None) -> "Transform":

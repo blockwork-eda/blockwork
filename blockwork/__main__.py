@@ -102,6 +102,11 @@ logging.basicConfig(
     help="Force caching even for 'targetted' transforms",
 )
 @click.option(
+    "--cache-trace/--no-cache-trace",
+    default=None,
+    help="Turn on cache debug tracing",
+)
+@click.option(
     "--cache-expect/--no-cache-expect",
     default=None,
     help="Raise exception if any transform not available in a cache",
@@ -119,6 +124,7 @@ def blockwork(
     cache: bool | None,
     cache_config: Path,
     cache_targets: bool | None,
+    cache_trace: bool | None,
     cache_expect: bool | None,
 ) -> None:
     # Setup post-mortem debug
@@ -141,6 +147,7 @@ def blockwork(
         cache_enable=cache,
         cache_config=cache_config,
         cache_targets=cache_targets,
+        cache_trace=cache_trace,
         cache_expect=cache_expect,
     )
     # Set the host architecture

@@ -9,6 +9,7 @@ per the example below:
 !Caching
 enabled: True
 targets: False
+trace: False
 caches:
 - !Cache
   name: local-cache
@@ -30,6 +31,7 @@ The fields of the `!Caching` tag are:
 |----------------------|-------- |--------------------------------------------------------------------|
 | enabled              | `True`  | Whether to enable caching by default (overridable on command line) |
 | targets              | `False` | Whether to pull targetted<sup>1</sup> transforms from the cache    |
+| trace                | `False` | Whether to enable (computationally intensive) debug tracing.       |
 | caches               | `[]`    | A list of `!Cache` configurations (see below)                      |
 
 

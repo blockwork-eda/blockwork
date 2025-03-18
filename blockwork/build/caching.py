@@ -55,7 +55,7 @@ import shutil
 import sys
 import tempfile
 from types import ModuleType
-from typing import Any, DefaultDict, Iterable, Optional, TYPE_CHECKING, TypedDict
+from typing import Any, ClassVar, DefaultDict, Iterable, Optional, TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
     from ..transforms import Transform
@@ -78,6 +78,7 @@ class TransformStableDetails(TypedDict):
 class TransformTransientDetails(TypedDict):
     run_time: float
     byte_size: int
+    trace: list[tuple[str, str, str]] | None
 
 class TransformKeyData(TypedDict):
     """
@@ -99,12 +100,68 @@ class TransformFetchData(TypedDict):
 KEY_FILE_SIZE = 250
 "The size of key files, small variance but it doesn't matter."
 
+# HashTokenType = tuple[Literal["str"], str] | tuple[Literal["path"], Path] | tuple[Literal["hash"], "BWFrozenHash"]
+
+class BWFrozenHash:
+    def __init__(self, ident: str, byte_digest: bytes, trace: list[tuple[str, str, str]] | None = None):
+        self.ident = ident
+        self._byte_digest = byte_digest
+        self.trace = trace
+
+    def digest(self):
+        return self._byte_digest
+
+    def hex_digest(self):
+        return self._byte_digest.hex()
+
+    def __repr__(self) -> str:
+        return self.hex_digest()
+
+class BWHash:
+    keep_trace: ClassVar[bool] = False
+
+    def __init__(self, ident: str = "<missing_ident>"):
+        self._ident = ident
+        self._md5 = hashlib.md5(ident.encode("utf-8"))
+        self._trace: (list[tuple[str, str, str]]) = []
+
+    def with_str(self, value: str) -> "BWHash":
+        self.update_str(value)
+        return self
+
+    def with_path(self, value: Path) -> "BWHash":
+        self.update_path(value)
+        return self
+
+    def with_hash(self, value: "BWFrozenHash") -> "BWHash":
+        self.update_hash(value)
+        return self
+
+    def update_str(self, value: str):
+        self._md5.update(value.encode("utf-8"))
+        if self.keep_trace:
+            self._trace.append(("str", value[:80], self._md5.hexdigest()))
+
+    def update_path(self, value: Path):
+        with value.open("rb") as f:
+            self._md5.update(hashlib.file_digest(f, "md5").digest())
+        if self.keep_trace:
+            self._trace.append(("path", value.as_posix(), self._md5.hexdigest()))
+
+    def update_hash(self, value: "BWFrozenHash"):
+        self._md5.update(value.digest())
+        if self.keep_trace:
+            self._trace.extend(value.trace or [])
+            self._trace.append(("hash", value.ident, self._md5.hexdigest()))
+
+    def frozen(self) -> BWFrozenHash:
+        return BWFrozenHash(self._ident, self._md5.digest(), self._trace)
 
 class PyHasher:
     def __init__(self):
         self.module_stack: list[ModuleType] = []
         self.dependency_map: DefaultDict[str, OSet[str]] = DefaultDict(OSet)
-        self.hash_map: dict[str, str] = {}
+        self.hash_map: dict[str, BWFrozenHash] = {}
         self.visitor = ast.NodeVisitor()
         self.visitor.visit_Import = self.visit_Import
         self.visitor.visit_ImportFrom = self.visit_ImportFrom
@@ -113,7 +170,7 @@ class PyHasher:
         site_str = ""
         for sitepackages in site.getsitepackages():
             site_str += "".join(sorted(os.listdir(sitepackages)))
-        self.site_hash = hashlib.md5(site_str.encode("utf8")).hexdigest()
+        self.site_hash = BWHash("site").with_str(site_str).frozen()
 
     @property
     def current_package(self):
@@ -193,22 +250,22 @@ class PyHasher:
         with open(module.__file__, "r") as f:
             module_ast = ast.parse(f.read())
             self.visitor.visit(module_ast)
-            content_hash = hashlib.md5(ast.dump(module_ast).encode("utf8"))
+            content_hash = BWHash(module.__file__).with_str(ast.dump(module_ast))
 
         # Pop the import context
         self.module_stack.pop()
 
         # Roll in the site hash
-        content_hash.update(self.site_hash.encode("utf8"))
+        content_hash.update_hash(self.site_hash)
 
         # Roll in the dependency hashes
         for dependency in self.dependency_map[module.__name__]:
-            content_hash.update(self.hash_map[dependency].encode("utf8"))
+            content_hash.update_hash(self.hash_map[dependency])
 
         # Record hash
-        self.hash_map[module.__name__] = content_hash.hexdigest()
+        self.hash_map[module.__name__] = content_hash.frozen()
 
-    def get_package_hash(self, package: str):
+    def get_package_hash(self, package: str) -> BWFrozenHash:
         "Get the hash for a package"
         if package not in self.hash_map:
             self.map_package(package)
@@ -312,7 +369,7 @@ class Cache(ABC):
 
     @functools.cache
     @staticmethod
-    def hash_content(path: Path) -> str:
+    def hash_content(path: Path) -> BWFrozenHash:
         """
         Hash the content of a file or directory. This needs to be consistent
         across caching schemes so consistency checks can be performed.
@@ -320,20 +377,20 @@ class Cache(ABC):
         if not path.exists():
             assert path.is_symlink(), f"Tried to hash a path that does not exist `{path}`"
             # Symlinks might point to a path that doesn't exist and that's ok
-            content_hash = hashlib.md5(f"<symlink to {path.resolve()}>".encode("utf8"))
+            content_hash = BWHash().with_str(f"<symlink to {path.resolve()}>")
         elif path.is_dir():
-            content_hash = hashlib.md5("<dir>".encode("utf8"))
+            content_hash = BWHash().with_str("<dir>")
             for item in sorted(os.listdir(path)):
-                content_hash.update((item + Cache.hash_content(path / item)).encode("utf8"))
+                content_hash.update_str(item)
+                content_hash.update_hash(Cache.hash_content(path / item))
         else:
-            with path.open("rb") as f:
-                content_hash = hashlib.file_digest(f, "md5")
-        return content_hash.hexdigest()
+            content_hash = BWHash().with_path(path)
+        return content_hash.frozen()
 
 
     @functools.cache
     @staticmethod
-    def hash_size_content(path: Path) -> tuple[str, int]:
+    def hash_size_content(path: Path) -> tuple[BWFrozenHash, int]:
         """
         Hash the content of a file or directory and get the size in bytes.
         This needs to be consistent across caching schemes so consistency
@@ -342,23 +399,23 @@ class Cache(ABC):
         if not path.exists():
             assert path.is_symlink(), f"Tried to hash a path that does not exist `{path}`"
             # Symlinks might point to a path that doesn't exist and that's ok
-            content_hash = hashlib.md5(f"<symlink to {path.resolve()}>".encode("utf8"))
+            content_hash = BWHash().with_str(f"<symlink to {path.resolve()}>")
             byte_size = 0
         elif path.is_dir():
-            content_hash = hashlib.md5("<dir>".encode("utf8"))
+            content_hash = BWHash().with_str("<dir>")
             byte_size = 0
             for item in sorted(os.listdir(path)):
                 sub_hash, sub_size = Cache.hash_size_content(path / item)
-                content_hash.update((item + sub_hash).encode("utf8"))
+                content_hash.update_str(item)
+                content_hash.update_hash(sub_hash)
                 byte_size += sub_size
         else:
-            with path.open("rb") as f:
-                content_hash = hashlib.file_digest(f, "md5")
+            content_hash = BWHash().with_path(path)
             byte_size = os.path.getsize(path)
-        return content_hash.hexdigest(), byte_size
+        return content_hash.frozen(), byte_size
 
     @staticmethod
-    def hash_imported_package(package: str) -> str:
+    def hash_imported_package(package: str) -> BWFrozenHash:
         """
         Hash a python package **that has already been imported**. This is
         currently implemented as a hash of module paths and modify times.
@@ -384,7 +441,7 @@ class Cache(ABC):
         return TransformFetchData(mname_to_paths=mname_to_paths)
 
     @staticmethod
-    def get_transform_store_data(transform: "Transform", run_time: float) -> TransformStoreData:
+    def get_transform_store_data(ctx: Context, transform: "Transform", run_time: float) -> TransformStoreData:
         """
         Get the information we need from a transform in order to store it.
         """
@@ -395,7 +452,7 @@ class Cache(ABC):
         byte_size = 0
         for name, serial in transform._serial_interfaces.items():
             if serial.direction.is_input:
-                mname_to_ihash[name] = serial._input_hash()
+                mname_to_ihash[name] = serial._input_hash().hex_digest()
             else:
                 mname_to_okeys[name] = []
                 for midx, medial in enumerate(serial.medials):
@@ -404,16 +461,16 @@ class Cache(ABC):
                         mhash = medial._content_hash()
                     else:
                         # Compute hash based on definition
-                        mhash = hashlib.md5((transform._input_hash() + name + str(midx)).encode()).hexdigest()
+                        mhash = BWHash().with_hash(transform._input_hash()).with_str(name + str(midx)).frozen()
                     byte_size += medial._byte_size()
-                    key = Cache.medial_prefix + mhash
+                    key = Cache.medial_prefix + mhash.hex_digest()
                     mname_to_okeys[name].append(key)
                     mkey_to_path[key] = Path(medial.val)
 
         return TransformStoreData(
             key_data=TransformKeyData(
                 stable={
-                    "import_hash": transform._import_hash(),
+                    "import_hash": transform._import_hash().hex_digest(),
                     "mname_to_okeys": mname_to_okeys,
                     "mname_to_ihash": mname_to_ihash,
                     "cls_name":transform._cls_name,
@@ -421,7 +478,8 @@ class Cache(ABC):
                 },
                 transient={
                     "byte_size":byte_size,
-                    "run_time": run_time
+                    "run_time": run_time,
+                    "trace": transform._input_hash().trace
                 }
             ),
             mkey_to_path=mkey_to_path,
@@ -443,7 +501,7 @@ class Cache(ABC):
     @staticmethod
     def fetch_transform_from_any(ctx: Context, transform: "Transform") -> bool:
         "Fetch all the output interfaces for a transform from any available cache"
-        key = Cache.transform_prefix + transform._input_hash()
+        key = Cache.transform_prefix + transform._input_hash().hex_digest()
 
         key_data = Cache.fetch_transform_key_data_from_any(ctx, key)
         if key_data is None:
@@ -481,9 +539,9 @@ class Cache(ABC):
     @staticmethod
     def store_transform_to_any(ctx: Context, transform: "Transform", run_time: float) -> bool:
         "Store all the output interfaces for a transform into all available cahche"
-        key = Cache.transform_prefix + transform._input_hash()
+        key = Cache.transform_prefix + transform._input_hash().hex_digest()
 
-        store_data = Cache.get_transform_store_data(transform, run_time)
+        store_data = Cache.get_transform_store_data(ctx, transform, run_time)
 
         key_data = store_data["key_data"]
         mkey_to_path = store_data["mkey_to_path"]
