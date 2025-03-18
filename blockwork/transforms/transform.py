@@ -1306,7 +1306,7 @@ class Transform:
         return frozen
 
     @staticmethod
-    def deserialize(spec: SerialTransform, input_hash: str | None = None) -> "Transform":
+    def deserialize(spec: SerialTransform, input_hash: BWFrozenHash | None = None) -> "Transform":
         # Get transform module
         mod = importlib.import_module(spec["mod"])
         # Get class from module (using reduce to navigate module namespacing)

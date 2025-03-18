@@ -18,7 +18,7 @@ from pathlib import Path
 
 import click
 
-from ..build.caching import Cache
+from ..build.caching import BWFrozenHash, Cache
 from ..context import Context
 from ..transforms.transform import SerialTransform, Transform
 
@@ -48,7 +48,7 @@ def wf_step(ctx: Context, spec_path: Path, input_hash: str):
     # Reload the serialised workflow step specification
     spec: SerialTransform = json.loads(spec_path.read_text(encoding="utf-8"))
     # Run the relevant transform
-    tf = Transform.deserialize(spec, input_hash)
+    tf = Transform.deserialize(spec, BWFrozenHash(spec["name"], bytes.fromhex(input_hash)))
     result = tf.run(ctx)
 
     # duration = stop - start
