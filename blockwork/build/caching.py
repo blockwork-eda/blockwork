@@ -653,10 +653,25 @@ class Cache(ABC):
         if new == old:
             return
 
+        # Write out the key data for debug
+        (self.error_root / key).mkdir(parents=True, exist_ok=True)
+        old_key_path = self.error_root / key / "old"
+        new_key_path = self.error_root / key / "new"
+        with old_key_path.open("w") as f:
+            json.dump(stored_key_data, f)
+
+        with new_key_path.open("w") as f:
+            json.dump(key_data, f)
+
+        key_text = (f"Old Key Data: '{old_key_path}'\n"
+                    f"New Key Data: '{new_key_path}'")
+
+
         if (new["cls_name"], new["mod_name"]) != (old["cls_name"], old["mod_name"]):
             # Vanishingly unlikely hash collision
             raise RuntimeError("Transform hash collision detected!\n"
                                "Transform name mismatch.\n"
+                               f"{key_text}\n"
                                f"Old Name: {new['mod_name']}.{new['cls_name']}\n"
                                f"New Name: {old['mod_name']}.{old['cls_name']}")
 
@@ -665,6 +680,7 @@ class Cache(ABC):
                 # Vanishingly unlikely hash collision
                 raise RuntimeError("Transform hash collision detected!\n"
                                    "Output key mismatch.\n"
+                                  f"{key_text}\n"
                                   f"Old keys: {old_mnames}\n"
                                   f"New keys: {mnames}")
 
@@ -677,6 +693,7 @@ class Cache(ABC):
                     raise RuntimeError("Non-deterministic transform detected!\n"
                                       f"Interface `{mname}` has a differing"
                                       " number of files associated with it."
+                                      f"{key_text}\n"
                                       f"Old Count: `{len(old_mkeys)}`\n"
                                       f"New Count: `{len(new_mkeys)}`")
 
@@ -700,11 +717,13 @@ class Cache(ABC):
                     raise RuntimeError("Non-deterministic transform detected!\n"
                                     f"New output for key `{mname}` does not match existing"
                                     " output for same hash.\n"
+                                    f"{key_text}\n"
                                     f"Old Output: '{old_error_path}'\n"
                                     f"New Output: '{new_error_path}'")
 
         raise RuntimeError("Non-deterministic transform detected!\n"
-                           "Unexpected condition.")
+                           "Unexpected condition.\n"
+                           f"{key_text}")
 
     def store_transform(self, mkey_to_path: dict[str, Path]) -> bool:
         "Store a transform to the cache"

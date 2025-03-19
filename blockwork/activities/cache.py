@@ -31,7 +31,7 @@ def cache() -> None:
     pass
 
 
-def get_key_data(ctx: Context, key: str) -> TransformKeyData | None:
+def get_key_data(ctx: Context, key: str, from_cache: str | None = None) -> TransformKeyData | None:
     if any(key.startswith(p) for p in ("./", "../", "/")):
         print(f"Assuming key '{key}' is a key_file")
 
@@ -43,6 +43,8 @@ def get_key_data(ctx: Context, key: str) -> TransformKeyData | None:
         key = Cache.transform_prefix + key
 
     for cache in ctx.caches:
+        if from_cache is not None and cache.cfg.name != from_cache:
+            continue
         data = cache.fetch_object(key)
         if data is not None:
             print(f"Key '{key}' found in cache: '{cache.cfg.name}'")
@@ -66,20 +68,13 @@ def format_trace(trace: list[TraceData], depth=0, max_depth=0) -> list[str]:
 @click.option(
     "--output", "-o", type=click.Path(writable=True, path_type=Path), required=False, default=None
 )
-@click.option("--trace", default=False, is_flag=True)
-@click.option(
-    "--trace-output",
-    "-t",
-    type=click.Path(writable=True, path_type=Path),
-    required=False,
-    default=None,
-)
+@click.option("--cache", "-c", type=click.STRING, required=False, default=None)
 @click.pass_obj
-def read_key(ctx: Context, key: str, output: Path | None, trace: bool, trace_output: Path | None):
+def read_key(ctx: Context, key: str, output: Path | None, cache: str):
     """
     Read transform key data
     """
-    data = get_key_data(ctx, key)
+    data = get_key_data(ctx, key, cache)
     if data is None:
         exit(1)
 
@@ -97,12 +92,13 @@ def read_key(ctx: Context, key: str, output: Path | None, trace: bool, trace_out
 @click.option(
     "--output", "-o", type=click.Path(writable=True, path_type=Path), required=False, default=None
 )
+@click.option("--cache", "-c", type=click.STRING, required=False, default=None)
 @click.pass_obj
-def trace_key(ctx: Context, key: str, depth: int, output: Path | None):
+def trace_key(ctx: Context, key: str, depth: int, output: Path | None, cache: str | None):
     """
     Read transform key data
     """
-    data = get_key_data(ctx, key)
+    data = get_key_data(ctx, key, cache)
     if data is None:
         exit(1)
 
