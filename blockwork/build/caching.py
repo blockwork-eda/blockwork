@@ -167,12 +167,6 @@ class PyHasher:
         self.visitor.visit_Import = self.visit_Import
         self.visitor.visit_ImportFrom = self.visit_ImportFrom
 
-        # Get a basic hash of the site
-        site_str = ""
-        for sitepackages in site.getsitepackages():
-            site_str += "".join(sorted(os.listdir(sitepackages)))
-        self.site_hash = BWHash("site").with_str(site_str).frozen()
-
     @property
     def current_package(self):
         return self.module_stack[-1].__name__
@@ -248,9 +242,6 @@ class PyHasher:
         self.module_stack.append(module)
 
         content_hash = BWHash(module.__file__)
-
-        # Roll in the site hash
-        content_hash.update_hash(self.site_hash)
 
         # Read the file, parse it, examine imports, and record the hash
         with open(module.__file__, "r") as f:
