@@ -75,8 +75,6 @@ class TransformStableDetails(TypedDict):
     mod_name: str
     cls_name: str
     mname_to_okeys: dict[str, list[str]]
-    mname_to_ihash: dict[str, str]
-    import_hash: str
 
 class TransformTransientDetails(TypedDict):
     run_time: float
@@ -452,33 +450,30 @@ class Cache(ABC):
         Get the information we need from a transform in order to store it.
         """
         mname_to_okeys: dict[str, list[str]] = {}
-        mname_to_ihash: dict[str, str] = {}
         mkey_to_path: dict[str, Path] = {}
 
         byte_size = 0
         for name, serial in transform._serial_interfaces.items():
             if serial.direction.is_input:
-                mname_to_ihash[name] = serial._input_hash().hex_digest()
-            else:
-                mname_to_okeys[name] = []
-                for midx, medial in enumerate(serial.medials):
-                    if serial.deterministic:
-                        # Compute hash based on file content
-                        mhash = medial._content_hash()
-                    else:
-                        # Compute hash based on definition
-                        mhash = BWHash().with_hash(transform._input_hash()).with_str(name + str(midx)).frozen()
-                    byte_size += medial._byte_size()
-                    key = Cache.medial_prefix + mhash.hex_digest()
-                    mname_to_okeys[name].append(key)
-                    mkey_to_path[key] = Path(medial.val)
+                continue
+
+            mname_to_okeys[name] = []
+            for midx, medial in enumerate(serial.medials):
+                if serial.deterministic:
+                    # Compute hash based on file content
+                    mhash = medial._content_hash()
+                else:
+                    # Compute hash based on definition
+                    mhash = BWHash().with_hash(transform._input_hash()).with_str(name + str(midx)).frozen()
+                byte_size += medial._byte_size()
+                key = Cache.medial_prefix + mhash.hex_digest()
+                mname_to_okeys[name].append(key)
+                mkey_to_path[key] = Path(medial.val)
 
         return TransformStoreData(
             key_data=TransformKeyData(
                 stable={
-                    "import_hash": transform._import_hash().hex_digest(),
                     "mname_to_okeys": mname_to_okeys,
-                    "mname_to_ihash": mname_to_ihash,
                     "cls_name":transform._cls_name,
                     "mod_name":transform._mod_name
                 },
