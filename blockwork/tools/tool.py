@@ -59,7 +59,24 @@ class Require:
 
 
 class Version:
-    """Defines a version of a tool"""
+    """
+    Defines a version of a tool
+
+    :param version:  Version identifier of the tool (e.g. "1.2.5")
+    :param location: Location of the tool version installation
+    :param env:      Environment variables as a dictionary
+    :param paths:    Additional entries to add to $PATH type variables, the key
+                     identifies the variable to extend and then the list of
+                     strings are appended as path segments
+    :param requires: List of dependencies on other tools
+    :param default:  Marks this version as the default
+    :param licenses: Dictionary of licenses required when this tool runs, the
+                     key is the license name and the value is the number of that
+                     type of license required
+    :param features: Dictionary of features (e.g. node-locked licenses, GPUs, ...),
+                     the key is the feature name and the value is the number of
+                     that type of feature required
+    """
 
     def __init__(
         self,
@@ -69,6 +86,8 @@ class Version:
         paths: dict[str, list[str | Path]] | None = None,
         requires: list[Require] | None = None,
         default: bool = False,
+        licenses: dict[str, int] | None = None,
+        features: dict[str, int] | None = None,
     ) -> None:
         self.version = version
         self.location = location
@@ -76,6 +95,8 @@ class Version:
         self.paths = paths or {}
         self.requires = requires
         self.default = default
+        self.licenses = licenses or {}
+        self.features = features or {}
         self.tool_cls: type["Tool"] | None = None
         # Sanitise arguments
         self.requires = self.requires or []
@@ -97,6 +118,14 @@ class Version:
             raise ToolError("Requirements must be a list")
         if not all(isinstance(x, Require) for x in self.requires):
             raise ToolError("Requirements must be a list of Require objects")
+        if not isinstance(self.licenses, dict):
+            raise ToolError("Licenses must be specified as a dictionary")
+        if not all((isinstance(x, str) and isinstance(y, int) for x, y in self.licenses.items())):
+            raise ToolError("License entries must be specified as string-int pairs")
+        if not isinstance(self.features, dict):
+            raise ToolError("Features must be specified as a dictionary")
+        if not all((isinstance(x, str) and isinstance(y, int) for x, y in self.features.items())):
+            raise ToolError("Feature entries must be specified as string-int pairs")
 
     @property
     @functools.lru_cache  # noqa: B019

@@ -17,9 +17,11 @@ import itertools
 import json
 import logging
 import multiprocessing
+import platform
 import re
 from collections import defaultdict
 from collections.abc import Callable, Iterable
+from dataclasses import fields
 from datetime import datetime
 from functools import cache, partial, reduce
 from pathlib import Path
@@ -29,7 +31,7 @@ import click
 from gator.launch import MessageLimits, launch
 from gator.launch_progress import launch as launch_progress
 from gator.scheduler import LocalScheduler, SlurmScheduler
-from gator.specs import Cores, Job, JobGroup, Memory
+from gator.specs import Cores, Feature, Job, JobGroup, License, Memory
 from ordered_set import OrderedSet as OSet
 
 from ..activities.workflow import wf
@@ -38,7 +40,7 @@ from ..config.api import ConfigApi
 from ..config.base import Config, Project, Site
 from ..config.scheduler import Scheduler
 from ..context import Context, DebugScope
-from ..transforms.transform import Medial, Transform
+from ..transforms.transform import ITool, Medial, Transform
 
 re_ident_prefix = re.compile(r"[0-9]+_[0-9]:")
 
@@ -410,13 +412,25 @@ class Workflow:
 
                     if DebugScope.current.VERBOSE:
                         bw_args.insert(0, "--verbose")
+                    # Determine the job's resources
+                    # NOTE: Currently using placeholders for cores and memory
+                    resources = [
+                        Cores(count=1, arch=platform.uname().machine),
+                        Memory(size=1, unit="GB"),
+                    ]
+                    for field in filter(lambda x: isinstance(x.default, ITool), fields(transform)):
+                        tool = getattr(transform, field.name)
+                        for lic_name, lic_count in tool.version.licenses.items():
+                            resources.append(License(name=lic_name, count=lic_count))
+                        for feat_name, feat_count in tool.version.features.items():
+                            resources.append(Feature(name=feat_name, count=feat_count))
                     # Give jobs a descriptive name where possible
                     job = Job(
                         ident=f"{transform.api.pathname}_{job_id}",
                         cwd=ctx.host_root.as_posix(),
                         command="bw",
                         args=[*bw_args, *wf_args],
-                        resources=[Cores(count=1), Memory(size=1, unit="GB")],
+                        resources=resources,
                     )
                     group_jobs.append(job)
                 group_by_transform[transform] = group
