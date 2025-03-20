@@ -36,8 +36,9 @@ def wf() -> None:
 @click.command(name="_wf_step", hidden=True)
 @click.argument("spec_path", type=click.Path(dir_okay=False, exists=True, path_type=Path))
 @click.argument("input_hash", type=click.STRING)
+@click.option("--target", is_flag=True, default=False)
 @click.pass_obj
-def wf_step(ctx: Context, spec_path: Path, input_hash: str):
+def wf_step(ctx: Context, spec_path: Path, input_hash: str, target: bool):
     """
     Loads a serialised transform specification from a provided file path, then
     resolves the transform class and executes it. This should NOT be called
@@ -47,12 +48,22 @@ def wf_step(ctx: Context, spec_path: Path, input_hash: str):
     #                executions so that there is a single execution path
     # Reload the serialised workflow step specification
     spec: SerialTransform = json.loads(spec_path.read_text(encoding="utf-8"))
-    # Run the relevant transform
-    tf = Transform.deserialize(spec, BWFrozenHash(spec["name"], bytes.fromhex(input_hash)))
-    result = tf.run(ctx)
+    # Load the relevant transform
+    transform = Transform.deserialize(spec, BWFrozenHash(spec["name"], bytes.fromhex(input_hash)))
 
-    # duration = stop - start
-    # Whether a cache is in place
     is_caching = Cache.enabled(ctx)
-    if is_caching and Cache.store_transform_to_any(ctx, tf, result.run_time):
-        logging.info("Stored transform to cache: %s", tf)
+
+    if (
+        is_caching
+        and (ctx.cache_targets or not target)
+        and Cache.fetch_transform_from_any(ctx, transform)
+    ):
+        logging.info("Late-fetched transform to cache: %s", transform)
+    else:
+        logging.info("Running transform: %s", transform)
+        result = transform.run(ctx)
+
+        # duration = stop - start
+        # Whether a cache is in place
+        if is_caching and Cache.store_transform_to_any(ctx, transform, result.run_time):
+            logging.info("Stored transform to cache: %s", transform)
