@@ -1,14 +1,15 @@
 from collections.abc import Iterable
+from itertools import count
 from pathlib import Path
 from types import SimpleNamespace
 from typing import ClassVar
 
 import pytest
 
-from blockwork.build.caching import Cache
+from blockwork.build.caching import Cache, CacheDeterminismError
 from blockwork.config import CacheConfig
 from blockwork.config.api import ConfigApi
-from blockwork.config.base import Config
+from blockwork.config.base import Config, ConfigProtocol
 from blockwork.tools import Invocation, tools
 from blockwork.transforms import Transform, transforms
 from blockwork.workflows.workflow import Workflow
@@ -19,8 +20,10 @@ class DummyCache(Cache):
     For use in unittests only
     """
 
-    def __init__(self):
-        self.cfg = CacheConfig(path="", name="dummy", fetch_condition=True, store_condition=True)
+    def __init__(self, ctx):
+        super().__init__(
+            ctx, CacheConfig(path="", name="dummy", fetch_condition=True, store_condition=True)
+        )
         self.content_store = {}
 
     def store_item(self, key: str, frm: Path) -> bool:
@@ -40,14 +43,21 @@ class DummyCache(Cache):
             return True
         return False
 
-    def get_last_fetch_utc(self, key: str) -> float:
-        return 0
-
-    def set_last_fetch_utc(self, key: str):
-        return None
-
     def iter_keys(self) -> Iterable[str]:
         yield from list(self.content_store.keys())
+
+
+@pytest.fixture()
+def test_ctx(tmp_path: Path):
+    class Ctx:
+        host_root = tmp_path / "root"
+        host_scratch = tmp_path / "scratch"
+        cache_targets = False
+        cache_expect = False
+        caches: ClassVar[list[Cache]]
+
+    Ctx.caches = [DummyCache(Ctx)]
+    return Ctx
 
 
 def match_gather(gather, expected_types):
@@ -130,6 +140,19 @@ class TestWorkFlowDeps:
             self.test_op.parent.mkdir(parents=True, exist_ok=True)
             self.test_op.touch()
             yield from []
+
+    class TFNonDeterministic(DummyTransform):
+        test_ip: Path = Transform.IN()
+        test_op: Path = Transform.OUT()
+        i = count()
+
+        def execute(self, ctx):
+            self.test_op.parent.mkdir(parents=True, exist_ok=True)
+            self.test_op.write_text(str(next(self.i)))
+            yield from []
+
+    class TFExplicitNonDeterministic(TFNonDeterministic):
+        test_op: Path = Transform.OUT(deterministic=False)
 
     class TFControlled(DummyTransform):
         test_ip: Path = Transform.IN()
@@ -286,15 +309,8 @@ class TestWorkFlowDeps:
             ),
         )
 
-    def test_run(self, api: ConfigApi, tmp_path):
+    def test_run(self, api: ConfigApi, test_ctx):
         workflow = Workflow("test")
-
-        class Ctx:
-            host_root = tmp_path
-            host_scratch = tmp_path
-            caches: ClassVar[list[Cache]] = [DummyCache()]
-            cache_targets = False
-            cache_expect = False
 
         TransformA, TransformB = self.TFAutoA, self.TFAutoB  # noqa N806
 
@@ -326,10 +342,7 @@ class TestWorkFlowDeps:
         )
 
         results_1 = workflow._run(
-            Ctx, *workflow.get_transform_tree(ConfigA()), parallel=False, concurrency=1
-        )
-        results_2 = workflow._run(
-            Ctx, *workflow.get_transform_tree(ConfigA()), parallel=False, concurrency=1
+            test_ctx, *workflow.get_transform_tree(ConfigA()), parallel=False, concurrency=1
         )
 
         match_results(
@@ -339,7 +352,43 @@ class TestWorkFlowDeps:
             fetched=[],
             skipped=[],
         )
+        Cache._clear_cached_hashes()
 
+    def test_cached_run(self, api: ConfigApi, test_ctx):
+        workflow = Workflow("test")
+
+        TransformA, TransformB = self.TFAutoA, self.TFAutoB  # noqa N806
+
+        test_ip = api.ctx.host_scratch / "ip"
+        test_ip.touch()
+
+        # Do we see a dependency tree come out
+        class ConfigA(Config):
+            def iter_transforms(self) -> Iterable[Transform]:
+                yield (a := TransformA(test_ip=test_ip))
+                yield TransformB(test_ip=a.test_op)
+
+            def transform_filter(self, transform: Transform, config: Config):
+                return isinstance(transform, TransformB)
+
+        # Run the first time, we should see both transforms run
+        results_1 = workflow._run(
+            test_ctx, *workflow.get_transform_tree(ConfigA()), parallel=False, concurrency=1
+        )
+        match_results(
+            results_1,
+            run=[TransformA, TransformB],
+            stored=[TransformA, TransformB],
+            fetched=[],
+            skipped=[],
+        )
+        Cache._clear_cached_hashes()
+
+        # Run again, should skip the first transform
+        Cache._clear_cached_hashes()
+        results_2 = workflow._run(
+            test_ctx, *workflow.get_transform_tree(ConfigA()), parallel=False, concurrency=1
+        )
         match_results(
             results_2,
             run=[TransformB],
@@ -347,6 +396,167 @@ class TestWorkFlowDeps:
             fetched=[TransformA],
             skipped=[],
         )
+
+        # Change the input file, should rerun the first transform
+        test_ip.write_text("new content")
+        Cache._clear_cached_hashes()
+        results_3 = workflow._run(
+            test_ctx, *workflow.get_transform_tree(ConfigA()), parallel=False, concurrency=1
+        )
+        match_results(
+            results_3,
+            run=[TransformB, TransformA],
+            stored=[TransformB, TransformA],
+            fetched=[],
+            skipped=[],
+        )
+
+    def test_cached_non_deterministic(self, api: ConfigApi, test_ctx):
+        workflow = Workflow("test")
+
+        TFNonDeterministic = self.TFNonDeterministic  # noqa N806
+        TFExplicitNonDeterministic = self.TFExplicitNonDeterministic  # noqa N806
+        TransformB = self.TFAutoB  # noqa N806
+
+        dummy_cache = test_ctx.caches[0]
+
+        test_ip = api.ctx.host_scratch / "ip"
+        test_ip.touch()
+
+        # Config with a non deterministic transform
+        class ConfigNonDeterministic(Config):
+            def iter_transforms(self) -> Iterable[Transform]:
+                yield (a := TFNonDeterministic(test_ip=test_ip))
+                yield TransformB(test_ip=a.test_op)
+
+            def transform_filter(self, transform: Transform, config: ConfigProtocol):
+                return isinstance(transform, TransformB)
+
+        # Run the first time, we should see both transforms run
+        Cache._clear_cached_hashes()
+        results_1 = workflow._run(
+            test_ctx,
+            *workflow.get_transform_tree(ConfigNonDeterministic()),
+            parallel=False,
+            concurrency=1,
+        )
+        match_results(
+            results_1,
+            run=[TFNonDeterministic, TransformB],
+            stored=[TFNonDeterministic, TransformB],
+            fetched=[],
+            skipped=[],
+        )
+
+        # Run again, we should pull from the cache (as no way of knowing the
+        # non-deterministic transform has changed)
+        Cache._clear_cached_hashes()
+        results_2 = workflow._run(
+            test_ctx,
+            *workflow.get_transform_tree(ConfigNonDeterministic()),
+            parallel=False,
+            concurrency=1,
+        )
+        match_results(
+            results_2,
+            run=[TransformB],
+            stored=[TransformB],
+            fetched=[TFNonDeterministic],
+            skipped=[],
+        )
+
+        # Disable the fetch condition, should rerun the non-deterministic transform
+        # This would normally be done by re-running the workflow with a different config
+        dummy_cache.cfg.fetch_condition = False
+        del dummy_cache.fetch_threshold
+
+        # Run again with fetch turned off, should rerun the non-deterministic
+        # transform and catch the issue
+        Cache._clear_cached_hashes()
+        with pytest.raises(CacheDeterminismError):
+            workflow._run(
+                test_ctx,
+                *workflow.get_transform_tree(ConfigNonDeterministic()),
+                parallel=False,
+                concurrency=1,
+            )
+
+        # Re-enable the fetch condition.
+        dummy_cache.cfg.fetch_condition = True
+        del dummy_cache.fetch_threshold
+
+        # Config with an explicit non deterministic transform
+        class ConfigExplicitNonDeterministic(Config):
+            def iter_transforms(self) -> Iterable[Transform]:
+                yield (a := TFExplicitNonDeterministic(test_ip=test_ip))
+                yield TransformB(test_ip=a.test_op)
+
+            def transform_filter(self, transform: Transform, config: ConfigProtocol):
+                return isinstance(transform, TransformB)
+
+        # Rerun the same sequence of workflows - we shouldn't error this time
+        # Run the first time, we should see both transforms run
+        Cache._clear_cached_hashes()
+        results_1 = workflow._run(
+            test_ctx,
+            *workflow.get_transform_tree(ConfigExplicitNonDeterministic()),
+            parallel=False,
+            concurrency=1,
+        )
+        match_results(
+            results_1,
+            run=[TFExplicitNonDeterministic, TransformB],
+            stored=[TFExplicitNonDeterministic, TransformB],
+            fetched=[],
+            skipped=[],
+        )
+
+        # Run again, we should pull from the cache (as no way of knowing the
+        # non-deterministic transform has changed)
+        Cache._clear_cached_hashes()
+        results_2 = workflow._run(
+            test_ctx,
+            *workflow.get_transform_tree(ConfigExplicitNonDeterministic()),
+            parallel=False,
+            concurrency=1,
+        )
+        match_results(
+            results_2,
+            run=[TransformB],
+            stored=[TransformB],
+            fetched=[TFExplicitNonDeterministic],
+            skipped=[],
+        )
+
+        # Disable the fetch condition, should rerun the non-deterministic transform
+        # This would normally be done by re-running the workflow with a different config
+        dummy_cache.cfg.fetch_condition = False
+        del dummy_cache.fetch_threshold
+
+        # Run again with fetch turned off, should rerun the non-deterministic
+        # transform and accept it
+        Cache._clear_cached_hashes()
+        results_3 = workflow._run(
+            test_ctx,
+            *workflow.get_transform_tree(ConfigExplicitNonDeterministic()),
+            parallel=False,
+            concurrency=1,
+        )
+        match_results(
+            results_3,
+            run=[TFExplicitNonDeterministic, TransformB],
+            stored=[TFExplicitNonDeterministic, TransformB],
+            fetched=[],
+            skipped=[],
+        )
+
+        # Re-enable the fetch condition.
+        dummy_cache.cfg.fetch_condition = True
+        del dummy_cache.fetch_threshold
+
+        # Prune the cache
+        dummy_cache.cfg.max_size = "0"
+        Cache.prune_all(test_ctx)
 
     class TFCp(Transform):
         bash: tools.Bash = Transform.TOOL()

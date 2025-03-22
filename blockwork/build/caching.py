@@ -98,6 +98,13 @@ class TransformFetchData(TypedDict):
     mname_to_paths: dict[str, list[Path]]
 
 
+class CacheError(RuntimeError):
+    pass
+
+class CacheDeterminismError(CacheError):
+    pass
+
+
 KEY_FILE_SIZE = 250
 "The size of key files, small variance but it doesn't matter."
 
@@ -267,21 +274,6 @@ class PyHasher:
         return self.hash_map[package]
 
 
-def get_byte_size(path: str | Path) -> int:
-    "Get the size of a file or directory in bytes"
-    if not os.path.exists(path):
-        return 0
-    if not os.path.isdir(path):
-        return os.path.getsize(path)
-    size = os.path.getsize(path)
-    for dirpath, dirnames, filenames in os.walk(path):
-        for name in dirnames + filenames:
-            filepath = os.path.join(dirpath, name)
-            if not os.path.islink(filepath):
-                size += os.path.getsize(filepath)
-    return size
-
-
 def get_byte_rate(byte_size: int, second_time: float):
     "Calculate bytes/second, avoiding infinity with a small delta"
     if second_time == 0:
@@ -364,27 +356,6 @@ class Cache(ABC):
 
     @functools.cache
     @staticmethod
-    def hash_content(path: Path) -> BWFrozenHash:
-        """
-        Hash the content of a file or directory. This needs to be consistent
-        across caching schemes so consistency checks can be performed.
-        """
-        if not path.exists():
-            assert path.is_symlink(), f"Tried to hash a path that does not exist `{path}`"
-            # Symlinks might point to a path that doesn't exist and that's ok
-            content_hash = BWHash().with_str(f"<symlink to {path.resolve()}>")
-        elif path.is_dir():
-            content_hash = BWHash().with_str("<dir>")
-            for item in sorted(os.listdir(path)):
-                content_hash.update_str(item)
-                content_hash.update_hash(Cache.hash_content(path / item))
-        else:
-            content_hash = BWHash().with_path(path)
-        return content_hash.frozen()
-
-
-    @functools.cache
-    @staticmethod
     def hash_size_content(path: Path) -> tuple[BWFrozenHash, int]:
         """
         Hash the content of a file or directory and get the size in bytes.
@@ -419,6 +390,13 @@ class Cache(ABC):
         for the module, resulting in fewer unnecessary rebuilds.
         """
         return Cache.pyhasher.get_package_hash(package)
+
+    @staticmethod
+    def _clear_cached_hashes():
+        """
+        Clear the cache for the hash functions, useful for testing.
+        """
+        Cache.hash_size_content.cache_clear()
 
     @staticmethod
     def get_transform_fetch_data(transform: "Transform") -> TransformFetchData:
@@ -480,9 +458,6 @@ class Cache(ABC):
     @staticmethod
     def fetch_transform_key_data_from_any(ctx: Context, key: str) -> TransformKeyData | None:
         "Fetch transform key data from any available cache"
-
-        if not key.startswith(Cache.transform_prefix):
-            key = Cache.transform_prefix + key
 
         for cache in ctx.caches:
             if cache.fetch_threshold > 0 and (key_data := cache.fetch_object(key)) is not None:
@@ -655,20 +630,20 @@ class Cache(ABC):
 
         if (new["cls_name"], new["mod_name"]) != (old["cls_name"], old["mod_name"]):
             # Vanishingly unlikely hash collision
-            raise RuntimeError("Transform hash collision detected!\n"
-                               "Transform name mismatch.\n"
-                               f"{key_text}\n"
-                               f"Old Name: {new['mod_name']}.{new['cls_name']}\n"
-                               f"New Name: {old['mod_name']}.{old['cls_name']}")
+            raise CacheDeterminismError("Transform hash collision detected!\n"
+                                        "Transform name mismatch.\n"
+                                        f"{key_text}\n"
+                                        f"Old Name: {new['mod_name']}.{new['cls_name']}\n"
+                                        f"New Name: {old['mod_name']}.{old['cls_name']}")
 
         if (new["mname_to_okeys"] != old["mname_to_okeys"]):
             if (mnames := sorted(new["mname_to_okeys"].keys())) != (old_mnames := sorted(old["mname_to_okeys"].keys())):
                 # Vanishingly unlikely hash collision
-                raise RuntimeError("Transform hash collision detected!\n"
-                                   "Output key mismatch.\n"
-                                  f"{key_text}\n"
-                                  f"Old keys: {old_mnames}\n"
-                                  f"New keys: {mnames}")
+                raise CacheDeterminismError("Transform hash collision detected!\n"
+                                            "Output key mismatch.\n"
+                                            f"{key_text}\n"
+                                            f"Old keys: {old_mnames}\n"
+                                            f"New keys: {mnames}")
 
             for mname in mnames:
                 if (new_mkeys := new["mname_to_okeys"][mname]) == (old_mkeys := old["mname_to_okeys"][mname]):
@@ -676,12 +651,12 @@ class Cache(ABC):
 
                 if len(new_mkeys) != len(old_mkeys):
                     # I can't see how this would happen...
-                    raise RuntimeError("Non-deterministic transform detected!\n"
-                                      f"Interface `{mname}` has a differing"
-                                      " number of files associated with it."
-                                      f"{key_text}\n"
-                                      f"Old Count: `{len(old_mkeys)}`\n"
-                                      f"New Count: `{len(new_mkeys)}`")
+                    raise CacheDeterminismError("Non-deterministic transform detected!\n"
+                                                f"Interface `{mname}` has a differing"
+                                                " number of files associated with it."
+                                                f"{key_text}\n"
+                                                f"Old Count: `{len(old_mkeys)}`\n"
+                                                f"New Count: `{len(new_mkeys)}`")
 
                 for new_mkey, old_mkey in zip(new_mkeys, old_mkeys):
                     if new_mkey == old_mkey:
@@ -700,16 +675,16 @@ class Cache(ABC):
                     new_error_path.symlink_to(new_path,
                                                     target_is_directory=new_path.is_dir())
                     # Hash collision as a result of non-deterministic transform
-                    raise RuntimeError("Non-deterministic transform detected!\n"
-                                    f"New output for key `{mname}` does not match existing"
-                                    " output for same hash.\n"
-                                    f"{key_text}\n"
-                                    f"Old Output: '{old_error_path}'\n"
-                                    f"New Output: '{new_error_path}'")
+                    raise CacheDeterminismError("Non-deterministic transform detected!\n"
+                                                f"New output for key `{mname}` does not match existing"
+                                                " output for same hash.\n"
+                                                f"{key_text}\n"
+                                                f"Old Output: '{old_error_path}'\n"
+                                                f"New Output: '{new_error_path}'")
 
-        raise RuntimeError("Non-deterministic transform detected!\n"
-                           "Unexpected condition.\n"
-                           f"{key_text}")
+        raise CacheDeterminismError("Non-deterministic transform detected!\n"
+                                    "Unexpected condition.\n"
+                                    f"{key_text}")
 
     def store_transform(self, mkey_to_path: dict[str, Path]) -> bool:
         "Store a transform to the cache"

@@ -1291,8 +1291,8 @@ class Transform:
         """
         if self._cached_input_hash is not None:
             return self._cached_input_hash
-
-        bw_hash = BWHash(self._cls_name)
+        full_name = f"{self._mod_name}.{self._cls_name}"
+        bw_hash = BWHash(full_name).with_str(full_name)
         bw_hash.update_hash(self._import_hash())
         for name, serial in self._serial_interfaces.items():
             if serial.direction.is_output:
