@@ -108,8 +108,6 @@ class CacheDeterminismError(CacheError):
 KEY_FILE_SIZE = 250
 "The size of key files, small variance but it doesn't matter."
 
-# HashTokenType = tuple[Literal["str"], str] | tuple[Literal["path"], Path] | tuple[Literal["hash"], "BWFrozenHash"]
-
 class BWFrozenHash:
     def __init__(self, ident: str, byte_digest: bytes, trace: list[TraceData] | None = None):
         self.ident = ident

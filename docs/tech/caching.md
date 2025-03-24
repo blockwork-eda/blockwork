@@ -119,7 +119,7 @@ Blockwork's cache scheme calculates two types of hash:
     be done after the transform has run.
 
 After a transform is run, the output-files are stored in the cache according
-to thier hash, and a key-file containing each output hash is stored according
+to their hash, and a key-file containing each output hash is stored according
 to the transform hash.
 
 This two level scheme allows many transforms to refer to the same cached file,

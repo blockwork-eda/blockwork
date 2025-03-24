@@ -63,7 +63,6 @@ def wf_step(ctx: Context, spec_path: Path, input_hash: str, target: bool):
         logging.info("Running transform: %s", transform)
         result = transform.run(ctx)
 
-        # duration = stop - start
         # Whether a cache is in place
         if is_caching and Cache.store_transform_to_any(ctx, transform, result.run_time):
             logging.info("Stored transform to cache: %s", transform)
