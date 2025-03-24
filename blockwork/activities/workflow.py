@@ -58,7 +58,7 @@ def wf_step(ctx: Context, spec_path: Path, input_hash: str, target: bool):
         and (ctx.cache_targets or not target)
         and Cache.fetch_transform_from_any(ctx, transform)
     ):
-        logging.info("Late-fetched transform to cache: %s", transform)
+        logging.info("Fetched transform from cache: %s (late)", transform)
     else:
         logging.info("Running transform: %s", transform)
         result = transform.run(ctx)

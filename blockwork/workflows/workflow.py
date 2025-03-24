@@ -274,7 +274,7 @@ class Workflow:
                         and (ctx.cache_targets or transform not in targets)
                         and Cache.fetch_transform_from_any(ctx, transform)
                     ):
-                        logging.info("Late-fetched transform to cache: %s", transform)
+                        logging.info("Fetched transform from cache: %s (late)", transform)
                         status.fetched.add(transform)
                     else:
                         logging.info("Running transform: %s", transform)
