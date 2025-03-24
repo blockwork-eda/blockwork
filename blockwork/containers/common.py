@@ -46,7 +46,7 @@ def get_raw_input():
         tty.setraw(stdin)
 
         # Yield a function to get a input
-        def _get_char():
+        def _get_char() -> bytes | None:
             # Wait up to one second for data
             rlist, _, _ = select.select([sys.stdin], [], [], 0.1)
             # If data available
@@ -124,8 +124,13 @@ def read_stream(socket: SocketIO, stdout: TextIO, e_done: Event) -> Thread:
     return thread
 
 
-def write_stream(socket: SocketIO, e_done: Event, command: list[str] | None = None) -> Thread:
+def write_stream(
+    socket: SocketIO, e_done: Event, e_interacted: Event, command: list[str] | None = None
+) -> Thread:
     """Wrapped thread method to capture STDIN and write into container"""
+    # Format Effector escape bytes can be ignored for detecting user
+    # interaction.
+    fe_escape_byte = bytes([0x1B])
 
     def _inner(socket, e_done, command):
         with get_raw_input() as get_char:
@@ -137,6 +142,9 @@ def write_stream(socket: SocketIO, e_done: Event, command: list[str] | None = No
                 while not e_done.is_set():
                     if (char := get_char()) is not None:
                         socket._sock.send(char)
+                        if not char.startswith(fe_escape_byte):
+                            # Detected user interaction
+                            e_interacted.set()
             except BrokenPipeError:
                 pass
         # Set event to signal completion of stream

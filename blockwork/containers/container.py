@@ -75,6 +75,12 @@ class ContainerBind:
         }
 
 
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class ContainerResult:
+    exit_code: int
+    interacted: bool
+
+
 class Container:
     """
     Wrapper around container launch and management that can be extended to support
@@ -391,7 +397,7 @@ class Container:
         path: Mapping[str, list[Path]] | None = None,
         stdout: TextIO | None = None,
         stderr: TextIO | None = None,
-    ) -> int:
+    ) -> ContainerResult:
         """
         Launch a task within the container either interactively (STDIN and STDOUT
         streamed from/to the console) or non-interactively (STDOUT is captured).
@@ -499,6 +505,8 @@ class Container:
                 mounts.append(bind.as_configuration())
             # Create a thread-safe event to mark when container finishes
             e_done = Event()
+            # Create a thread-safe event to mark when keys are sent to the container
+            e_sent = Event()
             # Start a forwarding host
             t_host, host_port = forwarding_host(e_done)
             env["BLOCKWORK_FWD"] = f"{Runtime.get_host_address()}:{host_port}"
@@ -561,7 +569,7 @@ class Container:
                 if show_detach:
                     print(">>> Use CTRL+P to detach from container <<<")
                 # Start monitoring for STDIN and STDOUT
-                t_write = write_stream(cntr_sock, e_done)
+                t_write = write_stream(cntr_sock, e_done, e_sent)
                 t_read = read_stream(cntr_sock, stdout, e_done)
                 e_done.wait()
                 t_read.join()
@@ -605,7 +613,7 @@ class Container:
             container.remove(force=True)
             container = None
         # Extract the status code (assume error if not set)
-        return result.get("StatusCode", 1)
+        return ContainerResult(exit_code=result.get("StatusCode", 1), interacted=e_sent.is_set())
 
     def shell(
         self,
@@ -628,4 +636,4 @@ class Container:
             interactive=True,
             display=True,
             show_detach=show_detach,
-        )
+        ).exit_code

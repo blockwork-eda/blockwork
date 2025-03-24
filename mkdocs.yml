@@ -31,20 +31,22 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 nav:
   - Welcome: "index.md"
   - Foundations: "foundations.md"
   - Technologies:
     - Containers: "tech/containers.md"
     - State: "tech/state.md"
+    - Caching: "tech/caching.md"
   - Configuration:
     - ".bw.yaml": "config/bw_yaml.md"
+    - "caching": "config/caching.md"
   - Syntax:
     - Bootstrap: "syntax/bootstrap.md"
     - Tools: "syntax/tools.md"
-    - Tools: "syntax/transforms.md"
+    - Transforms: "syntax/transforms.md"
   - "Command Line Interface":
     - Introduction: "cli/introduction.md"
     - bootstrap: "cli/bootstrap.md"

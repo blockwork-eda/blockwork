@@ -22,17 +22,18 @@ tooldefs    :
 
 The fields of the `!Blockwork` tag are:
 
-| Field        | Required         | Default                | Description                                                             |
-|--------------|:----------------:|------------------------|-------------------------------------------------------------------------|
-| project      | :material-check: |                        | Sets the project's name                                                 |
-| root         |                  | `/project`             | Location to map the project's root directory inside the container       |
-| scratch      |                  | `/scratch`             | Location to map the scratch area inside the container                   |
-| tools        |                  | `/tools`               | Location to map the tools inside the container                          |
-| host_scratch |                  | `../{project}.scratch` | Directory to store build objects and other artefacts                    |
-| host_state   |                  | `../{project}.state`   | Directory to store Blockwork's state information for the project        |
-| host_tools   |                  | `../{project}.tools`   | Directory containing tool installations on the host                     |
-| bootstrap    |                  |                        | Python paths containing [Bootstrap](../syntax/bootstrap.md) definitions |
-| tooldefs     |                  |                        | Python paths containing [Tool](../syntax/tools.md) definitions          |
+| Field                | Required         | Default                | Description                                                                |
+|----------------------|:----------------:|------------------------|----------------------------------------------------------------------------|
+| project              | :material-check: |                        | Sets the project's name                                                    |
+| root                 |                  | `/project`             | Location to map the project's root directory inside the container          |
+| scratch              |                  | `/scratch`             | Location to map the scratch area inside the container                      |
+| tools                |                  | `/tools`               | Location to map the tools inside the container                             |
+| host_scratch         |                  | `../{project}.scratch` | Directory to store build objects and other artefacts                       |
+| host_state           |                  | `../{project}.state`   | Directory to store Blockwork's state information for the project           |
+| host_tools           |                  | `../{project}.tools`   | Directory containing tool installations on the host                        |
+| default_cache_config |                  |                        | Path to the default cache configuration, see [Caching](../tech/caching.md) |
+| bootstrap            |                  |                        | Python paths containing [Bootstrap](../syntax/bootstrap.md) definitions    |
+| tooldefs             |                  |                        | Python paths containing [Tool](../syntax/tools.md) definitions             |
 
 !!!note
 

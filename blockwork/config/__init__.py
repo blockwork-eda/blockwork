@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .blockwork import Blockwork
+from .blockwork import Blockwork, BlockworkParser
+from .caching import CacheConfig, CachingConfig, CachingParser
 
-assert all((Blockwork,))
+assert all((Blockwork, BlockworkParser, CacheConfig, CachingConfig, CachingParser))

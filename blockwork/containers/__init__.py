@@ -13,8 +13,8 @@
 # limitations under the License.
 
 # Expose various definitions
-from .container import Container, ContainerBindError, ContainerError
+from .container import Container, ContainerBindError, ContainerError, ContainerResult
 from .runtime import Runtime
 
 # Unused import lint guards
-assert all((Container, ContainerError, ContainerBindError, Runtime))
+assert all((Container, ContainerError, ContainerBindError, ContainerResult, Runtime))

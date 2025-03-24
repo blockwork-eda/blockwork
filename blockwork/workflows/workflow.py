@@ -245,12 +245,20 @@ class Workflow:
 
         return targets, dependency_map, dependent_map
 
-    def _run_serial(self, ctx: Context, scheduler: Scheduler[Transform], status: SimpleNamespace):
+    def _run_serial(
+        self,
+        ctx: Context,
+        scheduler: Scheduler[Transform],
+        targets: OSet[Transform],
+        status: SimpleNamespace,
+    ):
         """
         Run a scheduled workflow in series
         """
         # Whether a cache is in place
         is_caching = Cache.enabled(ctx)
+
+        interacted: OSet[Transform] = OSet()
 
         while scheduler.incomplete:
             # Place all currently schedulable jobs into this group
@@ -261,12 +269,33 @@ class Workflow:
                 elif transform in status.skipped:
                     logging.info(f"Skipped transform (due to cached dependents): {transform}")
                 else:
-                    logging.info("Running transform: %s", transform)
-                    result = transform.run(ctx)
-                    status.run.add(transform)
-                    if is_caching and Cache.store_transform_to_any(ctx, transform, result.run_time):
-                        status.stored.add(transform)
-                        logging.info("Stored transform to cache: %s", transform)
+                    if (
+                        is_caching
+                        and (ctx.cache_targets or transform not in targets)
+                        and Cache.fetch_transform_from_any(ctx, transform)
+                    ):
+                        logging.info("Fetched transform from cache: %s (late)", transform)
+                        status.fetched.add(transform)
+                    else:
+                        logging.info("Running transform: %s", transform)
+
+                        result = transform.run(ctx)
+                        status.run.add(transform)
+                        if is_caching:
+                            if result.interacted:
+                                interacted.add(transform)
+                                interacted |= scheduler._dependent_map[transform]
+                                logging.warning(
+                                    "Not caching due to user interaction: %s", transform
+                                )
+                            elif transform in interacted:
+                                logging.warning(
+                                    "Not caching due to (dependency) user interaction: %s",
+                                    transform,
+                                )
+                            elif Cache.store_transform_to_any(ctx, transform, result.run_time):
+                                status.stored.add(transform)
+                                logging.info("Stored transform to cache: %s", transform)
 
                 scheduler.finish(transform)
 
@@ -274,6 +303,7 @@ class Workflow:
         self,
         ctx: Context,
         scheduler: Scheduler[Transform],
+        targets: OSet[Transform],
         status: SimpleNamespace,
         concurrency: int,
         hub: str | None = None,
@@ -322,6 +352,7 @@ class Workflow:
                 elif transform in status.skipped:
                     logging.info(f"Skipped transform (due to cached dependents): {transform}")
                 else:
+                    logging.info(f"Scheduled transform: {transform}")
                     dependencies = transform_dependencies[transform]
                     dependents = transform_dependents[transform]
                     group = groups[dependencies, dependents]
@@ -341,20 +372,33 @@ class Workflow:
                         json.dump(transform.serialize(), fh)
                     # Launch the job
                     # TODO @intuity: Make the resource requests parameterisable
-                    args = [
+                    bw_args = [
                         "--scratch",
                         ctx.host_scratch.as_posix(),
+                    ]
+                    if ctx.cache_config_path is not None:
+                        bw_args += ["--cache-config", ctx.cache_config_path.as_posix()]
+                    if ctx.cache_targets is not None:
+                        bw_args += [
+                            "--cache-targets" if ctx.cache_targets else "--no-cache-targets"
+                        ]
+
+                    wf_args = [
                         "_wf_step",
                         spec_file.as_posix(),
+                        transform._input_hash().hex_digest(),
                     ]
+                    if transform in targets:
+                        wf_args += ["--target"]
+
                     if DebugScope.current.VERBOSE:
-                        args.insert(0, "--verbose")
+                        bw_args.insert(0, "--verbose")
                     # Give jobs a descriptive name where possible
                     job = Job(
                         ident=f"{transform.api.pathname}_{job_id}",
                         cwd=ctx.host_root.as_posix(),
                         command="bw",
-                        args=args,
+                        args=[*bw_args, *wf_args],
                         resources=[Cores(count=1), Memory(size=1, unit="GB")],
                     )
                     group_jobs.append(job)
@@ -410,26 +454,27 @@ class Workflow:
                 )
             )
 
-            # For any failed IDs, resolve them to their log files
-            for job_id in summary.failed_ids:
-                ptr = root_group
-                # Resolve the job
-                for idx, part in enumerate(job_id[1:]):
-                    for sub in ptr.jobs:
-                        if sub.ident == part:
-                            ptr = sub
-                            break
-                    else:
-                        raise Exception(
-                            f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}"
-                        )
-                # Grab the spec JSON
-                *_, spec_json = ptr.args
-                with Path(spec_json).open("r", encoding="utf-8") as fh:
-                    spec_data = json.load(fh)
-                # Grab the tracking directory
-                job_trk_dirx = track_dirx / "/".join(job_id[1:])
-                logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
+            if DebugScope.current.VERBOSE:
+                # For any failed IDs, resolve them to their log files
+                for job_id in summary.failed_ids:
+                    ptr = root_group
+                    # Resolve the job
+                    for idx, part in enumerate(job_id[1:]):
+                        for sub in ptr.jobs:
+                            if sub.ident == part:
+                                ptr = sub
+                                break
+                        else:
+                            raise Exception(
+                                f"Failed to resolve '{part}' within {'.'.join(job_id[:idx])}"
+                            )
+                    # Grab the spec JSON
+                    *_, spec_json = ptr.args
+                    with Path(spec_json).open("r", encoding="utf-8") as fh:
+                        spec_data = json.load(fh)
+                    # Grab the tracking directory
+                    job_trk_dirx = track_dirx / "/".join(job_id[1:])
+                    logging.error(f"{spec_data['name']} failed: {job_trk_dirx / 'messages.log'}")
 
             # Check for failure
             if summary.failed:
@@ -458,6 +503,8 @@ class Workflow:
         :param concurrency:    Set the desired concurrency
         """
         status = SimpleNamespace(
+            # Record the transforms that were scheduled to run
+            scheduled=OSet(),
             # Record the transforms we actually ran
             run=OSet(),
             # Record the transforms we pulled from the cache
@@ -479,25 +526,37 @@ class Workflow:
             while cache_scheduler.incomplete:
                 for transform in cache_scheduler.schedulable:
                     cache_scheduler.schedule(transform)
-                    if ctx.caching_forced or transform not in targets:
-                        if not (
-                            dependent_map[transform] - status.skipped
-                            or dependent_map[transform] - status.fetched
+                    if ctx.cache_targets or transform not in targets:
+                        if dependent_map[transform] and not (
+                            (dependent_map[transform] - status.skipped)
+                            or (dependent_map[transform] - status.fetched)
                         ):
                             status.skipped.add(transform)
                         elif Cache.fetch_transform_from_any(ctx, transform):
                             logging.info("Fetched transform from cache: %s", transform)
                             status.fetched.add(transform)
+                        else:
+                            status.scheduled.add(transform)
+                    else:
+                        status.scheduled.add(transform)
                     cache_scheduler.finish(transform)
+
+        if ctx.cache_expect and status.scheduled:
+            logging.warning("Items scheduled when we expect them to be cached:")
+            for tf in status.scheduled:
+                logging.warning(f"    {tf}")
+            raise RuntimeError("Items ^ scheduled when they should be cached!")
 
         # Push everything into Gator based on scheduling order
         run_scheduler = Scheduler(dependency_map, targets=targets)
 
         try:
             if parallel:
-                self._run_parallel(ctx, run_scheduler, status, concurrency=concurrency, hub=hub)
+                self._run_parallel(
+                    ctx, run_scheduler, targets, status, concurrency=concurrency, hub=hub
+                )
             else:
-                self._run_serial(ctx, run_scheduler, status)
+                self._run_serial(ctx, run_scheduler, targets, status)
         finally:
             # Prune the caches down to size at the end
             if is_caching:

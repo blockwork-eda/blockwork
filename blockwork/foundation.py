@@ -15,7 +15,7 @@
 import logging
 from pathlib import Path
 
-from .containers import Container
+from .containers import Container, ContainerResult
 from .context import Context, ContextContainerPathError
 from .tools import Invocation, Tool
 
@@ -98,7 +98,9 @@ class Foundation(Container):
                     segment = tool.get_container_path(self.context, segment).as_posix()
                 self.prepend_env_path(key, segment)
 
-    def invoke(self, context: Context, invocation: Invocation, readonly: bool = True) -> int:
+    def invoke(
+        self, context: Context, invocation: Invocation, readonly: bool = True
+    ) -> ContainerResult:
         """
         Evaluate a tool invocation by binding the required tools and setting up
         the environment as per the request.

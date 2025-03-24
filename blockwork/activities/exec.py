@@ -60,5 +60,5 @@ def exec(  # noqa: A001
             interactive=interactive,
             display=True,
             show_detach=False,
-        )
+        ).exit_code
     )

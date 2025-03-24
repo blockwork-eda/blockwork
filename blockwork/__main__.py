@@ -86,14 +86,30 @@ logging.basicConfig(
 )
 @click.option(
     "--cache/--no-cache",
-    default=True,
+    default=None,
     help="Enable or disable caching",
 )
 @click.option(
-    "--cache-force",
-    is_flag=True,
-    default=False,
-    help="Force caching even for 'targetted' objects",
+    "--cache-config",
+    "--cc",
+    type=click.Path(dir_okay=False, exists=True, path_type=Path),
+    default=None,
+    help="Path to a cache config file.",
+)
+@click.option(
+    "--cache-targets/--no-cache-targets",
+    default=None,
+    help="Force caching even for 'targetted' transforms",
+)
+@click.option(
+    "--cache-trace/--no-cache-trace",
+    default=None,
+    help="Turn on cache debug tracing",
+)
+@click.option(
+    "--cache-expect/--no-cache-expect",
+    default=None,
+    help="Raise exception if any transform not available in a cache",
 )
 def blockwork(
     ctx,
@@ -105,8 +121,11 @@ def blockwork(
     runtime: str | None,
     arch: str | None,
     scratch: str | None,
-    cache: bool,
-    cache_force: bool,
+    cache: bool | None,
+    cache_config: Path,
+    cache_targets: bool | None,
+    cache_trace: bool | None,
+    cache_expect: bool | None,
 ) -> None:
     # Setup post-mortem debug
     DebugScope.current.POSTMORTEM = pdb
@@ -125,8 +144,11 @@ def blockwork(
     ctx.obj = Context(
         root=Path(cwd).absolute() if cwd else None,
         scratch=Path(scratch).absolute() if scratch else None,
-        use_caches=cache,
-        force_cache=cache_force,
+        cache_enable=cache,
+        cache_config=cache_config,
+        cache_targets=cache_targets,
+        cache_trace=cache_trace,
+        cache_expect=cache_expect,
     )
     # Set the host architecture
     if arch:

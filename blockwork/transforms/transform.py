@@ -13,14 +13,13 @@
 # limitations under the License.
 
 
-import hashlib
 import importlib
 import json
 import time
 from collections.abc import Callable, Generator, Sequence
 from dataclasses import Field, dataclass, field, fields
 from enum import Enum, auto
-from functools import reduce
+from functools import cached_property, reduce
 from pathlib import Path
 from types import EllipsisType, GenericAlias, NoneType
 from typing import (
@@ -46,7 +45,7 @@ from blockwork.common.singleton import Singleton
 from blockwork.foundation import Foundation
 from blockwork.tools import Tool
 
-from ..build.caching import Cache
+from ..build.caching import BWFrozenHash, BWHash, Cache
 from ..config.api import ConfigApi
 from ..context import Context
 
@@ -66,8 +65,8 @@ class Medial:
     "The transforms that produce this medial"
     _consumers: "OSet[Transform] | None"
     "The transfoms that consume this medial (implemented but unused)"
-    _cached_input_hash: str | None
-    "The (cached) hash of this medials inputs"
+    _cached_input_hash: BWFrozenHash | None
+    "The (cached) hash of this medial's inputs"
 
     def __init__(self, val: str):
         self.val = val
@@ -111,7 +110,7 @@ class Medial:
         if len(producers) > 1:
             raise RuntimeError(f"Medial `{self}` produced by more than one transform `{producers}`")
 
-    def _input_hash(self) -> str:
+    def _input_hash(self) -> BWFrozenHash:
         """
         Get a hash of the inputs to this medial.
 
@@ -123,9 +122,24 @@ class Medial:
         if self._producers:
             self._cached_input_hash = self._producers[0]._input_hash()
         else:
-            self._cached_input_hash = Cache.hash_content(Path(self.val))
+            self._cached_input_hash = self._content_hash()
 
         return self._cached_input_hash
+
+    def _byte_size(self) -> int:
+        """
+        Get the size of this medial in bytes
+        """
+        return Cache.hash_size_content(Path(self.val))[1]
+
+    def _content_hash(self) -> BWFrozenHash:
+        """
+        Get the hash of this medial
+
+        MUST only be used after the transform producing this medial has been
+        run or if this medial is a static file.
+        """
+        return Cache.hash_size_content(Path(self.val))[0]
 
     def __repr__(self):
         return f"<Medial val='{self.val}' hash={self._cached_input_hash}>"
@@ -704,23 +718,35 @@ class SerialInterface:
     using JSON.
     """
 
-    _cached_input_hash: str | None = None
+    _cached_input_hash: BWFrozenHash | None
     "The (cached) hash of this serial interface"
 
-    def __init__(self, value: "TISerialAny", direction: Direction = Direction.INPUT):
+    def __init__(
+        self,
+        value: "TISerialAny",
+        direction: Direction = Direction.INPUT,
+        deterministic: bool = True,
+    ):
         "The interface in interface specification format"
         self.direction = direction
+        self.deterministic = deterministic
         self.medials = list[Medial]()
         self.tokens = list[Any]()
         self.value = value
+        self._cached_input_hash = None
         InterfaceSerializer.walk(self.value, self)
 
     @classmethod
     def from_interface(
-        cls, token: "TIAny", direction: Direction = Direction.INPUT
+        cls,
+        token: "TIAny",
+        direction: Direction = Direction.INPUT,
+        deterministic: bool = True,
     ) -> "SerialInterface":
         "Factory to create from an interface"
-        return cls(InterfaceSerializer.serialize(token), direction)
+        return cls(
+            InterfaceSerializer.serialize(token), direction=direction, deterministic=deterministic
+        )
 
     def update_hash(self, *tokens: Any):
         self.tokens += tokens
@@ -732,7 +758,7 @@ class SerialInterface:
         "Resolve against a container, binding values in as required"
         return InterfaceSerializer.resolve(self.value, ctx, container, direction)
 
-    def _input_hash(self) -> str:
+    def _input_hash(self) -> BWFrozenHash:
         """
         Get a hash of this serial interface.
 
@@ -741,18 +767,17 @@ class SerialInterface:
         if self._cached_input_hash is not None:
             return self._cached_input_hash
 
-        md5 = hashlib.md5()
+        bw_hash = BWHash()
         # Interface configuration
         for token in self.tokens:
-            md5.update(json.dumps(token).encode("utf8"))
+            bw_hash.update_str(json.dumps(token))
 
         # Interface values from other transforms
         for medial in self.medials:
-            md5.update(medial._input_hash().encode("utf8"))
+            bw_hash.update_hash(medial._input_hash())
 
-        digest = md5.hexdigest()
-        object.__setattr__(self, "_cached_input_hash", digest)
-        return digest
+        self._cached_input_hash = bw_hash.frozen()
+        return self._cached_input_hash
 
     def __repr__(self) -> str:
         return f"<SerialInterface hash='{self._cached_input_hash}'>"
@@ -802,6 +827,7 @@ class IField(FieldProtocol[TIField]):
         direction: Direction,
         env: str | EllipsisType = ...,
         env_policy: EnvPolicy = EnvPolicy.CONFLICT,
+        deterministic: bool = False,
     ):
         self.init = init
         self.default = default
@@ -813,6 +839,7 @@ class IField(FieldProtocol[TIField]):
         self.env = env
         self.env_policy = env_policy
         self.value: Any = None
+        self.deterministic = deterministic
 
     def resolve(
         self, target: "Transform | IFace", api: ConfigApi, field: Field[TIField]
@@ -853,7 +880,9 @@ class IField(FieldProtocol[TIField]):
         # Update the value on the field itself
         self.value = field_value
 
-        return SerialInterface.from_interface(interface_value, self.direction)
+        return SerialInterface.from_interface(
+            interface_value, direction=self.direction, deterministic=self.deterministic
+        )
 
     def bind(
         self,
@@ -879,6 +908,7 @@ class ITool(FieldProtocol[Tool]):
         self.init = init
         self.version = version
         self.direction = Direction.INPUT
+        self.deterministic = True
 
     def resolve(
         self, target: "Transform | IFace", api: ConfigApi, field: Field[Tool]
@@ -892,7 +922,9 @@ class ITool(FieldProtocol[Tool]):
             # Set the resolved value on the transform
             object.__setattr__(target, field.name, field_value)
         # Serialise the tool version
-        return SerialInterface.from_interface(field_value.vernum, self.direction)
+        return SerialInterface.from_interface(
+            field_value.vernum, direction=self.direction, deterministic=self.deterministic
+        )
 
     def bind(
         self,
@@ -956,6 +988,7 @@ def OUT(  # noqa: N802
     | None = None,
     env: str | EllipsisType = ...,
     env_policy: EnvPolicy = EnvPolicy.CONFLICT,
+    deterministic: bool = True,
 ) -> "TIField":
     """
     Marks a transform field as an output interface.
@@ -966,6 +999,11 @@ def OUT(  # noqa: N802
                     with init=True, allowing the interface to be set \
                     in the costructor, but with an automatic default.
     :param default_factory: A factory for default values - use for mutable types
+    :param derive: A tuple containing the derive dependencies (other fields),
+                   and a factory which takes those fields as arguments.
+    :param env: Additionally expose the interface in the specified environment variable
+    :param env_policy: The replacement policy for env if the variable is already defined
+    :param deterministic: Whether file outputs are deterministic.
 
     """
     return cast(
@@ -978,6 +1016,7 @@ def OUT(  # noqa: N802
             direction=Direction.OUTPUT,
             env=env,
             env_policy=env_policy,
+            deterministic=deterministic,
         ),
     )
 
@@ -1103,7 +1142,6 @@ class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
     ) -> "IFace":
         if isinstance(token, str):
             cls.default_error(token, name, api, field)
-        # TODO DEAL WITH THIS
         token._direction = field.direction
         result = token()
         token._direction = Direction.INPUT
@@ -1139,10 +1177,11 @@ TIAny = TIConstLeaf | TIPrimitives | IFace | Sequence["TIAny"] | dict[str, "TIAn
 
 
 @dataclass(frozen=True, kw_only=True)
-class Result:
+class TransformResult:
     exit_code: int | None
     run_time: float
     ident: str
+    interacted: bool
     _accepted: bool = field(init=False, default=False, compare=False, repr=False, hash=False)
 
     def resolve(self):
@@ -1185,8 +1224,11 @@ class Transform:
     _serial_interfaces: dict[str, SerialInterface]
     "The internal representation of interfaces"
 
-    _cached_input_hash: str | None = None
+    _cached_input_hash: BWFrozenHash | None = None
     "The (cached) hash of this transforms inputs"
+
+    _cached_import_hash: BWFrozenHash | None = None
+    "The (cached) hash of this transforms imports"
 
     api: ConfigApi
 
@@ -1218,18 +1260,30 @@ class Transform:
                 ifield = tf_field.default
                 self._serial_interfaces[tf_field.name] = ifield.resolve(self, api, tf_field)
 
+    @cached_property
+    def _mod_name(self) -> str:
+        return type(self).__module__
+
+    @cached_property
+    def _cls_name(self) -> str:
+        return type(self).__qualname__
+
     def serialize(self) -> SerialTransform:
         return {
             "typ": "Transform",
-            "mod": type(self).__module__,
-            "name": type(self).__qualname__,
+            "mod": self._mod_name,
+            "name": self._cls_name,
             "ifaces": {k: v.value for k, v in self._serial_interfaces.items()},
         }
 
-    def _import_hash(self) -> str:
-        return Cache.hash_imported_package(self.__class__.__module__)
+    def _import_hash(self) -> BWFrozenHash:
+        if self._cached_import_hash is not None:
+            return self._cached_import_hash
+        bw_hash = Cache.hash_imported_package(self.__class__.__module__)
+        object.__setattr__(self, "_cached_import_hash", bw_hash)
+        return bw_hash
 
-    def _input_hash(self) -> str:
+    def _input_hash(self) -> BWFrozenHash:
         """
         Get a hash of the inputs to this transform.
 
@@ -1237,22 +1291,22 @@ class Transform:
         """
         if self._cached_input_hash is not None:
             return self._cached_input_hash
-
-        md5 = hashlib.md5()
-        md5.update(self._import_hash().encode("utf8"))
+        full_name = f"{self._mod_name}.{self._cls_name}"
+        bw_hash = BWHash(full_name).with_str(full_name)
+        bw_hash.update_hash(self._import_hash())
         for name, serial in self._serial_interfaces.items():
             if serial.direction.is_output:
                 continue
             # Interface name
-            md5.update(name.encode("utf8"))
+            bw_hash.update_str(name)
             # Interface value
-            md5.update(serial._input_hash().encode("utf8"))
-        digest = md5.hexdigest()
-        object.__setattr__(self, "_cached_input_hash", digest)
-        return digest
+            bw_hash.update_hash(serial._input_hash())
+        frozen = bw_hash.frozen()
+        object.__setattr__(self, "_cached_input_hash", frozen)
+        return frozen
 
     @staticmethod
-    def deserialize(spec: SerialTransform) -> "Transform":
+    def deserialize(spec: SerialTransform, input_hash: BWFrozenHash | None = None) -> "Transform":
         # Get transform module
         mod = importlib.import_module(spec["mod"])
         # Get class from module (using reduce to navigate module namespacing)
@@ -1268,12 +1322,14 @@ class Transform:
                 )
             ifield = tf_field.default
             tf._serial_interfaces[tf_field.name] = SerialInterface(
-                spec["ifaces"][tf_field.name], direction=ifield.direction
+                spec["ifaces"][tf_field.name],
+                direction=ifield.direction,
+                deterministic=ifield.deterministic,
             )
-
+        object.__setattr__(tf, "_cached_input_hash", input_hash)
         return tf
 
-    def run(self, ctx: "Context") -> Result:
+    def run(self, ctx: "Context") -> TransformResult:
         """Run the transform in a container."""
         tf_start = time.time()
 
@@ -1309,17 +1365,23 @@ class Transform:
         invocation_iter = tf.execute(ctx)
         exit_code = None
         result = None
+        any_interacted = False
         try:
             # Get the first
             invocation = next(invocation_iter)
             while True:
                 # Invoke and create result object
                 ivk_start = time.time()
-                exit_code = container.invoke(ctx, invocation)
+                ivk_result = container.invoke(ctx, invocation)
                 ivk_stop = time.time()
-                result = Result(
-                    exit_code=exit_code, run_time=(ivk_stop - ivk_start), ident=str(invocation)
+                result = TransformResult(
+                    exit_code=ivk_result.exit_code,
+                    run_time=(ivk_stop - ivk_start),
+                    ident=str(invocation),
+                    interacted=ivk_result.interacted,
                 )
+                any_interacted |= result.interacted
+                exit_code = ivk_result.exit_code
                 # Pass the result object back
                 invocation = invocation_iter.send(result)
                 # Resolve the result before handling next invocation
@@ -1330,9 +1392,14 @@ class Transform:
                 result.resolve()
         tf_stop = time.time()
         # Return a result object with the final exit_code and total run_time
-        return Result(exit_code=exit_code, run_time=(tf_stop - tf_start), ident=str(tf))
+        return TransformResult(
+            exit_code=exit_code,
+            run_time=(tf_stop - tf_start),
+            ident=str(tf),
+            interacted=any_interacted,
+        )
 
-    def execute(self, ctx: "Context", /) -> Generator["Invocation", Result, None]:
+    def execute(self, ctx: "Context", /) -> Generator["Invocation", TransformResult, None]:
         """
         Execute method to be implemented in subclasses.
         """
