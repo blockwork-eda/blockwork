@@ -65,7 +65,7 @@ class Version:
         self,
         version: str,
         location: Path,
-        env: dict[str, str] | None = None,
+        env: dict[str, str | Path] | None = None,
         paths: dict[str, list[str | Path]] | None = None,
         requires: list[Require] | None = None,
         default: bool = False,

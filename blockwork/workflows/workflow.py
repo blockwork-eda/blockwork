@@ -199,16 +199,18 @@ class Workflow:
 
                 # Record transform inputs and outputs
                 for serial in transform._serial_interfaces.values():
-                    for medial in serial.medials:
-                        if serial.direction.is_input:
-                            medial_transforms_consumers[medial].add(transform)
-                        else:
-                            medial_transform_producers[medial].add(transform)
-                        # Note this deliberately binds the consumer list by
-                        # reference as it may be added to by later
-                        # transforms
+                    # Note we deliberately bind the consumer and producer lists
+                    # by reference as they may be added to by later transforms
+                    for medial in serial.input_medials:
+                        medial_transforms_consumers[medial].add(transform)
                         medial.bind_consumers(medial_transforms_consumers[medial])
                         medial.bind_producers(medial_transform_producers[medial])
+
+                    for medial in serial.output_medials:
+                        medial_transform_producers[medial].add(transform)
+                        medial.bind_consumers(medial_transforms_consumers[medial])
+                        medial.bind_producers(medial_transform_producers[medial])
+
             targets.update(target_transforms)
 
         # Build up dependencies between transforms
