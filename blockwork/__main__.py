@@ -140,6 +140,9 @@ def blockwork(
     # Set a preferred runtime, if provided
     if runtime:
         Runtime.set_preferred_runtime(runtime)
+    if ctx.invoked_subcommand == "init":
+        # Can't create context object before init
+        return
     # Create the context object and attach to click
     ctx.obj = Context(
         root=Path(cwd).absolute() if cwd else None,

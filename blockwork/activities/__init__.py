@@ -17,12 +17,13 @@ from .bootstrap import bootstrap
 from .cache import cache
 from .exec import exec
 from .info import info
+from .init import init
 from .shell import shell
 from .tools import tool, tools
 from .workflow import wf, wf_step
 
 # List all activities
-activities = (bootstrap, cache, info, exec, shell, tool, tools, wf, wf_step)
+activities = (bootstrap, cache, info, init, exec, shell, tool, tools, wf, wf_step)
 
 # Lint guard
 assert activities
