@@ -106,7 +106,7 @@ jobs:
       shell: bash
       run: |
         poetry init --python=3.11.4
-        poetry add git+ssh://${{ github.repositoryUrl }}#${{ github.sha }}
+        poetry add git+https://${{ github.repositoryUrl }}#${{ github.sha }}
     # Initialise blockwork project
     - name: Initialise blockwork project
       run: |

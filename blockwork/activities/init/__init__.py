@@ -18,7 +18,7 @@ from pathlib import Path
 
 import click
 
-from ..config import Blockwork, BlockworkParser
+from ...config import Blockwork, BlockworkParser
 
 
 @click.command()
@@ -39,7 +39,7 @@ def init() -> None:
     )
 
     if click.confirm("Create an example project (recommended)?", default=True):
-        source_root = Path(__file__).parent.parent.parent / "examples" / "hello"
+        source_root = Path(__file__).parent / "source"
         shutil.copytree(source_root, root, dirs_exist_ok=True)
 
         source_cfg = BlockworkParser.parse(source_root / ".bw.yaml")
