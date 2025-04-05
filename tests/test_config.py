@@ -30,7 +30,7 @@ class TestConfig:
         """Custom project configuration"""
         cfg = BlockworkConfig.parse_str(
             "!Blockwork\n"
-            "project: test_project\n"
+            "site: test_project\n"
             "root: /my_root\n"
             "scratch: /my_scratch\n"
             "host_state: ../my_{site}_state\n"
@@ -53,7 +53,7 @@ class TestConfig:
 
     def test_config_default(self) -> None:
         """Simple project configuration using mostly default values"""
-        cfg = BlockworkConfig.parse_str("!Blockwork\n" "project: test_project\n")
+        cfg = BlockworkConfig.parse_str("!Blockwork\n" "site: test_project\n")
         assert isinstance(cfg, Blockwork)
         assert cfg.site == "test_project"
         assert cfg.root == "/project"
@@ -68,39 +68,39 @@ class TestConfig:
         # Missing project name
         with pytest.raises(YamlMissingFieldsError) as exc:
             BlockworkConfig.parse_str("!Blockwork\n" "tooldefs: [a, b, c]\n")
-        assert "project" in exc.value.fields
+        assert "site" in exc.value.fields
         # Bad root directory (integer)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "root: 123\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "root: 123\n")
         assert exc.value.field == "root"
         assert isinstance(exc.value.orig_ex, TypeError)
         # Bad root directory (relative path)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "root: a/b\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "root: a/b\n")
         assert exc.value.field == "root"
         # Bad scratch directory (integer)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "scratch: 123\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "scratch: 123\n")
         assert exc.value.field == "scratch"
         # Bad scratch directory (relative path)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "scratch: a/b\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "scratch: a/b\n")
         assert exc.value.field == "scratch"
         # Bad scratch directory (integer)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "host_scratch: 123\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "host_scratch: 123\n")
         assert exc.value.field == "host_scratch"
         # Bad state directory (integer)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "host_state: 123\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "host_state: 123\n")
         assert exc.value.field == "host_state"
         # Bootstrap and tool definitions
         for key, _name in (("bootstrap", "Bootstrap"), ("tooldefs", "Tool")):
             # Definitions not a list
             with pytest.raises(YamlFieldError) as exc:
-                BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" f"{key}: abcd\n")
+                BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" f"{key}: abcd\n")
             assert exc.value.field == key
             # Definitions not a list of strings
             with pytest.raises(YamlFieldError) as exc:
-                BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" f"{key}: [1, 2, 3]\n")
+                BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" f"{key}: [1, 2, 3]\n")
             assert exc.value.field == key
