@@ -34,7 +34,7 @@ from ordered_set import OrderedSet as OSet
 from ..activities.workflow import wf
 from ..build.caching import Cache
 from ..config.api import ConfigApi
-from ..config.base import Config, Project, Site
+from ..config.base import Config, Project
 from ..config.scheduler import Scheduler
 from ..context import Context, DebugScope
 from ..transforms.transform import Medial, Transform
@@ -59,9 +59,6 @@ class Workflow:
             return Build(match=match)
 
     """
-
-    # Type for Site object
-    SITE_TYPE = Site
 
     def __init__(self, name: str):
         self.name = name
@@ -110,9 +107,16 @@ class Workflow:
         )
         @click.pass_obj
         def command(
-            ctx, project=None, target=None, parallel=False, concurrency=1, hub=None, *args, **kwargs
+            ctx,
+            project=None,
+            target=None,
+            parallel=False,
+            concurrency=1,
+            hub=None,
+            *args,
+            **kwargs,
         ):
-            site_api = ConfigApi(ctx).with_site(ctx.site, self.SITE_TYPE)
+            site_api = ConfigApi(ctx)
 
             if project:
                 project_api = site_api.with_project(project, self.project_type)
@@ -553,7 +557,12 @@ class Workflow:
         try:
             if parallel:
                 self._run_parallel(
-                    ctx, run_scheduler, targets, status, concurrency=concurrency, hub=hub
+                    ctx,
+                    run_scheduler,
+                    targets,
+                    status,
+                    concurrency=concurrency,
+                    hub=hub,
                 )
             else:
                 self._run_serial(ctx, run_scheduler, targets, status)

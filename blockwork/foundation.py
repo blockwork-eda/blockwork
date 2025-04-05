@@ -50,7 +50,7 @@ class Foundation(Container):
         self.set_env("BW_ROOT", context.container_root.as_posix())
         self.set_env("BW_SCRATCH", context.container_scratch.as_posix())
         self.set_env("BW_TOOLS", context.container_tools.as_posix())
-        self.set_env("BW_PROJECT", context.config.project)
+        self.set_env("BW_PROJECT", context.config.site)
 
     def add_input(self, path: Path, name: str | None = None) -> None:
         self.bind_readonly(path, Path("/input") / (name or path.name))

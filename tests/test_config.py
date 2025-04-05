@@ -33,8 +33,8 @@ class TestConfig:
             "project: test_project\n"
             "root: /my_root\n"
             "scratch: /my_scratch\n"
-            "host_state: ../my_{project}_state\n"
-            "host_scratch: ../my_{project}_scratch\n"
+            "host_state: ../my_{site}_state\n"
+            "host_scratch: ../my_{site}_scratch\n"
             "bootstrap:\n"
             "  - infra.bootstrap.step_a\n"
             "  - infra.bootstrap.step_b\n"
@@ -43,11 +43,11 @@ class TestConfig:
             "  - infra.tools.set_b\n"
         )
         assert isinstance(cfg, Blockwork)
-        assert cfg.project == "test_project"
+        assert cfg.site == "test_project"
         assert cfg.root == "/my_root"
         assert cfg.scratch == "/my_scratch"
-        assert cfg.host_state == "../my_{project}_state"
-        assert cfg.host_scratch == "../my_{project}_scratch"
+        assert cfg.host_state == "../my_{site}_state"
+        assert cfg.host_scratch == "../my_{site}_scratch"
         assert cfg.bootstrap == ["infra.bootstrap.step_a", "infra.bootstrap.step_b"]
         assert cfg.tooldefs == ["infra.tools.set_a", "infra.tools.set_b"]
 
@@ -55,11 +55,11 @@ class TestConfig:
         """Simple project configuration using mostly default values"""
         cfg = BlockworkConfig.parse_str("!Blockwork\n" "project: test_project\n")
         assert isinstance(cfg, Blockwork)
-        assert cfg.project == "test_project"
+        assert cfg.site == "test_project"
         assert cfg.root == "/project"
         assert cfg.scratch == "/scratch"
-        assert cfg.host_state == "../{project}.state"
-        assert cfg.host_scratch == "../{project}.scratch"
+        assert cfg.host_state == "../{site}.state"
+        assert cfg.host_scratch == "../{site}.scratch"
         assert cfg.bootstrap == []
         assert cfg.tooldefs == []
 

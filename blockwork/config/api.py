@@ -10,7 +10,7 @@ from ..common.scopes import Scope
 if TYPE_CHECKING:
     from ..context import Context
     from ..transforms import Transform
-    from .base import Config, Project, Site
+    from .base import Config, Project
 
 
 class ApiAccessError(Exception):
@@ -30,14 +30,12 @@ class ConfigApi(Scope):
     def __init__(
         self,
         ctx: "Context",
-        site: Optional["SiteApi"] = None,
         project: Optional["ProjectApi"] = None,
         target: Optional["TargetApi"] = None,
         node: Optional["NodeApi"] = None,
         transform: Optional["TransformApi"] = None,
     ) -> None:
         self.ctx = ctx
-        self._site = site
         self._project = project
         self._target = target
         self._node = node
@@ -63,30 +61,23 @@ class ConfigApi(Scope):
 
     def fork(
         self,
-        site: "type[FORK_UNSET] | SiteApi | None" = FORK_UNSET,
         project: "type[FORK_UNSET] | ProjectApi | None" = FORK_UNSET,
         target: "type[FORK_UNSET] | TargetApi | None" = FORK_UNSET,
         node: "type[FORK_UNSET] | NodeApi | None" = FORK_UNSET,
         transform: "type[FORK_UNSET] | TransformApi | None" = FORK_UNSET,
     ):
         "Create a new api object from this one"
-        forked_site = self._site if site is self.FORK_UNSET else site
         forked_project = self._project if project is self.FORK_UNSET else project
         forked_target = self._target if target is self.FORK_UNSET else target
         forked_node = self._node if node is self.FORK_UNSET else node
         forked_transform = self._transform if transform is self.FORK_UNSET else transform
         return ConfigApi(
             ctx=self.ctx,
-            site=cast(SiteApi, forked_site),
             project=cast(ProjectApi, forked_project),
             target=cast(TargetApi, forked_target),
             node=cast(NodeApi, forked_node),
             transform=cast(TransformApi, forked_transform),
         )
-
-    def with_site(self, path, typ):
-        "Extend with a site api"
-        return SiteApi(self, path, typ).api
 
     def with_project(self, spec, typ):
         "Extend with a project api"
@@ -103,12 +94,6 @@ class ConfigApi(Scope):
     def with_transform(self, transform: "Transform"):
         "Extend with a transform api"
         return TransformApi(self, transform).api
-
-    @property
-    def site(self):
-        if self._site is None:
-            raise ApiAccessError("site")
-        return self._site
 
     @property
     def project(self):
@@ -141,6 +126,11 @@ class ConfigApi(Scope):
             return self._target.path(path)
         return Path(path).absolute()
 
+    def static_path(self, path: str | Path):
+        if self._target:
+            return self._target.static_path(path)
+        return Path(path).absolute()
+
     @property
     def pathname(self):
         if self._transform:
@@ -158,17 +148,9 @@ class ConfigApiBase(Generic[ConfigType], ABC):
 
     @property
     def config(self) -> ConfigType:
-        if self._config is None:
+        if not hasattr(self, "_config"):
             raise RuntimeError("Tried to access config before it is initialised!")
         return self._config
-
-
-class SiteApi(ConfigApiBase["Site"]):
-    def __init__(self, api: ConfigApi, path: Path, typ: "type[Site]") -> None:
-        self.api = api.fork(site=self, project=None, target=None)
-        self.config_path = path
-        with self.api:
-            self._config = typ.parser.parse(self.config_path)
 
 
 class ProjectApi(ConfigApiBase["Project"]):
@@ -180,7 +162,7 @@ class ProjectApi(ConfigApiBase["Project"]):
             self._config = typ.parser.parse(self.config_path)
 
     def find_config(self, name):
-        return self.api.ctx.host_root / self.api.site.config.projects[name]
+        return self.api.ctx.host_root / self.api.ctx.config.projects[name]
 
 
 class TargetApi(ConfigApiBase["Config"]):
@@ -193,11 +175,10 @@ class TargetApi(ConfigApiBase["Config"]):
             self._config = typ.parser.parse(self.config_path)
 
         self.project_path = self.api.ctx.host_root / self.api.project.config.units[self.unit]
-        self.scratch_path = (
-            self.api.ctx.host_scratch
-            / self.api.project.config.units[self.unit]
-            / self.api.ctx.timestamp
+        self.static_scratch_path = (
+            self.api.ctx.host_scratch / self.api.project.config.units[self.unit]
         )
+        self.scratch_path = self.static_scratch_path / self.api.ctx.timestamp
 
     def split_spec(self, spec: str):
         """
@@ -261,6 +242,11 @@ class TargetApi(ConfigApiBase["Config"]):
     def path(self, path: str | Path):
         project_path = self.project_path / path
         scratch_path = self.scratch_path / path
+        return project_path if project_path.exists() else scratch_path
+
+    def static_path(self, path: str | Path):
+        project_path = self.project_path / path
+        scratch_path = self.static_scratch_path / path
         return project_path if project_path.exists() else scratch_path
 
     @property

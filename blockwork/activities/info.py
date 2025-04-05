@@ -33,10 +33,9 @@ def info(ctx: Context, query: list[str]):
     show the host tools' root directory path and nothing else.
     """
     info = {
-        "Project": ctx.config.project,
+        "Site": ctx.config.site,
         "Configuration File": ctx.config_path.as_posix(),
         "Blockwork Install": Path(blockwork.__file__).parent.as_posix(),
-        "Site": ctx.site.as_posix(),
         "Host Root": ctx.host_root.as_posix(),
         "Host Tools": ctx.host_tools.as_posix(),
         "Host Scratch": ctx.host_scratch.as_posix(),
