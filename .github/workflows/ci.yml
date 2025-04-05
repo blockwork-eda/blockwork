@@ -22,8 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/composites/setup
+    - uses: ./.github/composites/setup_blockwork
       with:
         python-version: 3.11
     - name: Run Ruff formatting check
@@ -39,8 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+    - uses: ./.github/composites/setup_blockwork
+      with:
+        python-version: ${{ matrix.python-version }}
     - uses: actions/checkout@v4
-    - uses: ./.github/composites/setup
       with:
         python-version: 3.11
     - name: Build documentation
@@ -71,8 +72,7 @@ jobs:
         python-version: ["3.11"]
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/composites/setup
+    - uses: ./.github/composites/setup_blockwork
       with:
         python-version: ${{ matrix.python-version }}
     - name: Run tests
@@ -85,3 +85,17 @@ jobs:
       with:
         name: pytest-cov
         path: htmlcov
+
+  test_init:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: ./.github/composites/setup_project
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Initialise blockwork project
+      run: |
+        poetry run bw init
+    - name: Run command
+      run: |
+        poetry run bw wf run -t hello -p v0

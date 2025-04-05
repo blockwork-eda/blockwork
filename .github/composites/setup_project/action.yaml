@@ -20,8 +20,9 @@ runs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install poetry poethepoet
-    # 3. Install development dependencies
-    - name: Setup environment
+    # 3. Initialise poetry project
+    - name: Initialise poetry project
       shell: bash
       run: |
-        poetry install --with dev
+        poetry init --python=${{ inputs.python-version }}
+        poetry add git+ssh://${{ github.repositoryUrl }}#${{ github.sha }}
