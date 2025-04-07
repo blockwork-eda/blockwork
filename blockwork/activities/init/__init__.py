@@ -22,14 +22,22 @@ from ...config import Blockwork, BlockworkParser
 
 
 @click.command()
-def init() -> None:
-    root: Path = click.prompt("Root directory", default=Path.cwd(), type=Path)
-    site: str = click.prompt(
-        "Site name (typically same as repository name)", default=root.name or "site"
-    )
-    host_tools: str = click.prompt("Tool install path", default="../{site}.tools")
-    host_state: str = click.prompt("State tracking path", default="../{site}.state")
-    host_scratch: str = click.prompt("Scratch path", default="../{site}.scratch")
+@click.option("--interaction/--no-interaction", default=True)
+def init(interaction: bool) -> None:
+    # Setup defaults
+    root = Path.cwd()
+    site = root.name or "site"
+    host_tools = "../{site}.tools"
+    host_state = "../{site}.state"
+    host_scratch = "../{site}.scratch"
+    if interaction:
+        root: Path = click.prompt("Root directory", default=root, type=Path)
+        site: str = click.prompt(
+            "Site name (typically same as repository name)", default=root.name or "site"
+        )
+        host_tools: str = click.prompt("Tool install path", default=host_tools)
+        host_state: str = click.prompt("State tracking path", default=host_state)
+        host_scratch: str = click.prompt("Scratch path", default=host_scratch)
 
     cfg = Blockwork(
         site=site,
@@ -38,7 +46,7 @@ def init() -> None:
         host_scratch=host_scratch,
     )
 
-    if click.confirm("Create an example project (recommended)?", default=True):
+    if (not interaction) or click.confirm("Create an example project (recommended)?", default=True):
         source_root = Path(__file__).parent / "source"
         shutil.copytree(source_root, root, dirs_exist_ok=True)
 
@@ -48,7 +56,9 @@ def init() -> None:
         cfg.workflows = source_cfg.workflows
         cfg.config = source_cfg.config
 
-        if click.confirm("Install tools with '$ bw bootstrap' now?", default=True):
+        if (not interaction) or click.confirm(
+            "Install tools with '$ bw bootstrap' now?", default=True
+        ):
             subprocess.run(["bw", "bootstrap"], cwd=root)
             click.echo("Next...")
             click.echo("2) Run '$ bw wf run -t hello -p v0' to run the example")
