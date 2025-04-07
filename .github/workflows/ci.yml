@@ -89,15 +89,12 @@ jobs:
   test_init:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: ./init_project
     steps:
     # Setup Directory
     - name: Setup directory
       shell: bash
-      working-directory: ./
       run: |
+        cd ${{ runner.temp }}
         mkdir init_project
     # Setup Python
     - name: Set up Python
@@ -108,12 +105,14 @@ jobs:
     - name: Install Poetry
       shell: bash
       run: |
+        cd ${{ runner.temp }}/init_project
         python -m pip install --upgrade pip
         python -m pip install poetry poethepoet
     # Initialise poetry project
     - name: Initialise poetry project
       shell: bash
       run: |
+        cd ${{ runner.temp }}/init_project
         touch README.md
         poetry init --name=init --python=3.11.4 --no-interaction
         echo git+https://${{ github.repositoryUrl }}#${{ github.sha }}
@@ -121,7 +120,9 @@ jobs:
     # Initialise blockwork project
     - name: Initialise blockwork project
       run: |
+        cd ${{ runner.temp }}/init_project
         poetry run bw init --no-interaction
     - name: Run command
       run: |
+        cd ${{ runner.temp }}/init_project
         poetry run bw wf run -t hello -p v0

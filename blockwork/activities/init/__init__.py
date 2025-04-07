@@ -51,20 +51,22 @@ def init(interaction: bool) -> None:
         shutil.copytree(source_root, root, dirs_exist_ok=True)
 
         source_cfg = BlockworkParser.parse(source_root / ".bw.yaml")
+        cfg.site = source_cfg.site
         cfg.projects = source_cfg.projects
         cfg.tooldefs = source_cfg.tooldefs
         cfg.workflows = source_cfg.workflows
         cfg.config = source_cfg.config
 
-        if (not interaction) or click.confirm(
-            "Install tools with '$ bw bootstrap' now?", default=True
-        ):
-            subprocess.run(["bw", "bootstrap"], cwd=root)
-            click.echo("Next...")
-            click.echo("2) Run '$ bw wf run -t hello -p v0' to run the example")
-        else:
-            click.echo("Next steps...")
-            click.echo("1) Run '$ bw bootstrap' to install the project tools")
-            click.echo("2) Run '$ bw wf run -t hello -p v0' to run the example")
-
+    # Create config
     BlockworkParser.dump(cfg, root / ".bw.yaml")
+
+    if (not interaction) or click.confirm(
+        "Create base container and install tools with '$ bw bootstrap' now?", default=True
+    ):
+        subprocess.run(["bw", "bootstrap"], cwd=root)
+        click.echo("Next...")
+        click.echo("1) Run '$ bw wf run -t hello -p v0' to run the example")
+    else:
+        click.echo("Next steps...")
+        click.echo("1) Run '$ bw bootstrap' to install the project tools")
+        click.echo("2) Run '$ bw wf run -t hello -p v0' to run the example")
