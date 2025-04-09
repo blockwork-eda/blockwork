@@ -115,7 +115,6 @@ jobs:
         cd ${{ runner.temp }}/init_project
         touch README.md
         poetry init --name=init --python=3.11.4 --no-interaction
-        echo git+https://${{ github.repositoryUrl }}#${{ github.sha }}
         poetry add git+${{ github.server_url }}/${{ github.repository }}.git#${{ github.sha }}
     # Initialise blockwork project
     - name: Initialise blockwork project
