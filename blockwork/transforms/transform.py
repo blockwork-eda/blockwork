@@ -20,6 +20,7 @@ from collections.abc import Callable, Generator, Sequence
 from dataclasses import Field, dataclass, field, fields
 from enum import Enum, auto
 from functools import cached_property, reduce
+from itertools import chain
 from pathlib import Path
 from types import EllipsisType, GenericAlias, NoneType
 from typing import (
@@ -158,6 +159,7 @@ class Direction(Enum):
 
     INPUT = auto()
     OUTPUT = auto()
+    INHERITED = auto()
 
     # Note these is_* methods may seem pointless but it
     # prevents the need to import round
@@ -168,6 +170,10 @@ class Direction(Enum):
     @property
     def is_output(self):
         return self is Direction.OUTPUT
+
+    @property
+    def is_inherited(self):
+        return self is Direction.INHERITED
 
 
 class EnvPolicy(Enum):
@@ -231,7 +237,7 @@ class PrimitiveSerializer(Generic[TIPrimitive, TIType]):
     def default_error(
         cls, token: type[TIType] | str, name: str, api: ConfigApi, field: "IField"
     ) -> NoReturn:
-        field_str = "IN(...)" if field.direction.is_input else "OUT(...)"
+        field_str = f"{field.marker.__name__}(...)"
         if api._transform:
             transform_str = type(api._transform).__name__
         else:
@@ -428,7 +434,7 @@ class PathSerializer(PrimitiveSerializer["TIPathSerial", "Path | IPath"]):
         api: ConfigApi,
         field: "IField",
     ) -> Path | IPath:
-        if field.direction.is_input:
+        if not field.direction.is_output:
             super().default_factory(token, name, api, field)
         return api.path(name)
 
@@ -724,13 +730,13 @@ class SerialInterface:
     def __init__(
         self,
         value: "TISerialAny",
-        direction: Direction = Direction.INPUT,
+        direction: Direction,
         deterministic: bool = True,
     ):
         "The interface in interface specification format"
         self.direction = direction
         self.deterministic = deterministic
-        self.medials = list[Medial]()
+        self._medials = list[tuple[Direction, Medial]]()
         self.tokens = list[Any]()
         self.value = value
         self._cached_input_hash = None
@@ -740,7 +746,7 @@ class SerialInterface:
     def from_interface(
         cls,
         token: "TIAny",
-        direction: Direction = Direction.INPUT,
+        direction: Direction,
         deterministic: bool = True,
     ) -> "SerialInterface":
         "Factory to create from an interface"
@@ -752,7 +758,33 @@ class SerialInterface:
         self.tokens += tokens
 
     def update_medials(self, *medials: Medial):
-        self.medials += medials
+        for medial in medials:
+            self._medials.append((self.direction, medial))
+
+    def update_serial_interfaces(self, *serial_interfaces: "SerialInterface"):
+        for serial_interface in serial_interfaces:
+            self.update_hash(*serial_interface.tokens)
+
+            # Update medials with inherited direction
+            for direction, medial in serial_interface._medials:
+                direction = self.direction if direction.is_inherited else direction
+                self._medials.append((direction, medial))
+
+    @property
+    def input_medials(self):
+        if self.direction.is_inherited:
+            raise RuntimeError("Tried to get medials with inherited direction")
+        for medial in self._medials:
+            if medial[0].is_input:
+                yield medial[1]
+
+    @property
+    def output_medials(self):
+        if self.direction.is_inherited:
+            raise RuntimeError("Tried to get medials with inherited direction")
+        for medial in self._medials:
+            if medial[0].is_output:
+                yield medial[1]
 
     def resolve(self, ctx: Context, container: Foundation, direction: Direction):
         "Resolve against a container, binding values in as required"
@@ -773,7 +805,7 @@ class SerialInterface:
             bw_hash.update_str(json.dumps(token))
 
         # Interface values from other transforms
-        for medial in self.medials:
+        for medial in chain(self.input_medials, self.output_medials):
             bw_hash.update_hash(medial._input_hash())
 
         self._cached_input_hash = bw_hash.frozen()
@@ -828,6 +860,7 @@ class IField(FieldProtocol[TIField]):
         env: str | EllipsisType = ...,
         env_policy: EnvPolicy = EnvPolicy.CONFLICT,
         deterministic: bool = False,
+        marker: Callable,
     ):
         self.init = init
         self.default = default
@@ -840,6 +873,7 @@ class IField(FieldProtocol[TIField]):
         self.env_policy = env_policy
         self.value: Any = None
         self.deterministic = deterministic
+        self.marker = marker
 
     def resolve(
         self, target: "Transform | IFace", api: ConfigApi, field: Field[TIField]
@@ -899,16 +933,12 @@ class IField(FieldProtocol[TIField]):
 class ITool(FieldProtocol[Tool]):
     "The dataclass-like field type for tools"
 
-    def __init__(
-        self,
-        *,
-        init: bool = False,
-        version: str | None = None,
-    ):
+    def __init__(self, *, init: bool = False, version: str | None = None, marker: Callable):
         self.init = init
         self.version = version
         self.direction = Direction.INPUT
         self.deterministic = True
+        self.marker = marker
 
     def resolve(
         self, target: "Transform | IFace", api: ConfigApi, field: Field[Tool]
@@ -974,6 +1004,7 @@ def IN(  # noqa: N802
             direction=Direction.INPUT,
             env=env,
             env_policy=env_policy,
+            marker=IN,
         ),
     )
 
@@ -1017,6 +1048,86 @@ def OUT(  # noqa: N802
             env=env,
             env_policy=env_policy,
             deterministic=deterministic,
+            marker=OUT,
+        ),
+    )
+
+
+def FWD(  # noqa: N802
+    *,
+    default: "TIField | EllipsisType" = ...,
+    default_factory: Callable[[], "TIField"] | None = None,
+    derive: tuple[tuple[Unpack[TDeriveTuple]], Callable[[Unpack[TDeriveTuple]], "TIField"]]
+    | tuple[TDeriveSingle, Callable[[TDeriveSingle], "TIField"]]
+    | None = None,
+    init: bool = True,
+    env: str | EllipsisType = ...,
+    env_policy: EnvPolicy = EnvPolicy.CONFLICT,
+) -> "TIField":
+    """
+    Marks an interface 'forward' which are always bound as interface
+    inputs.
+
+    :param init: Whether this field should be set in the constructor. \
+                 If false, default or default_factory is required.
+    :param default: The default value - don't use for mutable types.
+    :param default_factory: A factory for default values - use for mutable types.
+    :param derive: A tuple containing the derive dependencies (other fields),
+                   and a factory which takes those fields as arguments.
+    :param env: Additionally expose the interface in the specified environment variable
+    :param env_policy: The replacement policy for env if the variable is already defined
+
+    """
+    return cast(
+        TIField,
+        IField(
+            init=init,
+            default=default,
+            default_factory=default_factory,
+            derive=derive,
+            direction=Direction.INPUT,
+            env=env,
+            env_policy=env_policy,
+            marker=FWD,
+        ),
+    )
+
+
+def FIELD(  # noqa: N802
+    *,
+    default: "TIField | EllipsisType" = ...,
+    default_factory: Callable[[], "TIField"] | None = None,
+    derive: tuple[tuple[Unpack[TDeriveTuple]], Callable[[Unpack[TDeriveTuple]], "TIField"]]
+    | tuple[TDeriveSingle, Callable[[TDeriveSingle], "TIField"]]
+    | None = None,
+    init: bool = True,
+    env: str | EllipsisType = ...,
+    env_policy: EnvPolicy = EnvPolicy.CONFLICT,
+) -> "TIField":
+    """
+    Marks an interface field. Fields are bound according to the direction
+    of the interface.
+
+    :param init: Whether this field should be set in the constructor. \
+                 If false, default or default_factory is required.
+    :param default: The default value - don't use for mutable types.
+    :param default_factory: A factory for default values - use for mutable types.
+    :param derive: A tuple containing the derive dependencies (other fields),
+                   and a factory which takes those fields as arguments.
+    :param env: Additionally expose the interface in the specified environment variable
+    :param env_policy: The replacement policy for env if the variable is already defined
+    """
+    return cast(
+        TIField,
+        IField(
+            init=init,
+            default=default,
+            default_factory=default_factory,
+            derive=derive,
+            direction=Direction.INHERITED,
+            env=env,
+            env_policy=env_policy,
+            marker=FIELD,
         ),
     )
 
@@ -1035,16 +1146,14 @@ def TOOL(  # noqa: N802
     """
     return cast(
         TIField,
-        ITool(
-            init=init,
-            version=version,
-        ),
+        ITool(init=init, version=version, marker=TOOL),
     )
 
 
 @dataclass_transform(kw_only_default=True, frozen_default=True)
 class IFace:
-    FIELD = IN
+    FWD = FWD
+    FIELD = FIELD
     TOOL = TOOL
 
     _serial_interfaces: dict[str, SerialInterface]
@@ -1058,7 +1167,7 @@ class IFace:
     def __init_subclass__(cls, *args, **kwargs):
         super().__init_subclass__(*args, **kwargs)
         # Make subclasses a dataclass
-        cls._direction = Direction.INPUT
+        cls._direction = Direction.INHERITED
         dataclass(kw_only=True, frozen=True, eq=False, repr=False)(cls)
         # Ensure not defined inline as we rely on transforms being locatable
         if "<locals>" in cls.__qualname__:
@@ -1077,7 +1186,9 @@ class IFace:
                         ", e.g. `myinput: Path = Transform.IN()`"
                     )
                 ifield = iface_field.default
-                ifield.direction = self._direction
+                ifield.direction = (
+                    self._direction if ifield.direction.is_inherited else ifield.direction
+                )
                 self._serial_interfaces[iface_field.name] = ifield.resolve(self, api, iface_field)
 
     def __init__(self):
@@ -1125,8 +1236,9 @@ class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
                 )
             value = token["ifields"][iface_field.name]
             ifield = iface_field.default
+            iface_direction = direction if ifield.direction.is_inherited else ifield.direction
             ifield_values[iface_field.name] = ifield.bind(
-                ctx, container, iface_field, value, direction
+                ctx, container, iface_field, value, iface_direction
             )
 
         # Construct iface instance
@@ -1144,13 +1256,26 @@ class IFaceSerializer(PrimitiveSerializer["TIFaceSerial", "IFace"]):
             cls.default_error(token, name, api, field)
         token._direction = field.direction
         result = token()
-        token._direction = Direction.INPUT
+        token._direction = Direction.INHERITED
         return result
 
     @classmethod
     def walk(cls, token: "TIFaceSerial", meta: "SerialInterface"):
-        for value in token["ifields"].values():
-            InterfaceSerializer.walk(value, meta)
+        # Get IFace module
+        mod = importlib.import_module(token["mod"])
+        # Get class from module (using reduce to navigate module namespacing)
+        iface_cls: type[IFace] = reduce(getattr, token["name"].split("."), mod)
+
+        for iface_field in fields(cast(Any, iface_cls)):
+            if not isinstance(iface_field.default, IField | ITool):
+                raise ValueError(
+                    "All IFace interfaces must be specified with a field marker"
+                    ", e.g. `myinput: Path = IFace.FIELD()`"
+                )
+            value = token["ifields"][iface_field.name]
+            ifield = iface_field.default
+            direction = meta.direction if ifield.direction is None else ifield.direction
+            meta.update_serial_interfaces(SerialInterface(value=value, direction=direction))
         meta.update_hash({**token, "ifields": sorted(token["ifields"].keys())})
 
 
@@ -1178,6 +1303,7 @@ TIAny = TIConstLeaf | TIPrimitives | IFace | Sequence["TIAny"] | dict[str, "TIAn
 
 @dataclass(frozen=True, kw_only=True)
 class TransformResult:
+    transform: "Transform"
     exit_code: int | None
     run_time: float
     ident: str
@@ -1192,7 +1318,7 @@ class TransformResult:
 
     def reject(self, details: str = "result was rejected"):
         "Reject this result, raising an error"
-        raise RuntimeError(f"{self.ident} failed: {details}")
+        raise RuntimeError(f"{self.transform}/{self.ident} failed: {details}")
 
     def accept(self):
         "Mark this result as accepted"
@@ -1375,6 +1501,7 @@ class Transform:
                 ivk_result = container.invoke(ctx, invocation)
                 ivk_stop = time.time()
                 result = TransformResult(
+                    transform=self,
                     exit_code=ivk_result.exit_code,
                     run_time=(ivk_stop - ivk_start),
                     ident=str(invocation),
@@ -1393,6 +1520,7 @@ class Transform:
         tf_stop = time.time()
         # Return a result object with the final exit_code and total run_time
         return TransformResult(
+            transform=self,
             exit_code=exit_code,
             run_time=(tf_stop - tf_start),
             ident=str(tf),

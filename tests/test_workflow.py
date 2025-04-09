@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from itertools import count
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,8 +10,9 @@ from blockwork.build.caching import Cache, CacheDeterminismError
 from blockwork.config import CacheConfig
 from blockwork.config.api import ConfigApi
 from blockwork.config.base import Config, ConfigProtocol
+from blockwork.context import Context
 from blockwork.tools import Invocation, tools
-from blockwork.transforms import Transform, transforms
+from blockwork.transforms import IFace, Transform, TransformResult, transforms
 from blockwork.workflows.workflow import Workflow
 
 
@@ -113,6 +114,11 @@ def match_results(results, run, stored, fetched, skipped):
     assert {type(i) for i in results.stored} == set(stored)
     assert {type(i) for i in results.fetched} == set(fetched)
     assert {type(i) for i in results.skipped} == set(skipped)
+
+
+class IfaceFwd(IFace):
+    base: Path = IFace.FWD()
+    target: Path = IFace.FIELD()
 
 
 @pytest.mark.usefixtures("api")
@@ -595,3 +601,60 @@ class TestWorkFlowDeps:
         workflow._run(api.ctx, *workflow.get_transform_tree(cfg), parallel=False, concurrency=1)
 
         assert o.read_text() == text
+
+    class TFComplexOutFwdIn(Transform):
+        bash: tools.Bash = Transform.TOOL()
+        iface: IfaceFwd = Transform.IN()
+
+        def execute(self, ctx: Context) -> Generator[Invocation, TransformResult, None]:
+            r0 = yield self.bash.script(ctx, f"touch {self.iface.base}")
+            # We expect this to fail as iface field is FWD (bound in as IN)
+            if r0.exit_code != 0:
+                r0.accept()
+
+            r1 = yield self.bash.script(ctx, f"touch {self.iface.target}")
+            # We expect this to fail as interface field is FIELD (bound in
+            # according to IN binding of interface)
+            if r1.exit_code != 0:
+                r1.accept()
+
+    class TFComplexOutFwdOut(Transform):
+        bash: tools.Bash = Transform.TOOL()
+        iface: IfaceFwd = Transform.OUT(init=True)
+
+        def execute(self, ctx: Context) -> Generator[Invocation, TransformResult, None]:
+            r0 = yield self.bash.script(ctx, f"touch {self.iface.base}")
+            # We expect this to fail as iface field is FWD (bound in as IN)
+            if r0.exit_code != 0:
+                r0.accept()
+
+            # We expect this to pass as interface field is FIELD (bound in
+            # according to OUT binding of interface)
+            yield self.bash.script(ctx, f"touch {self.iface.target}")
+
+    def test_iface_forward(self, api: ConfigApi):
+        class MyConfig(Config):
+            base_path: str
+            target_path: str
+
+            def iter_transforms(self):
+                # Run step1 with an interface
+                yield (
+                    step1 := TestWorkFlowDeps.TFComplexOutFwdOut(
+                        iface=IfaceFwd(
+                            base=self.api.path(self.base_path),
+                            target=self.api.path(self.target_path),
+                        )
+                    )
+                )
+                # Run step2 with the output from step1
+                yield TestWorkFlowDeps.TFComplexOutFwdIn(iface=step1.iface)
+
+        workflow = Workflow("test")
+        with ConfigApi(api.ctx):
+            base = api.ctx.host_root / "i" / "base"
+            target = api.ctx.host_root / "o" / "target"
+            base.parent.mkdir()
+            base.touch()
+            cfg = MyConfig(base_path=base.as_posix(), target_path=target.as_posix())
+        workflow._run(api.ctx, *workflow.get_transform_tree(cfg), parallel=False, concurrency=1)

@@ -305,7 +305,7 @@ class Cache(ABC):
         if condition is True:
             return math.inf
         if condition is False:
-            return 0
+            return -1
 
         parts = condition.split("/")
         if len(parts) != 2:
@@ -404,10 +404,8 @@ class Cache(ABC):
         mname_to_paths: dict[str, list[Path]] = {}
 
         for name, serial in transform._serial_interfaces.items():
-            if serial.direction.is_input:
-                continue
             mname_to_paths[name] = []
-            for medial in serial.medials:
+            for medial in serial.output_medials:
                 mname_to_paths[name].append(Path(medial.val))
         return TransformFetchData(mname_to_paths=mname_to_paths)
 
@@ -421,11 +419,8 @@ class Cache(ABC):
 
         byte_size = 0
         for name, serial in transform._serial_interfaces.items():
-            if serial.direction.is_input:
-                continue
-
             mname_to_okeys[name] = []
-            for midx, medial in enumerate(serial.medials):
+            for midx, medial in enumerate(serial.output_medials):
                 if serial.deterministic:
                     # Compute hash based on file content
                     mhash = medial._content_hash()
