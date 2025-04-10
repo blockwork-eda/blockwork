@@ -64,9 +64,9 @@ $> poetry shell
 # Install all dependencies (including those just for development)
 $> poetry install --with=dev
 # Bootstrap the example project
-$> bw -C example bootstrap
+$> bw -C examples/eda bootstrap
 # Run a test command
-$> bw -C example exec -- echo "hi"
+$> bw -C examples/eda exec -- echo "hi"
 ```
 
 ## Troubleshooting
