@@ -96,30 +96,38 @@ class ConfigApi(Scope):
         return TransformApi(self, transform).api
 
     @property
-    def project(self):
+    def project(self) -> "ProjectApi":
+        "The project API, if available"
         if self._project is None:
             raise ApiAccessError("project")
         return self._project
 
     @property
-    def target(self):
+    def target(self) -> "TargetApi":
+        "The target API, if available"
         if self._target is None:
             raise ApiAccessError("target")
         return self._target
 
     @property
-    def node(self):
+    def node(self) -> "NodeApi":
+        "The YAML node API, if available"
         if self._node is None:
             raise ApiAccessError("node")
         return self._node
 
     @property
-    def transform(self):
+    def transform(self) -> "TransformApi":
+        "The transform API, if available"
         if self._transform is None:
             raise ApiAccessError("transform")
         return self._transform
 
     def path(self, path: str | Path) -> Path:
+        """
+        Resolves a path in the most specific available context, unique to the
+        running workflow for non-repo paths.
+        """
         if self._transform:
             return self._transform.path(path)
         if self._target:
@@ -127,12 +135,17 @@ class ConfigApi(Scope):
         return Path(path).absolute()
 
     def static_path(self, path: str | Path):
+        """
+        Resolves a path in the most specific available context, shared across
+        workflow runs.
+        """
         if self._target:
             return self._target.static_path(path)
         return Path(path).absolute()
 
     @property
     def pathname(self):
+        "A path-appropriate name for the current context"
         if self._transform:
             return self._transform.pathname
         if self._target:
@@ -161,7 +174,8 @@ class ProjectApi(ConfigApiBase["Project"]):
         with self.api:
             self._config = typ.parser.parse(self.config_path)
 
-    def find_config(self, name):
+    def find_config(self, name: str) -> Path:
+        "Find the config root for a unit used in this project"
         return self.api.ctx.host_root / self.api.ctx.config.projects[name]
 
 
@@ -180,7 +194,7 @@ class TargetApi(ConfigApiBase["Config"]):
         )
         self.scratch_path = self.static_scratch_path / self.api.ctx.timestamp
 
-    def split_spec(self, spec: str):
+    def split_spec(self, spec: str) -> tuple[str, str]:
         """
         Parse a target config file based on the target unit, path within that
         unit and expected type
@@ -239,18 +253,29 @@ class TargetApi(ConfigApiBase["Config"]):
             )
         return config_path
 
-    def path(self, path: str | Path):
+    def path(self, path: str | Path) -> Path:
+        """
+        Resolve a path against this target, either within the repository
+        if the file exists, or to a unique path in the scratch directory
+        if it does not.
+        """
         project_path = self.project_path / path
         scratch_path = self.scratch_path / path
         return project_path if project_path.exists() else scratch_path
 
-    def static_path(self, path: str | Path):
+    def static_path(self, path: str | Path) -> Path:
+        """
+        Resolve a path against this target, either within the repository
+        if the file exists, or to a static path in the scratch directory
+        if it does not.
+        """
         project_path = self.project_path / path
         scratch_path = self.static_scratch_path / path
         return project_path if project_path.exists() else scratch_path
 
     @property
     def pathname(self):
+        "A path-appropriate name for the target"
         if self.target:
             name = f"{self.unit}_{self.target}"
         else:
@@ -282,6 +307,9 @@ class TransformApi:
         self.id = f"{type(transform).__name__}-{now}-{id(transform)}"
 
     def path(self, path: str | Path) -> Path:
+        """
+        Resolve a path against this transform.
+        """
         if target := self.api._target:
             return target.scratch_path / self.id / path
         # Attempt to include the project and target in the path
@@ -298,6 +326,7 @@ class TransformApi:
 
     @property
     def pathname(self):
+        "A path-appropriate name for the transform"
         name = type(self.transform).__name__
         if target := self.api._target:
             return f"{target.pathname}-{name}"
