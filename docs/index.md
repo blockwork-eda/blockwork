@@ -17,6 +17,8 @@ On macOS we recommend the following:
    protect your OS's default install from contamination.
  * [Poetry](https://python-poetry.org) installed through Python's package manager
    i.e. `python -m pip install poetry`.
+ * [Poetry Plugin: Shell](https://github.com/python-poetry/poetry-plugin-shell) installed
+   using `poetry self add poetry-plugin-shell`.
 
 ### Recommended Pre-requisites for Linux
 
@@ -29,13 +31,24 @@ On Linux we recommend the following:
    protect your OS's default install from contamination.
  * [Poetry](https://python-poetry.org) installed through Python's package manager
    i.e. `python -m pip install poetry`.
+ * [Poetry Plugin: Shell](https://github.com/python-poetry/poetry-plugin-shell) installed
+   using `poetry self add poetry-plugin-shell`.
 
-### Installing Blockwork
+### Creating a Blockwork project
 
-To install the bleeding edge version of Blockwork, use the following command:
+To create a Blockwork project, use the following commands:
 
 ```bash
-$> python3 -m pip install git+https://github.com/blockwork-eda/blockwork
+# Set the local pyenv version
+$> pyenv local 3.11.4
+# Create a poetry project
+$> poetry init --python=3.11.4
+# Add Blockwork to your project's dependencies
+$> poetry add git+git@github.com:blockwork-eda/blockwork.git
+# Create a shell in the poetry environment
+$> poetry shell
+# Initialise a project
+$> bw init
 ```
 
 ### Setting up a Development Environment
@@ -51,9 +64,9 @@ $> poetry shell
 # Install all dependencies (including those just for development)
 $> poetry install --with=dev
 # Bootstrap the example project
-$> bw -C example bootstrap
+$> bw -C examples/eda bootstrap
 # Run a test command
-$> bw -C example exec -- echo "hi"
+$> bw -C examples/eda exec -- echo "hi"
 ```
 
 ## Troubleshooting

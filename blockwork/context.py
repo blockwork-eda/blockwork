@@ -124,9 +124,9 @@ class Context:
         if self.__scratch:
             path = self.__scratch
         else:
-            # Substitute for {project} or {root_dir} if required
+            # Substitute for {site} or {root_dir} if required]
             subbed = self.config.host_scratch.format(
-                project=self.config.project, root_dir=self.host_root.name
+                site=self.config.site, root_dir=self.host_root.name
             )
             # Resolve to an absolute path
             if subbed.startswith("/"):
@@ -142,10 +142,8 @@ class Context:
     @property
     @functools.lru_cache  # noqa: B019
     def host_state(self) -> Path:
-        # Substitute for {project} or {root_dir} if required
-        subbed = self.config.host_state.format(
-            project=self.config.project, root_dir=self.host_root.name
-        )
+        # Substitute for {site} or {root_dir} if required
+        subbed = self.config.host_state.format(site=self.config.site, root_dir=self.host_root.name)
         # Resolve to an absolute path
         if subbed.startswith("/"):
             path = Path(subbed)
@@ -160,10 +158,8 @@ class Context:
     @property
     @functools.lru_cache  # noqa: B019
     def host_tools(self) -> Path:
-        # Substitute for {project} or {root_dir} if required
-        subbed = self.config.host_tools.format(
-            project=self.config.project, root_dir=self.host_root.name
-        )
+        # Substitute for {site} or {root_dir} if required
+        subbed = self.config.host_tools.format(site=self.config.site, root_dir=self.host_root.name)
         # Resolve to an absolute path
         if subbed.startswith("/"):
             path = Path(subbed)
@@ -178,8 +174,8 @@ class Context:
     @property
     @functools.lru_cache  # noqa: B019
     def site(self) -> Path:
-        # Substitute for {project} or {root_dir} if required
-        subbed = self.config.site.format(project=self.config.project, root_dir=self.host_root.name)
+        # Substitute for {site} or {root_dir} if required
+        subbed = self.config.site.format(project=self.config.site, root_dir=self.host_root.name)
         # Resolve to an absolute path
         if subbed.startswith("/"):
             path = Path(subbed)

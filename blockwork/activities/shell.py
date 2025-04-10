@@ -26,7 +26,7 @@ from .common import BwExecCommand
 @click.pass_obj
 def shell(ctx: Context, tool: list[str], no_tools: bool, tool_mode: str):
     """Launch a shell within the container environment"""
-    container = Foundation(ctx, hostname=f"{ctx.config.project}_shell")
+    container = Foundation(ctx, hostname=f"{ctx.config.site}_shell")
     container.bind(ctx.host_root, ctx.container_root, False)
     BwExecCommand.bind_tools(container, no_tools, tool, ToolMode(tool_mode))
     # Launch the shell and forward the exit code

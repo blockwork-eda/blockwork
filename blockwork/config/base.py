@@ -138,12 +138,6 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i: hash(i))):
         return True
 
 
-class Site(Config):
-    "Base class for site configuration"
-
-    projects: dict[str, str]
-
-
 class Project(Config):
     "Base class for project configuration"
 

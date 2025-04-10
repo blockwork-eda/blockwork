@@ -39,7 +39,7 @@ class TestContext:
             )
         # Create a configuration file
         with bw_yaml.open("w", encoding="utf-8") as fh:
-            fh.write("!Blockwork\nproject: test_project\nroot: /a/b\ntooldefs:\n  - infra.tools\n")
+            fh.write("!Blockwork\nsite: test_project\nroot: /a/b\ntooldefs:\n  - infra.tools\n")
         # Create a context
         ctx = Context(root)
         assert ctx.host_root == root
@@ -52,7 +52,7 @@ class TestContext:
         assert ctx.file == Path(".bw.yaml")
         assert ctx.config_path == bw_yaml
         assert isinstance(ctx.config, Blockwork)
-        assert ctx.config.project == "test_project"
+        assert ctx.config.site == "test_project"
 
     def test_context_dig(self, tmp_path: Path) -> None:
         """Context should recognise the .bw.yaml file in a parent layer"""
@@ -69,7 +69,7 @@ class TestContext:
             )
         # Create a configuration file
         with bw_yaml.open("w", encoding="utf-8") as fh:
-            fh.write("!Blockwork\nproject: test_project\nroot: /a/b\ntooldefs:\n  - infra.tools\n")
+            fh.write("!Blockwork\nsite: test_project\nroot: /a/b\ntooldefs:\n  - infra.tools\n")
         # Create a context in a sub-path
         sub_path = tmp_path / "a" / "b" / "c"
         sub_path.mkdir(parents=True)
@@ -79,7 +79,7 @@ class TestContext:
         assert ctx.file == Path(".bw.yaml")
         assert ctx.config_path == bw_yaml
         assert isinstance(ctx.config, Blockwork)
-        assert ctx.config.project == "test_project"
+        assert ctx.config.site == "test_project"
 
     def test_context_bad_path(self, tmp_path: Path) -> None:
         """A bad root should raise an exception"""
@@ -99,7 +99,7 @@ class TestContext:
         """Check that a state object is created at the right path"""
         bw_yaml = tmp_path / ".bw.yaml"
         with bw_yaml.open("w", encoding="utf-8") as fh:
-            fh.write("!Blockwork\nproject: test\nhost_state: .my_{project}_state\n")
+            fh.write("!Blockwork\nsite: test\nhost_state: .my_{site}_state\n")
         ctx = Context(tmp_path)
         assert isinstance(ctx.state, State)
         assert ctx.state._State__location == tmp_path / ".my_test_state"
@@ -113,7 +113,7 @@ class TestContext:
         with bw_yaml.open("w", encoding="utf-8") as fh:
             fh.write(
                 "!Blockwork\n"
-                "project: test_project\n"
+                "site: test_project\n"
                 "host_scratch: ../{root_dir}.scratch\n"
                 "host_state: ../{root_dir}.state\n"
             )

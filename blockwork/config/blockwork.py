@@ -18,15 +18,15 @@ from ..common.yaml import DataclassConverter, SimpleParser
 
 @dataclass
 class Blockwork:
-    project: str
-    site: str = "./site.yaml"
+    site: str
     root: str = field(default="/project")
     scratch: str = field(default="/scratch")
     tools: str = field(default="/tools")
-    host_scratch: str = "../{project}.scratch"
-    host_state: str = "../{project}.state"
-    host_tools: str = "../{project}.tools"
+    host_scratch: str = "../{site}.scratch"
+    host_state: str = "../{site}.state"
+    host_tools: str = "../{site}.tools"
     hub_url: str | None = None
+    projects: dict[str, str] = field(default_factory=dict)
     config: list[str] = field(default_factory=list)
     bootstrap: list[str] = field(default_factory=list)
     tooldefs: list[str] = field(default_factory=list)

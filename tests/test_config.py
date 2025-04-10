@@ -30,11 +30,11 @@ class TestConfig:
         """Custom project configuration"""
         cfg = BlockworkConfig.parse_str(
             "!Blockwork\n"
-            "project: test_project\n"
+            "site: test_project\n"
             "root: /my_root\n"
             "scratch: /my_scratch\n"
-            "host_state: ../my_{project}_state\n"
-            "host_scratch: ../my_{project}_scratch\n"
+            "host_state: ../my_{site}_state\n"
+            "host_scratch: ../my_{site}_scratch\n"
             "bootstrap:\n"
             "  - infra.bootstrap.step_a\n"
             "  - infra.bootstrap.step_b\n"
@@ -43,23 +43,23 @@ class TestConfig:
             "  - infra.tools.set_b\n"
         )
         assert isinstance(cfg, Blockwork)
-        assert cfg.project == "test_project"
+        assert cfg.site == "test_project"
         assert cfg.root == "/my_root"
         assert cfg.scratch == "/my_scratch"
-        assert cfg.host_state == "../my_{project}_state"
-        assert cfg.host_scratch == "../my_{project}_scratch"
+        assert cfg.host_state == "../my_{site}_state"
+        assert cfg.host_scratch == "../my_{site}_scratch"
         assert cfg.bootstrap == ["infra.bootstrap.step_a", "infra.bootstrap.step_b"]
         assert cfg.tooldefs == ["infra.tools.set_a", "infra.tools.set_b"]
 
     def test_config_default(self) -> None:
         """Simple project configuration using mostly default values"""
-        cfg = BlockworkConfig.parse_str("!Blockwork\n" "project: test_project\n")
+        cfg = BlockworkConfig.parse_str("!Blockwork\n" "site: test_project\n")
         assert isinstance(cfg, Blockwork)
-        assert cfg.project == "test_project"
+        assert cfg.site == "test_project"
         assert cfg.root == "/project"
         assert cfg.scratch == "/scratch"
-        assert cfg.host_state == "../{project}.state"
-        assert cfg.host_scratch == "../{project}.scratch"
+        assert cfg.host_state == "../{site}.state"
+        assert cfg.host_scratch == "../{site}.scratch"
         assert cfg.bootstrap == []
         assert cfg.tooldefs == []
 
@@ -68,39 +68,39 @@ class TestConfig:
         # Missing project name
         with pytest.raises(YamlMissingFieldsError) as exc:
             BlockworkConfig.parse_str("!Blockwork\n" "tooldefs: [a, b, c]\n")
-        assert "project" in exc.value.fields
+        assert "site" in exc.value.fields
         # Bad root directory (integer)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "root: 123\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "root: 123\n")
         assert exc.value.field == "root"
         assert isinstance(exc.value.orig_ex, TypeError)
         # Bad root directory (relative path)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "root: a/b\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "root: a/b\n")
         assert exc.value.field == "root"
         # Bad scratch directory (integer)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "scratch: 123\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "scratch: 123\n")
         assert exc.value.field == "scratch"
         # Bad scratch directory (relative path)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "scratch: a/b\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "scratch: a/b\n")
         assert exc.value.field == "scratch"
         # Bad scratch directory (integer)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "host_scratch: 123\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "host_scratch: 123\n")
         assert exc.value.field == "host_scratch"
         # Bad state directory (integer)
         with pytest.raises(YamlFieldError) as exc:
-            BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" "host_state: 123\n")
+            BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" "host_state: 123\n")
         assert exc.value.field == "host_state"
         # Bootstrap and tool definitions
         for key, _name in (("bootstrap", "Bootstrap"), ("tooldefs", "Tool")):
             # Definitions not a list
             with pytest.raises(YamlFieldError) as exc:
-                BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" f"{key}: abcd\n")
+                BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" f"{key}: abcd\n")
             assert exc.value.field == key
             # Definitions not a list of strings
             with pytest.raises(YamlFieldError) as exc:
-                BlockworkConfig.parse_str("!Blockwork\n" "project: test\n" f"{key}: [1, 2, 3]\n")
+                BlockworkConfig.parse_str("!Blockwork\n" "site: test\n" f"{key}: [1, 2, 3]\n")
             assert exc.value.field == key

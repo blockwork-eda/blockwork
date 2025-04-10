@@ -80,9 +80,7 @@ def install_tools(context: Context, last_run: datetime) -> bool:
             logging.info(f" - {idx}: Launching installation of {tool_id}")
             invk = act_def(context)
             if invk is not None:
-                container = Foundation(
-                    context, hostname=f"{context.config.project}_install_{tool.id}"
-                )
+                container = Foundation(context, hostname=f"{context.config.site}_install_{tool.id}")
                 exit_code = container.invoke(context, act_def(context), readonly=False).exit_code
                 if exit_code != 0:
                     raise ToolError(f"Installation of {tool_id} failed")

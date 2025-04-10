@@ -7,7 +7,7 @@ It has no options or sub-commands.
 ```bash
 $> bw info
 ┌────────────────────┬──────────────────────────────┐
-│ Project            │ example                      │
+│ Site            │ example                      │
 │ Root Directory     │ /path/to/my/project          │
 │ Configuration File │ /path/to/my/project/.bw.yaml │
 └────────────────────┴──────────────────────────────┘

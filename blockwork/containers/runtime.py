@@ -111,15 +111,15 @@ class Runtime:
                 raise Exception(f"Unsupported runtime: {pref}")
             logging.debug(f"Using preferred runtime: {pref}")
             return pref
+        elif cls.is_docker_available():
+            logging.debug("Using Docker as the container runtime")
+            return "docker"
         elif cls.is_orbstack_available():
             logging.debug("Using Orbstack as the container runtime")
             return "orbstack"
         elif cls.is_podman_available():
             logging.debug("Using Podman as the container runtime")
             return "podman"
-        elif cls.is_docker_available():
-            logging.debug("Using Docker as the container runtime")
-            return "docker"
         else:
             raise Exception("Could not identify a container runtime")
 

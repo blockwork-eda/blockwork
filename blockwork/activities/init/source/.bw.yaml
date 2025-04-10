@@ -1,0 +1,19 @@
+!Blockwork
+default_cache_config: null
+host_scratch: ../{site}.scratch
+host_state: ../{site}.state
+host_tools: ../{site}.tools
+hub_url: null
+root: /project
+scratch: /scratch
+tools: /tools
+site: init
+bootstrap: []
+projects:
+  v0: projects/v0.yaml
+tooldefs:
+  - infra.tools.cmake
+config:
+  - infra.config.cmake
+workflows:
+  - infra.workflows.run

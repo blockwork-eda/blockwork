@@ -85,3 +85,43 @@ jobs:
       with:
         name: pytest-cov
         path: htmlcov
+
+  test_init:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    # Setup Directory
+    - name: Setup directory
+      shell: bash
+      run: |
+        cd ${{ runner.temp }}
+        mkdir init_project
+    # Setup Python
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.11.4
+    # Install Poetry
+    - name: Install Poetry
+      shell: bash
+      run: |
+        cd ${{ runner.temp }}/init_project
+        python -m pip install --upgrade pip
+        python -m pip install poetry poethepoet
+    # Initialise poetry project
+    - name: Initialise poetry project
+      shell: bash
+      run: |
+        cd ${{ runner.temp }}/init_project
+        touch README.md
+        poetry init --name=init --python=3.11.4 --no-interaction
+        poetry add git+${{ github.server_url }}/${{ github.repository }}.git#${{ github.sha }}
+    # Initialise blockwork project
+    - name: Initialise blockwork project
+      run: |
+        cd ${{ runner.temp }}/init_project
+        poetry run bw init --no-interaction
+    - name: Run command
+      run: |
+        cd ${{ runner.temp }}/init_project
+        poetry run bw wf run -t hello -p v0

@@ -1,0 +1,9 @@
+!Run
+binary: ./install/bin/HelloWorld
+needs:
+- !CMake
+  source: ./
+  build: ./build
+  install: ./install
+  outputs:
+    - ./install/bin/HelloWorld

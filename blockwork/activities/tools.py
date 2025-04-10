@@ -96,7 +96,7 @@ def tool(
     except ToolActionError:
         raise Exception(f"No action known for '{action}' on tool {tool}") from None
     # Run the action and forward the exit code
-    container = Foundation(ctx, hostname=f"{ctx.config.project}_{tool}_{action}")
+    container = Foundation(ctx, hostname=f"{ctx.config.site}_{tool}_{action}")
     runargs = container.bind_and_map_args(ctx, runargs)
     invocation = act_def(ctx, *runargs)
     # Actions may sometimes return null invocations if they have no work to do
