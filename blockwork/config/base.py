@@ -14,7 +14,7 @@
 
 import typing
 from collections.abc import Iterable
-from typing import Protocol, dataclass_transform
+from typing import NoReturn, Protocol, TypeVar, dataclass_transform
 
 import yaml
 
@@ -22,7 +22,7 @@ from ..common.checkeddataclasses import dataclass, field
 from ..common.singleton import keyed_singleton
 from ..common.yaml import DataclassConverter
 from ..common.yaml.parsers import Parser
-from ..transforms import Transform
+from ..transforms import Transform, IFace
 from .api import ConfigApi
 
 
@@ -44,17 +44,20 @@ class ConfigConverter(DataclassConverter["ConfigProtocol", "Parser"]):
 class ConfigProtocol(Protocol):
     "Protocol for Config objects"
 
-    def iter_config(self) -> Iterable["ConfigProtocol"]:
-        ...
+    def iter_config(self) -> Iterable["ConfigProtocol"]: ...
 
-    def iter_transforms(self) -> Iterable[Transform]:
-        ...
+    def iter_transforms(self) -> Iterable[Transform]: ...
 
-    def config_filter(self, config: "ConfigProtocol") -> bool:
-        ...
+    def config_filter(self, config: "ConfigProtocol") -> bool: ...
 
-    def transform_filter(self, transform: Transform, config: "ConfigProtocol") -> bool:
-        ...
+    def transform_filter(self, transform: Transform, config: "ConfigProtocol") -> bool: ...
+
+
+TIFace = TypeVar("TIFace", bound=IFace)
+TDefault = TypeVar("TDefault")
+
+
+class NotSet: ...
 
 
 @dataclass_transform(
@@ -75,6 +78,8 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i: hash(i))):
     FILE_NAME: str | None = None
     "The api object for this config"
     api: ConfigApi
+    "ghguifvb"
+    _ifaces: dict[type[IFace], IFace] | None = None
     "The parser for this config"
     parser: Parser = Parser()
     """The implicit file name to use when one isn't provided,
@@ -94,14 +99,31 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i: hash(i))):
         dataclass(kw_only=True, frozen=True, eq=False, repr=False)(cls)
         cls.parser.register(cls._CONVERTER, tag=cls.YAML_TAG)(cls)
 
-    def __init__(self, *args, **kwargs):
-        ...
-
     def __hash__(self):
         return self.api.node_id() or id(self)
 
     def __eq__(self, other):
         return hash(self) == hash(other)
+
+    def iface(self, kind: type[TIFace], default: TDefault = NoReturn) -> TIFace | TDefault:
+        """
+        Get the interface for a given type. A config element is expected to only
+        have a single interface for each type.
+        """
+        if (ifaces := getattr(self, "_ifaces", None)) is None:
+            ifaces = {}
+            for interface in self.iter_interfaces():
+                key = type(interface)
+                if key in ifaces:
+                    raise RuntimeError(f"Interface already registered for type `{key}`")
+                ifaces[key] = interface
+            object.__setattr__(self, "_ifaces", ifaces)
+
+        if (interface := ifaces.get(kind)) is None:
+            if default is NoReturn:
+                raise RuntimeError(f"Interface not found for type `{kind}`")
+            return default
+        return interface
 
     def iter_config(self) -> Iterable["ConfigProtocol"]:
         """
@@ -115,6 +137,12 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i: hash(i))):
     def iter_transforms(self) -> Iterable[Transform]:
         """
         Yields any transforms from this element.
+        """
+        yield from []
+
+    def iter_interfaces(self) -> Iterable[IFace]:
+        """
+        Yields representations of this element as different types of interface.
         """
         yield from []
 

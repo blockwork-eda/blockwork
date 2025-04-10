@@ -1,3 +1,17 @@
+# Copyright 2023, Blockwork, github.com/intuity/blockwork
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from collections.abc import Iterable
 from itertools import count
 from pathlib import Path
@@ -10,7 +24,8 @@ from blockwork.build.caching import Cache, CacheDeterminismError
 from blockwork.config import CacheConfig
 from blockwork.config.api import ConfigApi
 from blockwork.config.base import Config, ConfigProtocol
-from blockwork.tools import Invocation, tools
+from blockwork.tools import Invocation
+from blockwork.tools.shells.bash import Bash
 from blockwork.transforms import Transform, transforms
 from blockwork.workflows.workflow import Workflow
 
@@ -559,7 +574,7 @@ class TestWorkFlowDeps:
         Cache.prune_all(test_ctx)
 
     class TFCp(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
         file: Path = Transform.IN()
         result: Path = Transform.OUT()
 

@@ -1,3 +1,17 @@
+# Copyright 2023, Blockwork, github.com/intuity/blockwork
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from pathlib import Path
 from typing import Any
@@ -6,7 +20,7 @@ import pytest
 
 from blockwork.config.api import ConfigApi
 from blockwork.containers import ContainerBindError
-from blockwork.tools import tools
+from blockwork.tools.shells.bash import Bash
 from blockwork.transforms import EnvPolicy, IEnv, IFace, Transform, transforms
 
 
@@ -60,7 +74,7 @@ class TestTransforms:
         assert to.read_text() == text
 
     class TFInputNest(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
         nestedfrm: Any = Transform.IN()
         to: Path = Transform.OUT()
 
@@ -81,7 +95,7 @@ class TestTransforms:
         assert tf.to.read_text() == text
 
     class TFSimpleFieldEnv(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
         frm: str = Transform.IN(env="TEST")
         to1: Path = Transform.OUT()
         to2: Path = Transform.OUT()
@@ -103,7 +117,7 @@ class TestTransforms:
         assert tf.to2.read_text() == text
 
     class TFComplexFieldEnvAppend(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
         frm: str = Transform.IN(env="TEST")
         frm2: str = Transform.IN(env="TEST", env_policy=EnvPolicy.APPEND)
         to: Path = Transform.OUT()
@@ -112,7 +126,7 @@ class TestTransforms:
             yield self.bash.script(ctx, f"echo -n $TEST > {self.to}")
 
     class TFComplexFieldEnvPrepend(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
         frm: str = Transform.IN(env="TEST")
         frm2: list[str] = Transform.IN(env="TEST", env_policy=EnvPolicy.PREPEND)
         to: Path = Transform.OUT()
@@ -121,7 +135,7 @@ class TestTransforms:
             yield self.bash.script(ctx, f"echo -n $TEST > {self.to}")
 
     class TFComplexFieldEnvReplace(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
         frm: str = Transform.IN(env="TEST")
         frm2: list[str] = Transform.IN(env="TEST", env_policy=EnvPolicy.REPLACE)
         to: Path = Transform.OUT()
@@ -130,7 +144,7 @@ class TestTransforms:
             yield self.bash.script(ctx, f"echo -n $TEST > {self.to}")
 
     class TFComplexFieldEnvConflict(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
         frm: str = Transform.IN(env="TEST")
         frm2: str = Transform.IN(env="TEST", env_policy=EnvPolicy.CONFLICT)
         to: Path = Transform.OUT()
@@ -164,7 +178,7 @@ class TestTransforms:
         assert tf.to.read_text() == "hello"
 
     class TFComplexArgEnvShallow(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
         frm: IEnv = Transform.IN()
         to1: Path = Transform.OUT()
         to2: Path = Transform.OUT()
@@ -176,7 +190,7 @@ class TestTransforms:
             yield self.bash.script(ctx, f"echo -n {self.frm.val} > {self.to3}")
 
     class TFComplexArgEnvDeep(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
         frm: Any = Transform.IN()
         to: Path = Transform.OUT()
 
@@ -197,7 +211,7 @@ class TestTransforms:
         assert tf.to.read_text() == text
 
     class TFComplexOut(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
         frm: str = Transform.IN()
         to: ComplexOutIface = Transform.OUT()
 
@@ -212,19 +226,19 @@ class TestTransforms:
         assert (tf.to.base / "p0").read_text() == text
 
     class TFDefaultBadExit(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
 
         def execute(self, ctx):
             yield self.bash.script(ctx, "exit 1")
 
     class TFDefaultGoodExit(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
 
         def execute(self, ctx):
             yield self.bash.script(ctx, "exit 0")
 
     class TFAcceptBadExit(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
 
         def execute(self, ctx):
             result = yield self.bash.script(ctx, "exit 1")
@@ -232,7 +246,7 @@ class TestTransforms:
                 result.accept()
 
     class TFRejectBadExit(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
 
         def execute(self, ctx):
             result = yield self.bash.script(ctx, "exit 1")
@@ -240,7 +254,7 @@ class TestTransforms:
                 result.reject()
 
     class TFAcceptExitAndContinue(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
 
         def execute(self, ctx):
             r1 = yield self.bash.script(ctx, "exit 1")
@@ -248,7 +262,7 @@ class TestTransforms:
                 yield self.bash.script(ctx, "exit 0")
 
     class TFRetryAndContinue(Transform):
-        bash: tools.Bash = Transform.TOOL()
+        bash: Bash = Transform.TOOL()
         retries: int = Transform.IN()
 
         def execute(self, ctx):
