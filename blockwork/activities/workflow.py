@@ -17,7 +17,7 @@ import logging
 from pathlib import Path
 
 import click
-from gator.adapters.logging import GatorHandler
+from gator.adapters.logging import GatorHandler, Parent
 
 from ..build.caching import BWFrozenHash, Cache
 from ..context import Context
@@ -49,7 +49,7 @@ def wf_step(ctx: Context, spec_path: Path, input_hash: str, target: bool):
     #                executions so that there is a single execution path
 
     # Detect if Blockwork is running under Gator and redirect logging
-    if (parent_ws := GatorHandler.get_parent_address()) is not None:
+    if (parent_ws := Parent.get_parent_address()) is not None:
         logging.info(f"Redirecting logging via Gator: {parent_ws}")
         root_logger = logging.getLogger()
         for handler in list(root_logger.handlers):

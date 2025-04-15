@@ -36,9 +36,10 @@ import pytz
 import requests
 from docker.errors import ImageNotFound
 from filelock import FileLock
+from gator.adapters.parent import Parent
 
 from ..context import Context, ContextHostPathError
-from .common import decode_partial_utf8, forwarding_host, read_stream, write_stream
+from .common import decode_partial_utf8, forwarding_host, read_stream, usage_monitor, write_stream
 from .runtime import Runtime
 
 
@@ -563,6 +564,10 @@ class Container:
             )
             # Start the job
             container.start()
+            # Start a usage monitor when running under Gator
+            t_usage = None
+            if Parent.get_parent_address():
+                t_usage = usage_monitor(container, e_done)
             # If interactive, open a shell
             if interactive:
                 # Log the keys to detach
@@ -608,6 +613,9 @@ class Container:
             # Ensure the host thread has exited
             e_done.set()
             t_host.join()
+            # If usage monitor was started, wait for it to close
+            if t_usage:
+                t_usage.join()
             # Tidy up
             atexit.unregister(tidy_up)
             container.remove(force=True)

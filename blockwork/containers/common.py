@@ -21,9 +21,13 @@ import socket
 import sys
 import termios
 import tty
+from datetime import datetime
 from socket import SocketIO
 from threading import Event, Thread
 from typing import TextIO
+
+from docker.client.containers import Container
+from gator.adapters.pstats import ProcessStats
 
 
 @contextlib.contextmanager
@@ -226,3 +230,29 @@ def forwarding_host(e_done: Event) -> tuple[Thread, int]:
     thread.start()
     # Return thread and port number
     return thread, port
+
+
+def usage_monitor(container: Container, e_done: Event) -> Thread:
+    def _inner(container: Container, e_done):
+        # Create a reporting instance, this will link to the parent automatically
+        gtr_stats = ProcessStats()
+        # Loop recording statistics
+        last_ts = datetime.now()
+        while not e_done.is_set():
+            # Report statistics every second
+            if (datetime.now() - last_ts).total_seconds < 1:
+                continue
+            # Pickup from the container
+            stats = container.stats(stream=False)
+            gtr_stats.record(
+                stats["cpu_stats"]["cpu_usage"]["total_usage"],
+                stats["memory_stats"]["usage"],
+            )
+            # Track last report
+            last_ts = datetime.now()
+        # Ensure that the websocket has closed down properly
+        gtr_stats._teardown()
+
+    thread = Thread(target=_inner, args=(container, e_done), daemon=True)
+    thread.start()
+    return thread
