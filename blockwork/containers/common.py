@@ -240,7 +240,7 @@ def usage_monitor(container: Container, e_done: Event) -> Thread:
         last_ts = datetime.now()
         while not e_done.is_set():
             # Report statistics every second
-            if (datetime.now() - last_ts).total_seconds < 1:
+            if (datetime.now() - last_ts).total_seconds() < 1:
                 continue
             # Pickup from the container
             stats = container.stats(stream=False)
