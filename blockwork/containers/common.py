@@ -26,7 +26,7 @@ from socket import SocketIO
 from threading import Event, Thread
 from typing import TextIO
 
-from docker.client.containers import Container
+from docker.models.containers import Container
 from gator.adapters.pstats import ProcessStats
 
 
