@@ -251,7 +251,7 @@ def usage_monitor(container: Container, e_done: Event) -> Thread:
             # Track last report
             last_ts = datetime.now()
         # Ensure that the websocket has closed down properly
-        gtr_stats._teardown()
+        gtr_stats.teardown()
 
     thread = Thread(target=_inner, args=(container, e_done), daemon=True)
     thread.start()
