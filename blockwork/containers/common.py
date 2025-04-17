@@ -244,10 +244,19 @@ def usage_monitor(container: Container, e_done: Event) -> Thread:
                 continue
             # Pickup from the container
             stats = container.stats(stream=False)
-            gtr_stats.record(
-                stats["cpu_stats"]["cpu_usage"]["total_usage"],
-                stats["memory_stats"]["usage"],
-            )
+            # Calculate CPU usage percentage
+            # NOTE: See docs.docker.com/reference/api/engine/version/v1.48/#tag/
+            #       Container/operation/ContainerStats
+            curr_cpu = stats["cpu_stats"]
+            prev_cpu = stats["precpu_stats"]
+            cpu_delta = stats["cpu_usage"]["total_usage"] - prev_cpu["cpu_usage"]["total_usage"]
+            sys_cpu_delta = curr_cpu["system_cpu_usage"] - prev_cpu["system_cpu_usage"]
+            cpu_usage = (cpu_delta / sys_cpu_delta) * curr_cpu["online_cpus"]
+            # Get memory usage
+            mem_stats = stats["memory_stats"]
+            used_mem = (mem_stats["usage"] - mem_stats["stats"]["cache"]) / 1024
+            # Record
+            gtr_stats.record(cpu_perc=cpu_usage, memory=used_mem)
             # Track last report
             last_ts = datetime.now()
         # Ensure that the websocket has closed down properly
