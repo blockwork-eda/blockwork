@@ -254,9 +254,8 @@ def usage_monitor(container: Container, e_done: Event) -> Thread:
             cpu_usage = (cpu_delta / sys_cpu_delta) * curr_cpu["online_cpus"]
             # Get memory usage
             mem_stats = stats["memory_stats"]
-            used_mem = (mem_stats["usage"] - mem_stats["stats"]["cache"]) / 1024
             # Record
-            gtr_stats.record(cpu_perc=cpu_usage, memory=used_mem)
+            gtr_stats.record(cpu_perc=cpu_usage, memory=(mem_stats["usage"] / 1024))
             # Track last report
             last_ts = datetime.now()
         # Ensure that the websocket has closed down properly
