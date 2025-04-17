@@ -249,7 +249,7 @@ def usage_monitor(container: Container, e_done: Event) -> Thread:
             #       Container/operation/ContainerStats
             curr_cpu = stats["cpu_stats"]
             prev_cpu = stats["precpu_stats"]
-            cpu_delta = stats["cpu_usage"]["total_usage"] - prev_cpu["cpu_usage"]["total_usage"]
+            cpu_delta = curr_cpu["cpu_usage"]["total_usage"] - prev_cpu["cpu_usage"]["total_usage"]
             sys_cpu_delta = curr_cpu["system_cpu_usage"] - prev_cpu["system_cpu_usage"]
             cpu_usage = (cpu_delta / sys_cpu_delta) * curr_cpu["online_cpus"]
             # Get memory usage
