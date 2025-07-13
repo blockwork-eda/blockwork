@@ -44,16 +44,16 @@ Future improvements:
 
 """
 
-from abc import ABC, abstractmethod
 import functools
 import hashlib
 import json
 import math
 import os
-from pathlib import Path
 import shutil
 import sys
 import tempfile
+from abc import ABC, abstractmethod
+from pathlib import Path
 from types import ModuleType
 from typing import Any, ClassVar, DefaultDict, Iterable, NotRequired, Optional, TYPE_CHECKING, TypedDict
 
@@ -62,9 +62,7 @@ if TYPE_CHECKING:
 from ..context import Context
 from ordered_set import OrderedSet as OSet
 from datetime import datetime, timezone
-import distutils.sysconfig
 import ast
-import site
 from ..config import CacheConfig as CacheConfig
 from humanfriendly import InvalidTimespan, parse_size, parse_timespan
 
@@ -233,8 +231,8 @@ class PyHasher:
         # Skip standard library, pip modules, and compiled
         if (
             module.__file__ is None
-            or module.__file__.startswith(distutils.sysconfig.BASE_PREFIX)
-            or module.__file__.startswith(distutils.sysconfig.PREFIX)
+            or module.__file__.startswith(sys.base_prefix)
+            or module.__file__.startswith(sys.prefix)
             or not module.__file__.endswith(".py")
         ):
             return
