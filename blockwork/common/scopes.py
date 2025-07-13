@@ -37,7 +37,6 @@ class _ScopeWrap(Generic[_ScopedData]):
         self._stack.pop()
 
     @classmethod
-    @property
     def current(cls) -> _ScopedData:
         try:
             return cls._stack[-1]
@@ -74,7 +73,6 @@ class Scope:
         self._stack.pop()
 
     @classmethod
-    @property
     def current(cls) -> Self:
         try:
             return cls._stack[-1]

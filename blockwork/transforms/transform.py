@@ -1067,7 +1067,7 @@ class IFace:
     def __post_init__(self):
         if getattr(self, "_iface_resolve_proxy", False):
             return
-        object.__setattr__(self, "api", ConfigApi.current)
+        object.__setattr__(self, "api", ConfigApi.current())
         object.__setattr__(self, "_serial_interfaces", {})
         with self.api as api:
             for iface_field in fields(cast(Any, self)):
@@ -1246,7 +1246,7 @@ class Transform:
     def __post_init__(self):
         if getattr(self, "_tf_execute_proxy", False):
             return
-        object.__setattr__(self, "api", ConfigApi.current.with_transform(self))
+        object.__setattr__(self, "api", ConfigApi.current().with_transform(self))
         object.__setattr__(self, "_serial_interfaces", {})
         # Wrapped here since if they are overriden they still
         # must be cached.

@@ -32,11 +32,11 @@ class ConfigConverter(DataclassConverter["ConfigProtocol", "Parser"]):
         target = loader.construct_scalar(node)
         if not isinstance(target, str):
             raise RuntimeError
-        with ConfigApi.current.with_target(target, self.typ) as api:
+        with ConfigApi.current().with_target(target, self.typ) as api:
             return api.target.config
 
     def construct_mapping(self, loader: yaml.Loader, node: yaml.MappingNode) -> "ConfigProtocol":
-        with ConfigApi.current.with_node(node):
+        with ConfigApi.current().with_node(node):
             return super().construct_mapping(loader, node)
 
 
@@ -82,7 +82,7 @@ class Config(metaclass=keyed_singleton(inst_key=lambda i: hash(i))):
 
     def __init_subclass__(cls, *args, **kwargs):
         super().__init_subclass__(*args, **kwargs)
-        cls.api = field(default_factory=lambda: ConfigApi.current)
+        cls.api = field(default_factory=lambda: ConfigApi.current())
         # Ensure that even if no annotations existed before, that the class is
         # well behaved as this caused a bug under Python 3.11.7
         if not hasattr(cls, "__annotations__"):

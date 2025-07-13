@@ -128,10 +128,10 @@ def blockwork(
     cache_expect: bool | None,
 ) -> None:
     # Setup post-mortem debug
-    DebugScope.current.POSTMORTEM = pdb
+    DebugScope.current().POSTMORTEM = pdb
     # Setup the verbosity
-    DebugScope.current.VERBOSE = verbose
-    DebugScope.current.VERBOSE_LOCALS = verbose and verbose_locals
+    DebugScope.current().VERBOSE = verbose
+    DebugScope.current().VERBOSE_LOCALS = verbose and verbose_locals
     if verbose:
         logging.info("Setting logging verbosity to DEBUG")
         logging.getLogger().setLevel(logging.DEBUG)

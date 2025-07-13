@@ -391,7 +391,7 @@ class Workflow:
                     if transform in targets:
                         wf_args += ["--target"]
 
-                    if DebugScope.current.VERBOSE:
+                    if DebugScope.current().VERBOSE:
                         bw_args.insert(0, "--verbose")
                     # Give jobs a descriptive name where possible
                     job = Job(
@@ -441,7 +441,7 @@ class Workflow:
                 f"Executing {root_group.expected_jobs} jobs with concurrency of {concurrency}"
             )
             summary = asyncio.run(
-                (launch if DebugScope.current.VERBOSE else launch_progress)(
+                (launch if DebugScope.current().VERBOSE else launch_progress)(
                     spec=root_group,
                     tracking=track_dirx,
                     sched_opts={"concurrency": concurrency},
@@ -454,7 +454,7 @@ class Workflow:
                 )
             )
 
-            if DebugScope.current.VERBOSE:
+            if DebugScope.current().VERBOSE:
                 # For any failed IDs, resolve them to their log files
                 for job_id in summary.failed_ids:
                     ptr = root_group
