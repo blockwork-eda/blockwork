@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 from .common import scopes
 from .config import Blockwork, BlockworkParser, CachingConfig, CachingParser
+from .containers.container_base import ContainerBase
 from .state import State
 
 
@@ -86,6 +87,7 @@ class Context:
         cache_targets: bool | None = None,
         cache_expect: bool | None = None,
         cache_trace: bool | None = None,
+        container: type[ContainerBase] | None = None,
     ) -> None:
         self.__file = cfg_file
         self.__host_root = self.locate_root(root or Path.cwd())
@@ -97,6 +99,7 @@ class Context:
         self.__cache_targets = cache_targets
         self.__cache_expect = cache_expect
         self.cache_trace = cache_trace
+        self.__container = container
 
     @property
     def host_architecture(self) -> HostArchitecture:
@@ -294,6 +297,10 @@ class Context:
         BWHash.keep_trace = BWHash.keep_trace or (
             self.cache_config.trace if value is None else value
         )
+
+    @property
+    def container(self) -> type[ContainerBase]:
+        return self.__container
 
     @property
     def hub_url(self):

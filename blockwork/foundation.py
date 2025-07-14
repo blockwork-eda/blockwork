@@ -13,11 +13,12 @@
 # limitations under the License.
 
 import logging
+from hashlib import md5
 from pathlib import Path
 
-from .containers import Container, ContainerResult
+from .containers.container import Container, ContainerResult
 from .context import Context, ContextContainerPathError
-from .tools import Invocation, Tool
+from .tools import Invocation, Source, Tool
 
 cntr_dir = Path(__file__).absolute().parent / "containerfiles"
 
@@ -37,7 +38,7 @@ class Foundation(Container):
             workdir=context.container_root,
             **kwargs,
         )
-        self.__tools: dict[str, Tool] = {}
+        self.__tools: dict[str, "Tool"] = {}
         self.bind(self.context.host_scratch, self.context.container_scratch)
         # Ensure various standard $PATHs are present
         self.append_env_path("PATH", "/usr/local/sbin")
@@ -55,7 +56,7 @@ class Foundation(Container):
     def add_input(self, path: Path, name: str | None = None) -> None:
         self.bind_readonly(path, Path("/input") / (name or path.name))
 
-    def add_tool(self, tool: type[Tool] | Tool, readonly: bool = True) -> None:
+    def add_tool(self, tool: "Tool", readonly: bool = True) -> None:
         # If class has been provided, create an instance
         if not isinstance(tool, Tool):
             if not issubclass(tool, Tool):
@@ -76,12 +77,13 @@ class Foundation(Container):
                     )
             else:
                 self.add_tool(req.tool, readonly=readonly)
-        # Register tool and bind in the base folder
+        # Register tool and bind in the base folder (if user provided)
         self.__tools[tool.base_id] = tool
-        host_loc = tool.get_host_path(self.context)
-        cntr_loc = tool.get_container_path(self.context)
-        logging.debug(f"Binding '{host_loc}' to '{cntr_loc}' {readonly=}")
-        self.bind(host_loc, cntr_loc, readonly=readonly)
+        if tool_ver.source is Source.USER:
+            host_loc = tool.get_host_path(self.context)
+            cntr_loc = tool.get_container_path(self.context)
+            logging.debug(f"Binding '{host_loc}' to '{cntr_loc}' {readonly=}")
+            self.bind(host_loc, cntr_loc, readonly=readonly)
         # Overlay the environment, expanding any paths
         if isinstance(tool_ver.env, dict):
             env = {}
@@ -99,7 +101,7 @@ class Foundation(Container):
                 self.prepend_env_path(key, segment)
 
     def invoke(
-        self, context: Context, invocation: Invocation, readonly: bool = True
+        self, context: Context, invocation: "Invocation", readonly: bool = True
     ) -> ContainerResult:
         """
         Evaluate a tool invocation by binding the required tools and setting up
@@ -149,3 +151,31 @@ class Foundation(Container):
             stdout=invocation.stdout,
             stderr=invocation.stderr,
         )
+
+    def launch(self, *args, **kwds) -> ContainerResult:
+        from .tools import Source
+
+        # Filter out tools that must be provided by the container
+        cntr_tools = [x for x in self.__tools.values() if x.version.source is Source.CONTAINER]
+        # Create a variant of the container that provides these tools
+        if cntr_tools:
+            cntr_file = "\n".join(
+                [
+                    f"FROM {self.image}",
+                    "RUN dnf install -y "
+                    + " ".join(
+                        f"{x.version.pkg_name or x.name}-{x.version.version}" for x in cntr_tools
+                    ),
+                ]
+            )
+            variant = md5(cntr_file.encode("utf-8")).hexdigest()
+            variants_dir = self.context.host_scratch / "variants"
+            variants_dir.mkdir(parents=True, exist_ok=True)
+            variant_path = variants_dir / self.image
+            self.image = f"{self.image}_{variant}"
+            variant_path.write_text(cntr_file, encoding="utf-8")
+            self.definition = variant_path
+            if not self.exists:
+                self.build()
+        # Defer to normal launch
+        return super().launch(*args, **kwds)

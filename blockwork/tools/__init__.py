@@ -14,7 +14,15 @@
 
 # Expose various definitions
 from . import tools
-from .tool import Invocation, Require, Tool, ToolError, ToolMode, Version
+from .tool import Invocation, Require, Source, Tool, ToolError, ToolMode, Version
 
-# Unused import lint guards
-assert all((Invocation, Require, Tool, ToolError, ToolMode, Version, tools))
+__all__ = [
+    "Invocation",
+    "Require",
+    "Tool",
+    "ToolError",
+    "ToolMode",
+    "Version",
+    "Source",
+    "tools",
+]

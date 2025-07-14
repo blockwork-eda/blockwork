@@ -107,6 +107,23 @@ class Bootstrap(RegisteredMethod):
         return _inner
 
     @classmethod
+    def evaluate(
+        cls,
+        step: str,
+        context: Context,
+        mode: BwBootstrapMode = BwBootstrapMode.default,
+    ) -> None:
+        """
+        Evaluate a single bootstrapping step, checking to see whether it is
+        out-of-date based on its 'check_point' before executing it.
+
+        :param context: The context object of the current session
+        :param mode:    Modifier for when build steps should be considered invalid
+        :param step:    The name of the step to evaluate
+        """
+        cls.get_by_name(step)(context, mode=mode)
+
+    @classmethod
     def evaluate_all(
         cls, context: Context, mode: BwBootstrapMode = BwBootstrapMode.default
     ) -> None:
@@ -117,5 +134,5 @@ class Bootstrap(RegisteredMethod):
         :param context: The context object of the current session
         :param mode:    Modifier for when build steps should be considered invalid
         """
-        for step in cls.get_all().values():
-            step(context, mode)
+        for step in cls.get_all().keys():
+            cls.evaluate(step, context=context, mode=mode)

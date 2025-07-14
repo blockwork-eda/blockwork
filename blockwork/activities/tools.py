@@ -23,7 +23,7 @@ from ..context import Context
 from ..foundation import Foundation
 from ..tools import Tool
 from ..tools.tool import ToolActionError
-from .common import BwExecCommand, ToolMode
+from .common import BwExecCommand
 
 
 @click.command()
@@ -57,54 +57,45 @@ def tools(ctx: Context):
     Console().print(table)
 
 
-@click.command()
+@click.group()
 @click.option("--version", "-v", type=str, default=None, help="Set the tool version to use.")
-@click.option(
-    "--tool-mode",
-    type=click.Choice(ToolMode, case_sensitive=False),
-    default="readonly",
-    help="Set the file mode used when binding tools "
-    "to enable write access. Legal values are "
-    "either 'readonly' or 'readwrite', defaults "
-    "to 'readonly'.",
-)
-@click.argument("tool_action", type=str)
-@click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
+@click.argument("tool", type=str)
 @click.pass_obj
-def tool(
-    ctx: Context,
-    version: str | None,
-    tool_action: str,
-    tool_mode: str,
-    runargs: Sequence[str],
-) -> None:
+def tool(ctx: Context, version: str | None, tool: str) -> None:
     """
     Run an action defined by a specific tool. The tool and action is selected by
     the first argument either using the form <TOOL>.<ACTION> or just <TOOL>
     where the default action is acceptable.
     """
-    # Split <TOOL>.<ACTION> or <TOOL> into parts
-    base_tool, action, *_ = (tool_action + ".default").split(".")
     # Find the tool
-    tool = f"{base_tool}={version}" if version else base_tool
+    tool = f"{tool}={version}" if version else tool
     vendor, name, version = BwExecCommand.decode_tool(tool)
     if (tool_ver := Tool.get(vendor, name, version)) is None:
         raise Exception(f"Cannot locate tool for {tool}")
+    ctx.tool_ver = tool_ver
+
+
+@tool.command()
+@click.pass_obj
+def install(ctx: Context):
+    ctx.tool_ver._run_install(ctx)
+
+
+@tool.command()
+@click.argument("action", type=str)
+@click.argument("runargs", nargs=-1, type=click.UNPROCESSED)
+@click.pass_obj
+def run(ctx: Context, action: str, runargs: Sequence[str]):
     # See if there is an action registered
     try:
-        act_def = tool_ver.get_action(action)
+        act_def = ctx.tool_ver.get_action(action)
     except ToolActionError:
         raise Exception(f"No action known for '{action}' on tool {tool}") from None
     # Run the action and forward the exit code
     container = Foundation(ctx, hostname=f"{ctx.config.project}_{tool}_{action}")
-    runargs = container.bind_and_map_args(ctx, runargs)
     invocation = act_def(ctx, *runargs)
     # Actions may sometimes return null invocations if they have no work to do
     if invocation is None:
         return
     # Launch the invocation
-    sys.exit(
-        container.invoke(
-            ctx, invocation, readonly=(ToolMode(tool_mode) == ToolMode.READONLY)
-        ).exit_code
-    )
+    sys.exit(container.invoke(ctx, invocation).exit_code)

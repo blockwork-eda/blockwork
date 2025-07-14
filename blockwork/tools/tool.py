@@ -14,9 +14,11 @@
 
 import functools
 import inspect
+import logging
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import contextmanager
+from datetime import datetime
 from enum import StrEnum, auto
 from pathlib import Path
 from typing import Any, ClassVar, NoReturn, TextIO, TypeVar, Union
@@ -31,6 +33,13 @@ _TWrap = TypeVar("_TWrap")
 class ToolMode(StrEnum):
     READONLY = auto()
     READWRITE = auto()
+
+
+class Source(StrEnum):
+    USER = auto()
+    "Tool is provided by the user"
+    CONTAINER = auto()
+    "A variant of the foundation container is created to provide the tool"
 
 
 class ToolError(Exception):
@@ -64,24 +73,28 @@ class Version:
     def __init__(
         self,
         version: str,
-        location: Path,
+        pkg_name: str | None = None,
+        location: Path | None = None,
         env: dict[str, str] | None = None,
         paths: dict[str, list[str | Path]] | None = None,
         requires: list[Require] | None = None,
+        source: Source = Source.USER,
         default: bool = False,
     ) -> None:
         self.version = version
+        self.pkg_name = pkg_name
         self.location = location
         self.env = env or {}
         self.paths = paths or {}
         self.requires = requires
+        self.source = source
         self.default = default
         self.tool_cls: type["Tool"] | None = None
         # Sanitise arguments
         self.requires = self.requires or []
         self.paths = self.paths or {}
         self.env = self.env or {}
-        if not isinstance(self.location, Path):
+        if source is Source.USER and not isinstance(self.location, Path):
             raise ToolError(f"Bad location given for version {self.version}: {self.location}")
         if not isinstance(self.version, str) or len(self.version.strip()) == 0:
             raise ToolError("A version must be specified")
@@ -97,6 +110,8 @@ class Version:
             raise ToolError("Requirements must be a list")
         if not all(isinstance(x, Require) for x in self.requires):
             raise ToolError("Requirements must be a list of Require objects")
+        if self.source not in Source:
+            raise ToolError(f"Invalid source type {self.source} for tool version {self.version}")
 
     @property
     @functools.lru_cache  # noqa: B019
@@ -131,9 +146,6 @@ class Version:
     def get_action(self, name: str) -> Callable:
         return self.tool.get_action(name)
 
-    def get_installer(self) -> Callable | None:
-        return self.tool.get_installer()
-
     def __getattribute__(self, name: str) -> Any:
         try:
             return super().__getattribute__(name)
@@ -164,7 +176,7 @@ class Tool(RegisteredClass):
 
     # Action registration
     ACTIONS: ClassVar[dict[str, Callable]] = defaultdict(dict)
-    RESERVED = ("installer", "default")
+    RESERVED = ("default",)
 
     # Placeholders
     vendor: str
@@ -192,14 +204,11 @@ class Tool(RegisteredClass):
                         f"Cannot register an action called '{key}' to "
                         f"tool '{cls.name}' as it is a reserved name"
                     )
-                if getattr(value, TOOL_ACTION_INSTALL_MARK, False):
-                    cls.__register_action(name="installer", default=False, method=value)
-                else:
-                    cls.__register_action(
-                        name=key,
-                        default=getattr(value, TOOL_ACTION_DEFAULT_MARK, False),
-                        method=value,
-                    )
+                cls.__register_action(
+                    name=key,
+                    default=getattr(value, TOOL_ACTION_DEFAULT_MARK, False),
+                    method=value,
+                )
         # Validate vendor and versions
         cls.vendor = cls.vendor.strip() if isinstance(cls.vendor, str) else Tool.NO_VENDOR
         cls.versions = cls.versions or []
@@ -297,21 +306,75 @@ class Tool(RegisteredClass):
 
         return _inner
 
-    @classmethod
-    def installer(cls):
-        """
-        Special decorator to mark an action that installs the tool by downloading
-        it from a central store.
-        """
+    def _run_install(self, context: Context):
+        tool_file = Path(inspect.getfile(type(self)))
+        # Select a touch file location, this is used to determine if the tool
+        # installation is up to date
+        touch_file = (
+            context.host_state / "tools" / self.name / self.version.version / Tool.TOUCH_FILE
+        )
+        touch_file.parent.mkdir(exist_ok=True, parents=True)
+        # If the touch file exists and install has been run more recently than
+        # the definition file was updated, then skip
+        if touch_file.exists():
+            tch_date = datetime.fromtimestamp(touch_file.stat().st_mtime)
+            def_date = datetime.fromtimestamp(tool_file.stat().st_mtime)
+            if tch_date >= def_date:
+                logging.debug(f"Tool {self.version.id_tuple} is already installed")
+                return
+        # Run the installation method
+        logging.debug(f"Installing tool {self.name} using version {self.version.version}")
+        match self.version.source:
+            # For user installations,
+            case Source.USER:
+                self._run_install_user(context)
+            case Source.CONTAINER:
+                self._run_install_container(context)
+        # Touch the install folder to ensure its datetime is updated
+        try:
+            touch_file.touch()
+        except PermissionError as e:
+            logging.debug(f" - Could not update modified time of {touch_file}: {e}")
+            pass
 
-        def _inner(method: _TWrap) -> _TWrap:
-            # Annotate the method
-            setattr(method, TOOL_ACTION_MARK, True)
-            setattr(method, TOOL_ACTION_INSTALL_MARK, True)
-            # Return the method
-            return method
+    def _run_install_user(self, context: Context):
+        # Ensure parent of the tool's folder exists
+        host_loc = self.get_host_path(context, absolute=False)
+        host_loc.parent.mkdir(exist_ok=True, parents=True)
+        # See if installer produces an invocation
+        invk = self.install(context)
+        if invk is not None:
+            if not isinstance(invk, Iterable):
+                invk = [invk]
+            container = context.container(
+                context,
+                hostname=f"{context.config.project}_install_{self.base_id_tuple}",
+            )
+            container.add_tool(self, readonly=False)
+            if not isinstance(invk, Iterable):
+                invk = [invk]
+            for invk_step in invk:
+                if container.invoke(context, invk_step, readonly=False).exit_code != 0:
+                    raise ToolError(f"Installation of {self.base_id_tuple} failed")
+        else:
+            logging.debug(f"Installation of {self.base_id_tuple} produced a null invocation")
 
-        return _inner
+    def _run_install_container(self, context: Context):
+        logging.debug("Tool will be provided by the container, launching a dummy job")
+        container = context.container(
+            context,
+            hostname=f"{context.config.project}_install_{self.base_id_tuple}",
+        )
+        container.add_tool(self, readonly=False)
+        if (
+            result := container.launch("echo", f"Container ready with {self.base_id_tuple}")
+        ).exit_code != 0:
+            raise ToolError(
+                f"Installation of {self.base_id_tuple} failed with exit code {result.exit_code}"
+            )
+
+    def install(self, context: Context) -> "Invocation":
+        raise NotImplementedError(f"{type(self).__name__} does not implement install() method")
 
     @classmethod
     def __register_action(cls, name: str, default: bool, method: Callable):
@@ -361,14 +424,6 @@ class Tool(RegisteredClass):
             return raw_act(self, context, *args, **kwargs)
 
         return _wrap
-
-    def get_installer(self):
-        """
-        Return the installer registered for this tool if it exists.
-
-        :returns:       The instance wrapped decorated method if known, else excepts
-        """
-        return self.get_action("installer")
 
     def get_host_path(self, ctx: Context, absolute: bool = True) -> Path:
         """

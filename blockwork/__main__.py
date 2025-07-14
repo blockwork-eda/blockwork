@@ -25,6 +25,7 @@ from .bootstrap import Bootstrap
 from .common.registry import Registry
 from .containers.runtime import Runtime
 from .context import Context, DebugScope, HostArchitecture
+from .foundation import Foundation
 from .tools import Tool
 
 logging.basicConfig(
@@ -149,6 +150,7 @@ def blockwork(
         cache_targets=cache_targets,
         cache_trace=cache_trace,
         cache_expect=cache_expect,
+        container=Foundation,
     )
     # Set the host architecture
     if arch:

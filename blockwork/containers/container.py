@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import atexit
-import dataclasses
-import functools
 import itertools
 import logging
 import os
@@ -25,7 +23,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event
@@ -34,54 +32,22 @@ from typing import TextIO
 import docker.utils.socket as socket_utils
 import pytz
 import requests
-from docker.errors import ImageNotFound
+from docker.errors import BuildError, ImageNotFound
 from filelock import FileLock
 
 from ..context import Context, ContextHostPathError
 from .common import decode_partial_utf8, forwarding_host, read_stream, write_stream
+from .container_base import (
+    ContainerBase,
+    ContainerBind,
+    ContainerBindError,
+    ContainerError,
+    ContainerResult,
+)
 from .runtime import Runtime
 
 
-class ContainerError(Exception):
-    pass
-
-
-class ContainerBindError(ContainerError):
-    def __init__(self, host, container, readonly, bind):
-        e_str = (
-            f"Cannot bind {host} to {container} "
-            f"(as {'readonly' if readonly else 'writable'}) "
-            "due to collision with existing "
-            f"bind {bind.host_path} to {bind.container_path} "
-            f"(as {'readonly' if bind.readonly else 'writable'})"
-        )
-        super().__init__(e_str)
-
-
-@dataclasses.dataclass
-class ContainerBind:
-    """Describes a bind to apply to the container"""
-
-    host_path: Path
-    container_path: Path
-    readonly: bool
-
-    def as_configuration(self) -> dict[str, str | bool]:
-        return {
-            "type": "bind",
-            "source": self.host_path.as_posix(),
-            "target": self.container_path.as_posix(),
-            "readonly": self.readonly,
-        }
-
-
-@dataclasses.dataclass(frozen=True, kw_only=True)
-class ContainerResult:
-    exit_code: int
-    interacted: bool
-
-
-class Container:
+class Container(ContainerBase):
     """
     Wrapper around container launch and management that can be extended to support
     specific tools and workflows.
@@ -127,7 +93,6 @@ class Container:
         return self.__id
 
     @property
-    @functools.cache  # noqa: B019
     def exists(self) -> bool:
         """Determine whether the container image is already built"""
         with Runtime.get_client() as client:
@@ -161,12 +126,19 @@ class Container:
                 f"{self.context.host_architecture} architecture - this may take "
                 f"a while..."
             )
-            client.images.build(
-                path=self.definition.parent.as_posix(),
-                dockerfile=self.definition.name,
-                tag=self.image,
-                rm=True,
-            )
+            try:
+                client.images.build(
+                    path=self.definition.parent.as_posix(),
+                    dockerfile=self.definition.name,
+                    tag=self.image,
+                    rm=True,
+                )
+            except BuildError as e:
+                logging.error(f"Container build failed: {e.msg}")
+                for line in e.build_log:
+                    if "stream" in line:
+                        print(line["stream"])
+                raise ContainerError("Container build failed") from e
             logging.info("Container built")
 
     def bind(
@@ -394,7 +366,7 @@ class Container:
         show_detach: bool = True,
         clear: bool = False,
         env: dict[str, str] | None = None,
-        path: Mapping[str, list[Path]] | None = None,
+        path: dict[str, list[Path]] | None = None,
         stdout: TextIO | None = None,
         stderr: TextIO | None = None,
     ) -> ContainerResult:

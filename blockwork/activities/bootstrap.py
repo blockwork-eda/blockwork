@@ -21,6 +21,8 @@ from ..context import Context
 
 
 @click.command()
+@click.option("--execute", "action", flag_value="execute", default=True)
+@click.option("--list-only", "action", flag_value="list")
 @click.option(
     "--mode",
     type=click.Choice(BwBootstrapMode, case_sensitive=False),
@@ -30,12 +32,24 @@ from ..context import Context
                           force: Rebuild all steps
                    """,
 )
+@click.argument("steps", nargs=-1, type=str, required=False, default=None)
 @click.pass_obj
-def bootstrap(ctx: Context, mode: str) -> None:
+def bootstrap(ctx: Context, action: str, mode: str, steps: list[str] | None) -> None:
     """Run all bootstrapping actions"""
     mode: BwBootstrapMode = getattr(BwBootstrapMode, mode)
     logging.info(f"Importing {len(ctx.config.bootstrap)} bootstrapping paths")
     Bootstrap.setup(ctx.host_root, ctx.config.bootstrap)
-    logging.info(f"Invoking {len(Bootstrap.get_all())} bootstrap methods")
-    Bootstrap.evaluate_all(ctx, mode=mode)
-    logging.info("Bootstrap complete")
+    match action:
+        case "execute":
+            if steps:
+                for name in filter(lambda x: x in steps, Bootstrap.get_all().keys()):
+                    logging.info(f"Invoking bootstrap step: {name}")
+                    Bootstrap.evaluate(name, context=ctx, mode=mode)
+            else:
+                logging.info(f"Invoking {len(Bootstrap.get_all())} bootstrap steps")
+                Bootstrap.evaluate_all(ctx, mode=mode)
+            logging.info("Bootstrap complete")
+        case "list":
+            logging.info(f"Listing {len(Bootstrap.get_all())} bootstrap steps")
+            for name in Bootstrap.get_all().keys():
+                logging.info(f" - {name}")
