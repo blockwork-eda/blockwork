@@ -38,10 +38,10 @@ def install_tools(context: Context, last_run: datetime) -> bool:
     last_len = len(all_tools)
     logging.debug(f"Ordering {len(all_tools)} tools based on requirements:")
     while all_tools:
-        for tool in all_tools:
-            if len(set(tool.resolve_requirements()).difference(resolved)) == 0:
-                logging.debug(f" - {len(resolved)}: {' '.join(tool.id_tuple)}")
-                resolved.append(tool)
+        for version in all_tools:
+            if len(set(version.resolve_requirements()).difference(resolved)) == 0:
+                logging.debug(f" - {len(resolved)}: {' '.join(version.id_tuple)}")
+                resolved.append(version)
         all_tools = all_tools - set(resolved)
         if len(all_tools) == last_len:
             raise ToolError("Deadlock detected resolving tool requirements")
@@ -49,5 +49,5 @@ def install_tools(context: Context, last_run: datetime) -> bool:
 
     # Install in order
     logging.info(f"Installing {len(resolved)} tools:")
-    for tool in resolved:
-        tool._run_install(context)
+    for version in resolved:
+        version.tool._run_install(context)
