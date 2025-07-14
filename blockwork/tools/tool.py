@@ -374,7 +374,7 @@ class Tool(RegisteredClass):
             )
 
     def install(self, context: Context) -> "Invocation":
-        raise NotImplementedError(f"{type(self).__name__} does not implement install() method")
+        logging.debug(f"Tool {self.name} does not implement an install method")
 
     @classmethod
     def __register_action(cls, name: str, default: bool, method: Callable):
