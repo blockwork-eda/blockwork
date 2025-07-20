@@ -1417,4 +1417,11 @@ class Transform:
         """
 
     def __repr__(self) -> str:
-        return f"<{type(self).__name__} hash='{self._cached_input_hash}'>"
+        unique = set(dir(self)) - set(dir(Transform))
+        data = {
+            "hash": self._cached_input_hash,
+            **{k: f'"{getattr(self, k)}"' for k in unique if not k.startswith("_")},
+        }
+        ident = f"{type(self).__name__} "
+        ident += " ".join(f"{k}={v}" for k, v in data.items())
+        return f"<{ident}>"
